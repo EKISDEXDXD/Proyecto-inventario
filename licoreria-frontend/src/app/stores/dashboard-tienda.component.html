@@ -15,7 +15,7 @@
     <div class="title-header">
       <i class="bx bx-shop"></i>
       <div class="title-block">
-        <h2 class="page-title">Gestión de Tienda</h2>
+        
         <div *ngIf="store" class="store-details">
           <div class="store-name">{{ store?.name || 'Tienda' }} <span *ngIf="isExternalMode">(Invitado)</span></div>
           <div *ngIf="store.description" class="store-description">{{ store.description }}</div>

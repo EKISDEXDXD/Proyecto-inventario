@@ -1,3 +1,4 @@
 comando 
-docker build -t licoreria-frotend last .
-docker build -t licoreria-backend last .
+docker build -t licoreria-frotend .
+docker build -t licoreria-backend .
+cd /raiz
