@@ -1,0 +1,296 @@
+<div class="inventario-container">
+
+  
+  <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-package"></i> Inventario</h1>
+    <p class="main-subtitle">Gestión completa de productos y stock de tu tienda</p>
+  </div>
+
+  <header class="card inventario-header">
+    <div class="inventario-header-top">
+      <div class="inventario-title-group">
+        <h1 *ngIf="store"><i class="bx bx-package"></i> Inventario - {{ store.name }}</h1>
+      </div>
+      <button class="icon-btn small" type="button" (click)="toggleThresholdConfig()" title="Ajustar umbral de stock">
+        <i class="bx bx-slider"></i>
+      </button>
+    </div>
+
+    <div *ngIf="showThresholdConfig" class="threshold-popup">
+      <div class="threshold-popup-header">
+        <div>
+          <span class="panel-title"><i class="bx bx-slider"></i> Umbrales de stock</span>
+          <p class="panel-subtitle">Ajusta los valores de stock bajo y normal.</p>
+        </div>
+        <button class="icon-btn small" type="button" (click)="toggleThresholdConfig()" aria-label="Cerrar umbrales"><i class="bx bx-x"></i></button>
+      </div>
+      <form class="threshold-form" (ngSubmit)="saveThresholdConfig()">
+        <div class="form-row compact-row">
+          <div class="form-group">
+            <label>Límite Stock Bajo</label>
+            <input type="number" [(ngModel)]="thresholdForm.lowStockThreshold" name="lowStockThreshold" min="1" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>Límite Stock Normal</label>
+            <input type="number" [(ngModel)]="thresholdForm.normalStockThreshold" name="normalStockThreshold" min="1" class="form-control" />
+          </div>
+        </div>
+        <div class="form-actions right">
+          <button type="submit" class="btn btn-primary">Guardar umbrales</button>
+        </div>
+      </form>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-package"></i></div>
+      <div class="stat-content">
+        <h3>{{ totalProducts }}</h3>
+        <p>Total Productos</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warning"><i class="bx bx-error"></i></div>
+      <div class="stat-content">
+        <h3>{{ getLowStockProducts().length }}</h3>
+        <p>Stock Bajo</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon danger"><i class="bx bx-error-circle"></i></div>
+      <div class="stat-content">
+        <h3>{{ getOutOfStockProducts().length }}</h3>
+        <p>Sin Stock</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="bx bx-check-circle"></i></div>
+      <div class="stat-content">
+        <h3>{{ getNormalStockProducts().length }}</h3>
+        <p>Stock Normal</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS SECTION -->
+  <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-package"></i> Productos en tienda</h1>
+    <p class="main-subtitle">Gestiona el inventario de productos disponibles</p>
+  </div>
+
+  <div class="two-column-layout">
+    <div class="content-layout">
+      <div class="main-content">
+        <div class="card products-card">
+          <div class="flex-between products-header" (click)="toggleProductsList()" [style.cursor]="'pointer'" [style.userSelect]="'none'">
+            <div>
+              <h3><i class=""></i> Lista de Productos</h3>
+              <p>Gestiona los productos disponibles en tu tienda.</p>
+            </div>
+            <i class="bx bx-lg" [ngClass]="showProductsList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
+          </div>
+
+          <div *ngIf="showProductsList" class="products-list-container">
+            <div class="search-section">
+              <input type="text" [(ngModel)]="searchTerm" (input)="onSearch()" placeholder="Buscar por nombre o descripción..." class="form-control search-input">
+              
+            </div>
+
+            <div *ngIf="loading" class="state-message">
+              <i class="bx bx-loader bx-spin"></i> Cargando productos...
+            </div>
+
+            <div *ngIf="!loading">
+              <div *ngIf="filteredProducts.length === 0" class="state-message">
+                <p *ngIf="searchTerm"><i class="bx bx-error-circle"></i> No se encontraron productos</p>
+                <p *ngIf="!searchTerm"><i class="bx bx-inbox"></i> No hay productos en esta tienda</p>
+              </div>
+
+              <div *ngIf="filteredProducts.length > 0" class="table-responsive">
+                <table class="products-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Descripción</th>
+                      <th>Stock</th>
+                      <th>Costo</th>
+                      <th>Precio</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let product of filteredProducts">
+                      <td><strong>{{ product.name }}</strong></td>
+                      <td>{{ product.description }}</td>
+                      <td>
+                        <span class="stock-badge" 
+                              [ngClass]="{
+                                'stock-low': product.stock > 0 && product.stock < lowStockThreshold,
+                                'stock-out': product.stock === 0,
+                                'stock-normal': product.stock > normalStockThreshold
+                              }">
+                          {{ product.stock }}
+                        </span>
+                      </td>
+                      <td>${{ product.cost | number: '1.0-2' }}</td>
+                      <td>${{ product.price | number: '1.0-2' }}</td>
+                      <td>
+                        <div class="action-buttons">
+                          <button class="btn btn-danger btn-icon" (click)="deleteProduct(product.id)" title="Eliminar"><i class="bx bx-trash"></i></button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card action-card">
+        <div class="action-card-header">
+          <div>
+            <h2 class="action-title">Crear Producto</h2>
+            <p class="action-subtitle">Agrega nuevos productos a tu inventario</p>
+          </div>
+        </div>
+
+        <div *ngIf="!showCreateForm">
+          <button class="btn btn-primary" type="button" (click)="toggleCreateForm()" style="width: 100%;">
+            <i class="bx bx-plus"></i> Nuevo Producto
+          </button>
+        </div>
+
+        <div *ngIf="showCreateForm" class="create-form-wrapper">
+          <form (ngSubmit)="createProduct()">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nombre</label>
+                <input type="text" [(ngModel)]="newProduct.name" name="name" class="form-control" placeholder="Ej: Vodka Absolut" required>
+              </div>
+              <div class="form-group">
+                <label>Descripción</label>
+                <input type="text" [(ngModel)]="newProduct.description" name="description" class="form-control" placeholder="Ej: Botella 1L" required>
+              </div>
+            </div>
+            <div class="form-row compact-row">
+              <div class="form-group">
+                <label>Costo</label>
+                <input type="number" [(ngModel)]="newProduct.cost" name="cost" step="0.01" min="0" class="form-control" placeholder="0.00" required>
+              </div>
+              <div class="form-group">
+                <label>Precio de Venta</label>
+                <input type="number" [(ngModel)]="newProduct.price" name="price" step="0.01" min="0" class="form-control" placeholder="0.00" required>
+              </div>
+              <div class="form-group">
+                <label>Stock Inicial</label>
+                <input type="number" [(ngModel)]="newProduct.stock" name="stock"  class="form-control" readonly placeholder="0" required>
+              </div>
+            </div>
+            <div class="form-actions" style="margin-top: 1rem;">
+              <button type="button" class="btn btn-secondary" (click)="toggleCreateForm()">Cancelar</button>
+              <button type="submit" class="btn btn-success">Guardar Producto</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ADMINISTRATIVE COSTS SECTION -->
+  <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-receipt"></i> Costos Administrativos</h1>
+    <p class="main-subtitle">Gestiona los gastos operativos de tu tienda</p>
+  </div>
+  <div class="two-column-layout">
+    <div class="content-layout">
+      <div class="main-content">
+        <div class="card products-card">
+          <div class="flex-between products-header" (click)="toggleAdminCostsList()" [style.cursor]="'pointer'" [style.userSelect]="'none'">
+            <div>
+              <h3><i class=""></i> Lista de Costos Administrativos</h3>
+              <p>Consulta y gestiona los gastos operativos registrados en esta tienda.</p>
+            </div>
+            <i class="bx bx-lg" [ngClass]="showAdminCostsList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
+          </div>
+
+          <div *ngIf="showAdminCostsList" class="admin-costs-list-container">
+            <div *ngIf="loadingAdminCosts" class="state-message">
+              <i class="bx bx-loader bx-spin"></i> Cargando costos administrativos...
+            </div>
+
+            <div *ngIf="!loadingAdminCosts">
+              <div *ngIf="administrativeCosts.length === 0" class="state-message">
+                <p><i class="bx bx-inbox"></i> No hay costos administrativos registrados</p>
+              </div>
+
+              <div *ngIf="administrativeCosts.length > 0" class="admin-costs-list">
+                <div *ngFor="let cost of administrativeCosts" class="admin-cost-item">
+                  <div class="cost-info">
+                    <h4>{{ cost.name }}</h4>
+                    <p class="cost-description">{{ cost.description }}</p>
+                    <div class="cost-details">
+                      <span class="cost-amount">${{ cost.cost | number: '1.0-2' }}</span>
+                    </div>
+                  </div>
+                  <div class="cost-actions">
+                    <button class="btn btn-warning btn-icon" (click)="startEditAdminCost(cost)" title="Editar"><i class="bx bx-edit"></i></button>
+                    <button class="btn btn-danger btn-icon" (click)="deleteAdminCost(cost.id)" title="Eliminar"><i class="bx bx-trash"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card action-card">
+        <div class="action-card-header">
+          <div>
+            <h2 class="action-title">Crear Costo</h2>
+            <p class="action-subtitle">Registra nuevos gastos operativos</p>
+          </div>
+        </div>
+
+        <div *ngIf="!showCreateAdminCostForm">
+          <button class="btn btn-primary" type="button" (click)="toggleCreateAdminCostForm()" style="width: 100%;">
+            <i class="bx bx-plus"></i> Nuevo Costo
+          </button>
+        </div>
+
+        <div *ngIf="showCreateAdminCostForm" class="create-form-wrapper">
+          <form (ngSubmit)="saveAdminCost()">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nombre del Costo</label>
+                <input type="text" [(ngModel)]="newAdminCost.name" name="name" class="form-control" placeholder="Ej: Alquiler" required>
+              </div>
+            </div>
+            <div class="form-row compact-row">
+              <div class="form-group">
+                <label>Costo</label>
+                <input type="number" [(ngModel)]="newAdminCost.cost" name="cost" step="0.01" min="0" class="form-control" placeholder="0.00" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Descripción</label>
+                <textarea [(ngModel)]="newAdminCost.description" name="description" class="form-control" placeholder="Ej: Alquiler del local principal" rows="3" required></textarea>
+              </div>
+            </div>
+            <div class="form-actions" style="margin-top: 1rem;">
+              <button type="button" class="btn btn-secondary" (click)="toggleCreateAdminCostForm()">Cancelar</button>
+              <button type="submit" class="btn btn-success">Guardar Costo</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>

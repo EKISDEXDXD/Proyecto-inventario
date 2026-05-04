@@ -1,0 +1,160 @@
+<div class="create-store-container">
+  <!-- Header -->
+  <header class="header surface-card">
+    <div class="header-content">
+      <button class="menu-toggle-btn" (click)="toggleMenu()" title="Abrir menú">
+        <i class="bx" [class.bx-menu]="!(isMenuOpen$ | async)" [class.bx-x]="isMenuOpen$ | async"></i>
+      </button>
+      <h1 class="logo-title">BaseStock</h1>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="form-container">
+    <!-- Form Card -->
+    <div class="form-card">
+      <!-- Form Title -->
+      <div class="form-title-section">
+        <h2 class="form-title">
+          <i class="bx bx-store-alt"></i>
+          Crear Nueva Tienda
+        </h2>
+        <p class="form-subtitle">Completa la información de tu tienda para comenzar a gestionar inventario</p>
+      </div>
+
+      <form [formGroup]="storeForm" (ngSubmit)="createStore()">
+        <!-- Nombre de la tienda -->
+        <div class="form-group">
+          <label for="name" class="form-label">
+            <span class="label-text">Nombre de la Tienda</span>
+            <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-store"></i></span>
+            <input 
+              type="text" 
+              id="name" 
+              formControlName="name"
+              placeholder="Ej: Tienda Centro"
+              class="form-input"
+              [class.input-error]="name?.invalid && name?.touched"/>
+          </div>
+          <div class="validation-messages" *ngIf="name?.invalid && name?.touched">
+            <small class="error-text" *ngIf="name?.errors?.['required']">
+              <i class="bx bx-x"></i> El nombre es requerido
+            </small>
+            <small class="error-text" *ngIf="name?.errors?.['minlength']">
+              <i class="bx bx-x"></i> Mínimo 3 caracteres
+            </small>
+            <small class="error-text" *ngIf="name?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 100 caracteres
+            </small>
+          </div>
+        </div>
+
+        <!-- Descripción de la tienda -->
+        <div class="form-group">
+          <label for="description" class="form-label">
+            <span class="label-text">Descripción</span>
+            <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-edit"></i></span>
+            <textarea 
+              id="description"
+              formControlName="description"
+              placeholder="Describe tu tienda, productos, ubicación, horario..."
+              class="form-textarea"
+              [class.input-error]="description?.invalid && description?.touched"
+              rows="4">
+            </textarea>
+          </div>
+          <div class="validation-messages" *ngIf="description?.invalid && description?.touched">
+            <small class="error-text" *ngIf="description?.errors?.['required']">
+              <i class="bx bx-x"></i> La descripción es requerida
+            </small>
+            <small class="error-text" *ngIf="description?.errors?.['minlength']">
+              <i class="bx bx-x"></i> Mínimo 10 caracteres
+            </small>
+            <small class="error-text" *ngIf="description?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 500 caracteres
+            </small>
+          </div>
+        </div>
+
+        <!-- Dirección de la tienda -->
+        <div class="form-group">
+          <label for="address" class="form-label">
+            <span class="label-text">Dirección</span>
+            <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-map-pin"></i></span>
+            <input
+              type="text"
+              id="address"
+              formControlName="address"
+              placeholder="Ej: Obrajes, La Paz"
+              class="form-input"
+              [class.input-error]="address?.invalid && address?.touched"/>
+          </div>
+          <div class="validation-messages" *ngIf="address?.invalid && address?.touched">
+            <small class="error-text" *ngIf="address?.errors?.['required']">
+              <i class="bx bx-x"></i> La dirección es requerida
+            </small>
+            <small class="error-text" *ngIf="address?.errors?.['minlength']">
+              <i class="bx bx-x"></i> Mínimo 5 caracteres
+            </small>
+            <small class="error-text" *ngIf="address?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 200 caracteres
+            </small>
+          </div>
+        </div>
+
+        <!-- Contraseña de acceso -->
+        <div class="form-group">
+          <label for="accessPassword" class="form-label">
+            <span class="label-text">Contraseña de Acceso</span>
+            <span class="required">*</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-lock"></i></span>
+            <input
+              type="password"
+              id="accessPassword"
+              formControlName="accessPassword"
+              placeholder="Contraseña para compartir acceso"
+              class="form-input"
+              [class.input-error]="accessPassword?.invalid && accessPassword?.touched"/>
+          </div>
+          <div class="validation-messages" *ngIf="accessPassword?.invalid && accessPassword?.touched">
+            <small class="error-text" *ngIf="accessPassword?.errors?.['required']">
+              <i class="bx bx-x"></i> La contraseña es requerida
+            </small>
+            <small class="error-text" *ngIf="accessPassword?.errors?.['minlength']">
+              <i class="bx bx-x"></i> Mínimo 6 caracteres
+            </small>
+            <small class="error-text" *ngIf="accessPassword?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 50 caracteres
+            </small>
+          </div>
+          <small class="form-hint">Esta contraseña permitirá que otros usuarios accedan a tu tienda de forma externa.</small>
+        </div>
+
+        <!-- Error Message -->
+        <div *ngIf="errorMessage" class="message error-message">
+          <span class="message-icon"><i class="bx bx-error"></i></span>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-actions">
+          <button type="submit" class="submit-btn" [disabled]="isLoading || storeForm.invalid">
+            <span *ngIf="!isLoading">Crear Tienda</span>
+            <span *ngIf="isLoading" class="loading">Creando...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

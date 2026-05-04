@@ -1,0 +1,130 @@
+package com.inventario.licoreria.modules.products.controller;
+
+import com.inventario.licoreria.modules.products.dto.AdjustStockDTO;
+import com.inventario.licoreria.modules.products.dto.ProductDTO;
+import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.service.ProductService;
+import com.inventario.licoreria.modules.inventory.service.TransactionService;
+import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
+import com.inventario.licoreria.security.JwtUtil;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import org.springframework.lang.NonNull;
+
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    private final ProductService productService;
+    private final TransactionService transactionService;
+    private final JwtUtil jwtUtil;
+
+    public ProductController(ProductService productService, TransactionService transactionService, JwtUtil jwtUtil) {
+        this.productService = productService;
+        this.transactionService = transactionService;
+        this.jwtUtil = jwtUtil;
+    }
+
+    private void validateNotExternal(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (jwtUtil.isExternalAccess(token)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                    "Los usuarios externos no tienen acceso a inventario. Solo pueden acceder a movimientos.");
+            }
+        }
+    }
+
+    @GetMapping
+    public List<Product> getAll(Authentication authentication) {
+        return productService.findAllByUsername(authentication.getName());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getById(@PathVariable @NonNull Long id) {
+        return ResponseEntity.ok(productService.findById(id));
+    }
+
+    @GetMapping("/search")
+    public List<Product> search(@RequestParam String query) {
+        return productService.search(query);
+    }
+
+    @GetMapping("/search/suggestions")
+    public List<Product> getSuggestions(@RequestParam String query) {
+        return productService.getSuggestions(query);
+    }
+
+    @GetMapping("/store/external/{storeId}")
+    public List<Product> getByStoreExternal(@PathVariable @NonNull Long storeId) {
+        return productService.findByStoreId(storeId);
+    }
+
+    @GetMapping("/store/{storeId}")
+    public List<Product> getByStore(
+            @PathVariable @NonNull Long storeId, 
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        validateNotExternal(authHeader);
+        return productService.findByStoreId(storeId, authentication.getName());
+    }
+
+    @PostMapping
+    public Product create(@Valid @RequestBody ProductDTO dto, Authentication authentication, 
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        validateNotExternal(authHeader);
+        return productService.create(dto, authentication.getName());
+    }
+
+    @PutMapping("/{id}")
+    public Product update(@PathVariable @NonNull Long id, @Valid @RequestBody ProductDTO dto, Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        validateNotExternal(authHeader);
+        return productService.update(id, dto, authentication.getName());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable @NonNull Long id, Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        validateNotExternal(authHeader);
+        productService.delete(id, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/adjust-stock")
+    public Product adjustStock(
+        @PathVariable @NonNull Long id, 
+        @Valid @RequestBody AdjustStockDTO request,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        // Ajustar el stock con validación de permisos
+        Product updated = productService.adjustStock(id, request.getDelta(), authentication.getName());
+        
+        // Registrar la transacción automáticamente
+        try {
+            Long userId = request.getUserId() != null ? request.getUserId() : 1L; // Usar ID 1 como usuario por defecto
+            
+            TransactionDTO transactionDTO = new TransactionDTO();
+            transactionDTO.setProductId(id);
+            transactionDTO.setType(request.getDelta() > 0 ? "ENTRADA" : "SALIDA");
+            transactionDTO.setQuantity(Math.abs(request.getDelta()));
+            transactionDTO.setUserId(userId);
+            transactionDTO.setDateTime(LocalDateTime.now());
+            
+            transactionService.create(transactionDTO);
+        } catch (Exception e) {
+            // Log the error pero no fallar la solicitud de ajuste de stock
+            System.err.println("Error registrando transacción: " + e.getMessage());
+        }
+        
+        return updated;
+    }
+}

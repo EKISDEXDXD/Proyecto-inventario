@@ -1,0 +1,488 @@
+<div class="movimientos-container">
+
+
+  <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-trending-up"></i> Movimientos</h1>
+    <p class="main-subtitle">Historial completo de entradas y salidas de productos</p>
+  </div>
+
+  <div class="card header-card">
+    <div class="movimientos-header">
+      <h1 *ngIf="store"><i class="bx bx-trending-up"></i> Movimientos - {{ store.name }}</h1>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-list-ul"></i></div>
+      <div class="stat-content">
+        <h3>{{ todayCount }}</h3>
+        <p>Total Movimientos</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="bx bx-plus-circle"></i></div>
+      <div class="stat-content">
+        <h3>{{ entradasCount }}</h3>
+        <p>Entradas Hoy</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon danger"><i class="bx bx-minus-circle"></i></div>
+      <div class="stat-content">
+        <h3>{{ salidasCount }}</h3>
+        <p>Salidas Hoy</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-time"></i></div>
+      <div class="stat-content">
+        <h3>{{ todayLabel }}</h3>
+        <p>Hoy</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario de Movimiento -->
+  <div class="card movement-card">
+    <div class="movement-card-header">
+      <div>
+        <h2 class="movement-title">Registrar movimiento rápido</h2>
+        <p class="movement-subtitle">Registra entradas y salidas en segundos desde un solo panel.</p>
+      </div>
+    </div>
+
+    <form (ngSubmit)="registerMovement()" class="movement-form">
+      <div class="movement-grid">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select [(ngModel)]="movement.type" name="type" class="form-control" required>
+            <option value="ENTRADA">Entrada</option>
+            <option value="SALIDA">Salida</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Producto</label>
+          <select [(ngModel)]="movement.productId" name="productId" class="form-control" required>
+            <option value="0">Seleccionar producto</option>
+            <option *ngFor="let product of products" [value]="product.id">{{ product.name }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad</label>
+          <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>
+        </div>
+        <div class="form-group">
+          <label>Motivo</label>
+          <select [(ngModel)]="movement.reason" name="reason" class="form-control">
+            <option value="VENTA">Venta</option>
+            <option value="COMPRA">Compra</option>
+            <option value="DEVOLUCION">Devolución</option>
+            <option value="AJUSTE">Ajuste</option>
+            <option value="PERDIDA">Pérdida</option>
+          </select>
+        </div>
+        <div class="form-group action-block">
+          <button type="submit" class="submit-btn">Registrar movimiento</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Historial y Lista de Productos -->
+  <div class="two-column-layout">
+    <div class="card history-card">
+      <div class="flex-between history-header" (click)="toggleHistoryList()"
+        style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; font-size: 1.25rem;">Historial de Movimientos</h2>
+        <p>Consulta el historial completo de entradas y salidas de productos en esta tienda.</p>
+        <i class="bx" [ngClass]="showHistoryList ? 'bx-chevron-down' : 'bx-chevron-right'"
+          style="font-size: 1.8rem; color: #666;"></i>
+      </div>
+
+      <div *ngIf="showHistoryList" class="history-list-container">
+
+        <!-- Date Filter Bar -->
+        <div class="date-filter-bar">
+          <div class="date-filter-label">
+            <i class="bx bx-calendar"></i> Filtrar por fecha:
+          </div>
+          <div class="date-filter-inputs">
+            <div class="date-input-group">
+              <label>Desde:</label>
+              <input 
+                type="date" 
+                [(ngModel)]="filterDateStart" 
+                (change)="applyFilters()"
+                class="date-picker-input">
+            </div>
+            <div class="date-input-group">
+              <label>Hasta:</label>
+              <input 
+                type="date" 
+                [(ngModel)]="filterDateEnd" 
+                (change)="applyFilters()"
+                class="date-picker-input">
+            </div>
+            <button 
+              *ngIf="filterDateStart || filterDateEnd"
+              (click)="clearDateFilter()" 
+              class="date-filter-clear"
+              title="Limpiar filtro de fecha">
+              <i class="bx bx-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="loading" class="state-message">
+          <i class="bx bx-loader bx-spin"></i> Cargando movimientos...
+        </div>
+
+        <div *ngIf="!loading">
+          <div *ngIf="transactions.length === 0" class="state-message">
+            <p><i class="bx bx-inbox"></i> No hay movimientos registrados aún</p>
+          </div>
+
+          <div *ngIf="filteredMovimientos.length === 0 && transactions.length > 0" class="state-message">
+            <p><i class="bx bx-inbox"></i> No hay movimientos que coincidan con los filtros</p>
+          </div>
+
+          <table *ngIf="filteredMovimientos.length > 0" class="transactions-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Motivo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let transaction of filteredMovimientos">
+                <td>{{ transaction.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <span class="type-badge"
+                    [ngClass]="{'entrada': transaction.type === 'ENTRADA', 'salida': transaction.type === 'SALIDA'}">
+                    {{ transaction.type }}
+                  </span>
+                </td>
+                <td>{{ getProductName(transaction.productId) }}</td>
+                <td>{{ transaction.quantity }}</td>
+                <td>{{ transaction.type === 'ENTRADA' ? 'Compra' : 'Venta' }}</td>
+                <td>
+                  <button class="delete-btn" *ngIf="!isExternalMode" (click)="deleteTransaction(transaction.id)"
+                    title="Eliminar movimiento">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Lista de Productos -->
+    <div class="products-section products-card">
+      <div class="products-section-header" (click)="toggleProductsList()"
+        style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Productos en tienda</h2>
+          <p>Consulta el stock disponible y los precios actuales.</p>
+        </div>
+        <i class="bx" [ngClass]="showProductsList ? 'bx-chevron-down' : 'bx-chevron-right'"
+          style="font-size: 1.8rem; color: #666;"></i>
+      </div>
+
+      <div *ngIf="showProductsList" class="products-list-container">
+        <div class="search-bar">
+          <input type="text" [(ngModel)]="searchTerm" (input)="onSearch()" placeholder="Buscar productos..."
+            class="search-input">
+
+        </div>
+
+        <div *ngIf="filteredProducts.length === 0" class="no-products">
+          <p>{{ searchTerm ? 'No se encontraron productos' : 'No hay productos en esta tienda' }}</p>
+        </div>
+
+        <table *ngIf="filteredProducts.length > 0" class="products-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Descripción</th>
+              <th>Stock</th>
+              <th>Precio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let product of filteredProducts">
+              <td>{{ product.name }}</td>
+              <td>{{ product.description }}</td>
+              <td>
+                <span class="stock-badge"
+                  [ngClass]="{'low': product.stock < 10, 'out': product.stock === 0, 'normal': product.stock >= 10}">
+                  {{ product.stock }}
+                </span>
+              </td>
+              <td>${{ product.price }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+
+
+  <!-- ==================== ADMINISTRATIVE COSTS MOVEMENTS SECTION ==================== -->
+  <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-receipt"></i> Movimientos de Costos Administrativos</h1>
+    <p class="main-subtitle">Registra los pagos de gastos operativos de tu tienda</p>
+  </div>
+  <div class="two-column-layout">
+    <!-- Lista de Movimientos Administrativos -->
+    <div class="card history-card">
+      <div class="flex-between admin-payments-header" (click)="toggleAdminMovementsList()"
+        style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; font-size: 1.25rem;">Registro de Pagos</h2>
+        <p>Consulta y gestiona los pagos realizados por costos administrativos en esta tienda.</p>
+
+        <i class="bx" [ngClass]="showAdminMovementsList ? 'bx-chevron-down' : 'bx-chevron-right'"
+          style="font-size: 1.8rem; color: #666;"></i>
+      </div>
+
+      <div *ngIf="showAdminMovementsList" class="admin-payments-list-container">
+
+
+        <div *ngIf="loadingAdminCosts" class="state-message">
+          <i class="bx bx-loader bx-spin"></i> Cargando movimientos...
+        </div>
+
+        <div *ngIf="!loadingAdminCosts">
+          <div *ngIf="adminCostMovements.length === 0" class="state-message">
+            <p><i class="bx bx-inbox"></i> No hay movimientos de costos registrados</p>
+          </div>
+
+          <div *ngIf="adminCostMovements.length > 0" class="admin-movements-list">
+            <div *ngFor="let movement of adminCostMovements" class="admin-movement-item">
+              <div class="movement-info">
+                <div class="movement-header">
+                  <h4>{{ getAdminCostName(movement.administrativeCostId) }}</h4>
+                  <span class="movement-type" [ngClass]="'type-' + movement.type.toLowerCase()">{{ movement.type
+                    }}</span>
+                </div>
+                <p class="movement-date">{{ movement.dateTime | date:'dd/MM/yyyy HH:mm' }}</p>
+                <div class="movement-details">
+                  <div class="detail">
+                    <span class="detail-label">Monto:</span>
+                    <span class="detail-value">${{ movement.amountPaid | number: '1.0-2' }}</span>
+                  </div>
+                  <div class="detail">
+                    <span class="detail-label">Usuario:</span>
+                    <span class="detail-value">{{ movement.user?.username || userName || 'Sistema' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="movement-actions">
+                <button class="btn btn-danger btn-icon" (click)="deleteAdminCostMovement(movement.id)"
+                  title="Eliminar"><i class="bx bx-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario para crear movimiento administrativo -->
+    <div class="card movement-card">
+      <div class="movement-card-header">
+        <div>
+          <h2 class="movement-title">Registrar Pago</h2>
+          <p class="movement-subtitle">Registra el pago de un costo administrativo.</p>
+        </div>
+      </div>
+
+      <div *ngIf="!showAdminCostMovementForm">
+        <button class="btn btn-primary" type="button" (click)="toggleAdminCostMovementForm()" style="width: 100%;">
+          <i class="bx bx-plus"></i> Nuevo Pago
+        </button>
+      </div>
+
+      <form *ngIf="showAdminCostMovementForm" (ngSubmit)="createAdminCostMovement()" class="movement-form">
+        <div class="movement-grid">
+          <div class="form-group">
+            <label>Costo Administrativo</label>
+            <select [(ngModel)]="adminCostMovement.administrativeCostId" name="administrativeCostId"
+              class="form-control" required>
+              <option value="0">Seleccionar costo</option>
+              <option *ngFor="let cost of administrativeCosts" [value]="cost.id">{{ cost.name }} (${{ cost.cost |
+                number: '1.0-2' }})</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo de Movimiento</label>
+            <select [(ngModel)]="adminCostMovement.type" name="type" class="form-control" required>
+              <option value="PAGO">Pago</option>
+              <option value="AJUSTE">Ajuste</option>
+              <option value="DEVOLUCIÓN">Devolución</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Monto Pagado</label>
+            <input type="number" [(ngModel)]="adminCostMovement.amountPaid" name="amountPaid" class="form-control"
+              step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label>Fecha del Pago</label>
+            <input type="datetime-local" [(ngModel)]="adminCostMovement.dateTime" name="dateTime" class="form-control"
+              required>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" (click)="toggleAdminCostMovementForm()">Cancelar</button>
+          <button type="submit" class="btn btn-success">Registrar Pago</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <section class="expandable-card reports-card">
+    <div class="expandable-header">
+      <div class="header-left">
+        <div class="header-text">
+          <h2>Reportes de Información</h2>
+          <p>Crea y gestiona reportes descriptivos</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expandable-content expanded">
+      <!-- Formulario de Reportes -->
+      <div class="form-section" *ngIf="showReportForm">
+        <div class="form-card">
+          <h3>{{ editingReportId ? 'Editar Reporte' : 'Crear Nuevo Reporte' }}</h3>
+
+          <div class="form-group">
+            <label for="report-title">Título *</label>
+            <input type="text" id="report-title" [(ngModel)]="title" placeholder="Ingresa el título del reporte"
+              class="form-input" />
+          </div>
+
+          <div class="form-group">
+            <label for="report-date">Fecha del Reporte *</label>
+            <input type="date" id="report-date" [(ngModel)]="reportDate" class="form-input" />
+          </div>
+
+          <div class="form-group">
+            <label for="report-description">Descripción *</label>
+            <textarea id="report-description" [(ngModel)]="description" placeholder="Ingresa la descripción del reporte"
+              rows="4" class="form-textarea"></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-success" (click)="submitReport()" [disabled]="reportLoading">
+              {{ reportLoading ? 'Guardando...' : (editingReportId ? 'Actualizar' : 'Crear') }}
+            </button>
+            <button class="btn btn-secondary" (click)="toggleReportForm()" [disabled]="reportLoading">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón Nuevo Reporte (cuando no hay formulario) -->
+      <div *ngIf="!showReportForm" style="display: flex; gap: 1rem; align-items: center;">
+        <button class="btn btn-primary" (click)="toggleReportForm()">
+          + Nuevo Reporte
+        </button>
+        <button class="btn btn-filter-toggle" (click)="toggleFilters()" [class.active]="showFilters">
+          <i class="bx" [class.bx-chevron-down]="showFilters" [class.bx-chevron-right]="!showFilters"></i>
+          Filtros
+        </button>
+      </div>
+
+      <!-- Filtros Compactos (Collapsible) -->
+      <div class="compact-filters" [class.expanded]="showFilters" *ngIf="!showReportForm">
+        <!-- Buscador -->
+        <div class="filter-item">
+          <input type="text" [(ngModel)]="searchQuery" (input)="onSearchChange()" placeholder="Buscar reportes..."
+            class="form-input compact-search" />
+        </div>
+
+        <!-- Filtro Fecha Desde -->
+        <div class="filter-item">
+          <label for="compact-start-date">Desde:</label>
+          <input type="date" id="compact-start-date" [(ngModel)]="filterStartDate" (change)="applyDateFilter()"
+            class="form-input compact-input" />
+        </div>
+
+        <!-- Filtro Fecha Hasta -->
+        <div class="filter-item">
+          <label for="compact-end-date">Hasta:</label>
+          <input type="date" id="compact-end-date" [(ngModel)]="filterEndDate" (change)="applyDateFilter()"
+            class="form-input compact-input" />
+        </div>
+
+        <!-- Botones Acciones -->
+        <div class="filter-actions-compact">
+          <button class="btn btn-sm btn-success" (click)="applyDateFilter()">
+            Aplicar
+          </button>
+          <button class="btn btn-sm btn-secondary" (click)="resetFilters()">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de Reportes -->
+      <div class="reports-section" *ngIf="!showReportForm">
+        <h4>Reportes ({{ filteredReports.length }})</h4>
+
+        <div *ngIf="reportLoading" class="loading-small">
+          <p>Cargando reportes...</p>
+        </div>
+
+        <div *ngIf="!reportLoading && filteredReports.length === 0" class="no-reports">
+          <p>No hay reportes disponibles</p>
+        </div>
+
+        <div *ngIf="!reportLoading && filteredReports.length > 0" class="reports-grid">
+          <div class="report-card" *ngFor="let report of paginatedReports">
+            <div class="report-header">
+              <h5>{{ report.title }}</h5>
+              <span class="report-date">{{ report.reportDate }}</span>
+            </div>
+
+            <div class="report-content">
+              <p class="report-description">{{ report.description }}</p>
+              <div class="report-meta">
+                <span><strong>Usuario:</strong> {{ report.userName }}</span>
+                <span><strong>Creado:</strong> {{ report.createdAt | date:'short' }}</span>
+              </div>
+            </div>
+
+            <div class="report-actions">
+
+              <button class="btn btn-sm btn-danger" (click)="deleteReport(report.id)">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginación -->
+        <div *ngIf="!reportLoading && totalPages > 1" class="pagination">
+          <button class="btn btn-secondary-small" (click)="previousPage()" [disabled]="currentPage === 0">
+            ← Anterior
+          </button>
+          <span>Página {{ currentPage + 1 }} de {{ totalPages }}</span>
+          <button class="btn btn-secondary-small" (click)="nextPage()" [disabled]="currentPage === totalPages - 1">
+            Siguiente →
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>

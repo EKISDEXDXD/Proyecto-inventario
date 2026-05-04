@@ -1,0 +1,102 @@
+package com.inventario.licoreria.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
+
+// IMPORTANTE: Nuevos imports para CORS
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // AQUÍ SE ACTIVA EL CORS A NIVEL DE SEGURIDAD
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll() 
+                .requestMatchers("/api/photos/**").permitAll()
+                .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/landing.html", "/home.html", "/css/**", "/js/**", "/images/**").permitAll() 
+                .requestMatchers("/h2-console/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/export/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/export/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/stores/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/transactions/**").hasAnyAuthority("USER", "ADMIN") 
+                .anyRequest().authenticated() 
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
+        
+        return http.build();
+    }
+
+    // AQUÍ SE CONFIGURAN LAS REGLAS DE CORS
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Construir lista de orígenes permitidos
+        java.util.List<String> allowedOrigins = new java.util.ArrayList<>();
+        
+        // Agregar orígenes estáticos
+        allowedOrigins.add("http://localhost");
+        allowedOrigins.add("http://localhost:4200");
+        allowedOrigins.add("http://localhost:80");
+        allowedOrigins.add("http://localhost:8081");
+        
+        // Agregar ngrok dinámicamente - permitir cualquier subdominio .ngrok-free.dev
+        // Nota: Spring Boot no permite wildcards en subdominios, así que aceptamos algunos patrones comunes
+        allowedOrigins.add("https://koala-latticed-alike.ngrok-free.dev");
+        allowedOrigins.add("https://isolation-scouting-rack.ngrok-free.dev");
+        allowedOrigins.add("https://venerable-currently-jaguar.ngrok-free.dev");
+        allowedOrigins.add("https://refined-dainty-heron.ngrok-free.dev");
+        
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(java.util.Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+}

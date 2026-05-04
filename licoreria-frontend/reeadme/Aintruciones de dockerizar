@@ -1,0 +1,3 @@
+comando 
+docker build -t licoreria-frotend last .
+docker build -t licoreria-backend last .

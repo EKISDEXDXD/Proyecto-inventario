@@ -1,0 +1,67 @@
+<div class="dashboard-container">
+  
+  <!-- Header -->
+  <header class="header surface-card">
+    <div class="header-content">
+      <button class="menu-toggle-btn" (click)="toggleAppMenu()" title="Abrir menú">
+        <i class="bx" [class.bx-menu]="!(isMenuOpen$ | async)" [class.bx-x]="isMenuOpen$ | async"></i>
+      </button>
+      <h1 class="logo-title">BaseStock</h1>
+    </div>
+  </header>
+
+  <!-- Page Title Section -->
+  <section class="page-title-section">
+    <div class="title-header">
+      <i class="bx bx-shop"></i>
+      <div class="title-block">
+        <h2 class="page-title">Gestión de Tienda</h2>
+        <div *ngIf="store" class="store-details">
+          <div class="store-name">{{ store?.name || 'Tienda' }} <span *ngIf="isExternalMode">(Invitado)</span></div>
+          <div *ngIf="store.description" class="store-description">{{ store.description }}</div>
+          <div *ngIf="store.address" class="address-info"><i class="bx bx-map-pin"></i> {{ store.address }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Info Box -->
+  <div class="info-box">
+    <div class="info-content">
+      <h3><i class="bx bx-shopping-bag"></i> Gestión de Inventario</h3>
+      <p *ngIf="!isExternalMode">Administra el inventario de tu tienda con facilidad. Visualiza estadísticas, gestiona productos y registra movimientos de stock.</p>
+      <p *ngIf="isExternalMode">Has accedido como invitado. Solo tienes permiso para registrar y ver movimientos de stock.</p>
+    </div>
+  </div>
+
+  <!-- Function Cards -->
+  <div class="function-cards">
+    <!-- OCULTAR SI ES EXTERNO -->
+    <div class="card" *ngIf="!isExternalMode" (click)="navigateTo('dashboard-info')">
+      <div class="card-icon"><i class="bx bx-bar-chart"></i></div>
+      <h4>Dashboard Info</h4>
+      <p>Estadísticas y métricas generales</p>
+    </div>
+
+    <!-- OCULTAR SI ES EXTERNO -->
+    <div class="card" *ngIf="!isExternalMode" (click)="navigateTo('inventario')">
+      <div class="card-icon"><i class="bx bx-package"></i></div>
+      <h4>Inventario</h4>
+      <p>Gestión de productos y stock</p>
+    </div>
+
+    <!-- SIEMPRE VISIBLE -->
+    <div class="card" (click)="navigateTo('movimientos')">
+      <div class="card-icon"><i class="bx bx-trending-up"></i></div>
+      <h4>Movimientos</h4>
+      <p>Historial de entradas y salidas</p>
+    </div>
+
+    <!-- OCULTAR SI ES EXTERNO -->
+    <div class="card" *ngIf="!isExternalMode" (click)="exportarReporte()">
+      <div class="card-icon"><i class="bx bx-download"></i></div>
+      <h4>Exportaciones</h4>
+      <p>Reporte de ventas y movimientos en Excel</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,83 @@
+<div class="stores-container">
+  <!-- Header -->
+  <header class="header surface-card">
+    <div class="header-content">
+      <button class="menu-toggle-btn" (click)="toggleAppMenu()" title="Abrir menú">
+        <i class="bx" [class.bx-menu]="!(isMenuOpen$ | async)" [class.bx-x]="isMenuOpen$ | async"></i>
+      </button>
+      <h1 class="logo-title">BaseStock</h1>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="stores-content">
+    <!-- Page Title Section -->
+    <div class="page-title-section">
+      <h2 class="page-title">
+        <i class="bx bx-store-alt"></i>
+        Mis Tiendas
+      </h2>
+      <p class="page-subtitle">Gestiona todas tus tiendas en un solo lugar</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="stores.length === 0" class="empty-state">
+      <div class="empty-state-icon"><i class="bx bx-building"></i></div>
+      <h2>No tienes tiendas registradas</h2>
+      <p>Crea tu primera tienda para comenzar a gestionar tu inventario</p>
+    </div>
+
+    <!-- Stores Grid -->
+    <div *ngIf="stores.length > 0" class="stores-grid">
+      <div *ngFor="let store of stores" class="store-card">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="store-info">
+            <h3>{{ store.name }} <span *ngIf="store.isExternal" class="external-badge">Externa</span></h3>
+            <p class="store-description">{{ store.description }}</p>
+          </div>
+          <div class="card-menu">
+            <button class="menu-btn" (click)="toggleMenu(store.id)">
+              <span class="menu-dots"><i class="bx bx-dots-vertical"></i></span>
+            </button>
+            <!-- Dropdown Menu -->
+            <div class="dropdown-menu" *ngIf="openMenuId === store.id">
+              <button class="dropdown-item" (click)="manageStore(store.id); closeMenu()">
+                <span class="dropdown-icon"><i class="bx bx-chevron-right"></i></span>
+                <span>Gestionar Inventario</span>
+              </button>
+              <button *ngIf="!store.isExternal" class="dropdown-item edit" (click)="editStore(store.id); closeMenu()">
+                <span class="dropdown-icon"><i class="bx bx-pencil"></i></span>
+                <span>Editar Tienda</span>
+              </button>
+              <button *ngIf="!store.isExternal" class="dropdown-item delete" (click)="deleteStore(store.id); closeMenu()">
+                <span class="dropdown-icon"><i class="bx bx-x"></i></span>
+                <span>Eliminar Tienda</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="card-body">
+          <div class="store-detail">
+            <span class="detail-label">Ubicación</span>
+            <span class="detail-value">{{ store.address }}</span>
+          </div>
+          <div class="store-detail">
+            <span class="detail-label">Encargado</span>
+            <span class="detail-value">{{ store.managerUsername }}</span>
+          </div>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="card-footer">
+          <button class="primary-btn" (click)="manageStore(store.id)">
+            Gestionar Inventario
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

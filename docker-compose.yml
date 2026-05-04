@@ -1,0 +1,103 @@
+services:
+  # ============ BASE DE DATOS (PostgreSQL) ============
+  postgres:
+    image: postgres:16-alpine
+    container_name: licoreria-postgres
+    environment:
+      POSTGRES_DB: licoreria_db
+      POSTGRES_USER: licoreria_user
+      POSTGRES_PASSWORD: licoreria_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U licoreria_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - licoreria-network
+    restart: unless-stopped
+
+  # ============ BACKEND (Spring Boot) ============
+  backend:
+    image: licoreria-backend:latest
+    container_name: licoreria-backend
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: licoreria_db
+      POSTGRES_USER: licoreria_user
+      POSTGRES_PASSWORD: licoreria_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      EXPORT_FILE_PATH: /app/exports
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./exports:/app/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - licoreria-network
+    restart: unless-stopped
+
+  # ============ FRONTEND (Nginx + Angular) ============
+  frontend:
+    image: licoreria-frontend:latest
+    container_name: licoreria-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - licoreria-network
+    restart: unless-stopped
+
+  # ============ NGROK (Deshabilitado temporalmente - Token con endpoint activo) ============
+  # Para usar ngrok, ejecuta en otra terminal:
+  # docker run -it --rm -e NGROK_AUTHTOKEN=3D53usTgGe45AJfpLOZGtMuo6Mt_7uXgiDM5v9rHd2uDzfiDg ngrok/ngrok http localhost:80
+  #
+  # O descarga un nuevo token de ngrok desde: https://dashboard.ngrok.com/auth/your-authtoken
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: licoreria-ngrok
+    environment:
+      NGROK_AUTHTOKEN: 3D53usTgGe45AJfpLOZGtMuo6Mt_7uXgiDM5v9rHd2uDzfiDg
+    command: 
+      - "http"
+      - "frontend:80"
+    ports:
+      - "4040:4040"
+    depends_on:
+      - frontend
+    networks:
+      - licoreria-network
+    restart: unless-stopped
+
+# ============ GESTIÓN DE BASE DE DATOS (pgAdmin) ============
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: licoreria-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - licoreria-network
+    restart: unless-stopped
+
+# ============ VOLÚMENES ============
+volumes:
+  postgres_data:
+    driver: local
+
+# ============ REDES ============
+networks:
+  licoreria-network:
+    driver: bridge
