@@ -36,14 +36,21 @@ export class InventarioComponent implements OnInit {
   lowStockThreshold = 50;
   normalStockThreshold = 50;
   showThresholdConfig = false;
+  showAlertPanel = false;
+  selectedProduct: any = null;
   thresholdForm = {
     lowStockThreshold: 50,
     normalStockThreshold: 50
-
-    
   };
   
-  
+  alertForm = {
+    threshold: 0,
+    isEnabled: true
+  };
+
+  // Description modal properties
+  showDescriptionModal = false;
+  selectedProductForDescription: any = null;
 
   // Collapsible state variables
   showProductsList: boolean = this.loadCollapsibleState('showProductsList', true);
@@ -315,6 +322,7 @@ export class InventarioComponent implements OnInit {
 
   toggleThresholdConfig() {
     this.showThresholdConfig = !this.showThresholdConfig;
+    this.selectedProduct = null; // Cerrar panel de alertas del producto
     if (this.showThresholdConfig) {
       this.thresholdForm = {
         lowStockThreshold: this.lowStockThreshold,
@@ -367,7 +375,10 @@ export class InventarioComponent implements OnInit {
   }
 
   getLowStockProducts() {
-    return this.products.filter(p => p.stock > 0 && p.stock < this.lowStockThreshold);
+    return this.products.filter(p => {
+      const threshold = p.alert?.threshold ?? this.lowStockThreshold;
+      return p.stock > 0 && p.stock <= threshold;
+    });
   }
 
   getOutOfStockProducts() {
@@ -375,7 +386,105 @@ export class InventarioComponent implements OnInit {
   }
 
   getNormalStockProducts() {
-    return this.products.filter(p => p.stock > this.normalStockThreshold);
+    return this.products.filter(p => {
+      const threshold = p.alert?.threshold ?? this.lowStockThreshold;
+      return p.stock > threshold;
+    });
+  }
+
+  // Método para obtener el estado del stock de un producto
+  getStockStatus(product: any): 'normal' | 'low' | 'out' {
+    const threshold = product.alert?.threshold ?? this.lowStockThreshold;
+    
+    if (product.stock === 0) {
+      return 'out';
+    }
+    if (product.stock <= threshold) {
+      return 'low';
+    }
+    return 'normal';
+  }
+
+  // Métodos para gestionar alertas
+  openAlertConfig(product: any) {
+    this.selectedProduct = { ...product };
+    this.alertForm = {
+      threshold: product.alert?.threshold ?? 0,
+      isEnabled: product.alert?.isEnabled ?? true
+    };
+    this.showAlertPanel = true;
+  }
+
+  closeAlertPanel() {
+    this.showAlertPanel = false;
+    this.selectedProduct = null;
+    this.alertForm = { threshold: 0, isEnabled: true };
+  }
+
+  // Métodos para el modal de descripción
+  openDescriptionModal(product: any) {
+    this.selectedProductForDescription = { ...product };
+    this.showDescriptionModal = true;
+  }
+
+  closeDescriptionModal() {
+    this.showDescriptionModal = false;
+    this.selectedProductForDescription = null;
+  }
+
+  saveProductAlert() {
+    if (this.alertForm.threshold < 0) {
+      alert('El umbral debe ser mayor o igual a cero');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+
+    const payload = {
+      threshold: this.alertForm.threshold,
+      isEnabled: this.alertForm.isEnabled
+    };
+
+    this.http.put(
+      `${this.apiProductsUrl}/${this.selectedProduct.id}/alert`,
+      payload,
+      { headers }
+    ).subscribe({
+      next: (updatedAlert: any) => {
+        // Actualizar el producto con la nueva alerta
+        const productIndex = this.products.findIndex(p => p.id === this.selectedProduct.id);
+        if (productIndex !== -1) {
+          this.products[productIndex].alert = updatedAlert;
+          this.filteredProducts = [...this.products];
+        }
+        this.closeAlertPanel();
+        alert('Alerta configurada correctamente');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error al guardar alerta:', err);
+        alert('Error al guardar la alerta');
+      }
+    });
+  }
+
+  // Obtener todos los productos con alertas activas
+  getActiveAlerts() {
+    return this.products.filter(p => p.alert?.isEnabled);
+  }
+
+  // Obtener productos con alertas activas que están en estado bajo
+  getAlertsWithStatus(status: 'low' | 'out') {
+    return this.products.filter(p => {
+      if (!p.alert?.isEnabled) return false;
+      return this.getStockStatus(p) === status;
+    });
   }
 
   // Administrative Costs Methods

@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.CascadeType;
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,6 +36,9 @@ public class Product {
     @JsonIgnore
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Transaction> transactions;
+
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ProductAlert alert;
 
     public Product() {
     }
@@ -111,5 +115,13 @@ public class Product {
 
     public void setTransactions(List<Transaction> transactions) {
         this.transactions = transactions;
+    }
+
+    public ProductAlert getAlert() {
+        return alert;
+    }
+
+    public void setAlert(ProductAlert alert) {
+        this.alert = alert;
     }
 }

@@ -31,7 +31,7 @@ public class ProductService {
         }
     }
 
-    private void validateUserOwnsProduct(@NonNull Long productId, @NonNull String username) {
+    public void validateUserOwnsProduct(@NonNull Long productId, @NonNull String username) {
         Product product = findById(productId);
         if (product.getStore() == null || product.getStore().getManager() == null || 
             !product.getStore().getManager().getUsername().equals(username)) {

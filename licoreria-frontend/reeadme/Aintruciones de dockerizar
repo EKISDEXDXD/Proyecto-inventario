@@ -1,4 +1,23 @@
 comando 
+
+docker-compose down 
+
 docker build -t licoreria-frotend .
 docker build -t licoreria-backend .
 cd /raiz
+
+docker-compose up -d  # Iniciar nuevos
+# Ver contenedores corriendo
+docker-compose ps
+
+# Ver logs en tiempo real
+docker-compose logs -f
+# Listar todas las imágenes
+docker images
+
+# Eliminar versiones antiguas
+docker rmi licoreria-backend:1.0 -f
+docker rmi licoreria-frontend:1.0 -f
+
+# Limpiar imágenes intermedias
+docker image prune -f

@@ -16,14 +16,14 @@
       </button>
     </div>
 
-    <div *ngIf="showThresholdConfig" class="threshold-popup">
+    <div *ngIf="showThresholdConfig && !selectedProduct" class="threshold-popup">
       <div class="threshold-popup-header">
-        <div>
-          <span class="panel-title"><i class="bx bx-slider"></i> Umbrales de stock</span>
-          <p class="panel-subtitle">Ajusta los valores de stock bajo y normal.</p>
-        </div>
-        <button class="icon-btn small" type="button" (click)="toggleThresholdConfig()" aria-label="Cerrar umbrales"><i class="bx bx-x"></i></button>
+        <span class="panel-title"><i class="bx bx-slider"></i> Umbrales de stock</span>
+        <p class="panel-subtitle">Ajusta los valores de stock bajo y normal.</p>
+        <button class="icon-btn small" type="button" (click)="toggleThresholdConfig()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
       </div>
+
+      <!-- Panel de UMBRALES GLOBALES -->
       <form class="threshold-form" (ngSubmit)="saveThresholdConfig()">
         <div class="form-row compact-row">
           <div class="form-group">
@@ -69,6 +69,41 @@
       <div class="stat-content">
         <h3>{{ getNormalStockProducts().length }}</h3>
         <p>Stock Normal</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DE ALERTAS -->
+  <div class="card alert-panel-widget">
+    <div class="alert-panel-header">
+      <h3><i class="bx bx-bell"></i> Panel de Alertas</h3>
+    </div>
+    
+    
+
+    <div class="alert-details">
+      <div *ngIf="getAlertsWithStatus('low').length > 0" class="alert-group">
+        <h4>🟡 Stock Bajo</h4>
+        <ul class="alert-list">
+          <li *ngFor="let product of getAlertsWithStatus('low')">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-info">(Stock: {{ product.stock }}, Umbral: {{ product.alert.threshold }})</span>
+          </li>
+        </ul>
+      </div>
+
+      <div *ngIf="getAlertsWithStatus('out').length > 0" class="alert-group">
+        <h4>🔴 Sin Stock</h4>
+        <ul class="alert-list">
+          <li *ngFor="let product of getAlertsWithStatus('out')">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-info">(Umbral: {{ product.alert.threshold }})</span>
+          </li>
+        </ul>
+      </div>
+
+      <div *ngIf="getActiveAlerts().length === 0" class="no-alerts">
+        ✅ No hay alertas activas
       </div>
     </div>
   </div>
@@ -120,27 +155,68 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let product of filteredProducts">
-                      <td><strong>{{ product.name }}</strong></td>
-                      <td>{{ product.description }}</td>
-                      <td>
-                        <span class="stock-badge" 
-                              [ngClass]="{
-                                'stock-low': product.stock > 0 && product.stock < lowStockThreshold,
-                                'stock-out': product.stock === 0,
-                                'stock-normal': product.stock > normalStockThreshold
-                              }">
-                          {{ product.stock }}
-                        </span>
-                      </td>
-                      <td>${{ product.cost | number: '1.0-2' }}</td>
-                      <td>${{ product.price | number: '1.0-2' }}</td>
-                      <td>
-                        <div class="action-buttons">
-                          <button class="btn btn-danger btn-icon" (click)="deleteProduct(product.id)" title="Eliminar"><i class="bx bx-trash"></i></button>
-                        </div>
-                      </td>
-                    </tr>
+                    <ng-container *ngFor="let product of filteredProducts">
+                      <tr class="product-row" (click)="openDescriptionModal(product)" [class.mobile-clickable]="true">
+                        <td><strong>{{ product.name }}</strong></td>
+                        <td class="description-column">{{ product.description }}</td>
+                        <td>
+                          <span class="stock-badge" 
+                                [ngClass]="{
+                                  'stock-low': getStockStatus(product) === 'low',
+                                  'stock-out': getStockStatus(product) === 'out',
+                                  'stock-normal': getStockStatus(product) === 'normal'
+                                }">
+                            {{ product.stock }}
+                          </span>
+                        </td>
+                        <td>${{ product.cost | number: '1.0-2' }}</td>
+                        <td>${{ product.price | number: '1.0-2' }}</td>
+                        <td (click)="$event.stopPropagation()">
+                          <div class="action-buttons">
+                            <button class="btn btn-info btn-icon" (click)="openAlertConfig(product)" title="Configurar alerta"><i class="bx bx-bell"></i></button>
+                            <button class="btn btn-danger btn-icon" (click)="deleteProduct(product.id)" title="Eliminar"><i class="bx bx-trash"></i></button>
+                          </div>
+                        </td>
+                      </tr>
+                      <!-- Fila expandible para el popup de alerta -->
+                      <tr *ngIf="selectedProduct?.id === product.id && showAlertPanel" class="alert-popup-row">
+                        <td [attr.colspan]="6">
+                          <div class="product-alert-popup">
+                            <div class="popup-header">
+                              <span class="popup-title"><i class="bx bx-bell"></i> Configurar Alerta: {{ product.name }}</span>
+                              <span class="popup-info">Stock actual: {{ product.stock }}</span>
+                              
+                            </div>
+
+                            <form class="alert-form" (ngSubmit)="saveProductAlert()">
+                              <div class="form-row">
+                                <div class="form-group">
+                                  <label>Umbral de Alerta</label>
+                                  <input type="number" 
+                                         [(ngModel)]="alertForm.threshold" 
+                                         name="threshold" 
+                                         min="0"
+                                         class="form-control"
+                                         placeholder="Ej: 1, 9, 50" />
+                                  <small>📋 Cuando stock sea ≤ este valor, se marca AMARILLO<br>Cuando stock sea 0, se marca ROJO</small>
+                                </div>
+                                <div class="form-group">
+                                  <label>Estado de Alerta</label>
+                                  <select [(ngModel)]="alertForm.isEnabled" name="isEnabled" class="form-control">
+                                    <option [value]="true">✅ Alerta Activa</option>
+                                    <option [value]="false">⭕ Alerta Inactiva</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div class="form-actions right">
+                                <button type="button" class="btn btn-secondary" (click)="closeAlertPanel()">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar Alerta</button>
+                              </div>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    </ng-container>
                   </tbody>
                 </table>
               </div>
@@ -292,5 +368,54 @@
         </div>
       </div>
     </aside>
+  </div>
+
+  <!-- MODAL FLOTANTE DE DESCRIPCIÓN -->
+  <div *ngIf="showDescriptionModal" class="description-modal-overlay" (click)="closeDescriptionModal()">
+    <div class="description-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="bx bx-info-circle"></i> {{ selectedProductForDescription?.name }}</h3>
+        <button class="icon-btn small" type="button" (click)="closeDescriptionModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="modal-section">
+          <h4>Descripción</h4>
+          <p class="modal-description">{{ selectedProductForDescription?.description }}</p>
+        </div>
+
+        <div class="modal-info-grid">
+          <div class="modal-info-item">
+            <span class="modal-label">Stock Actual</span>
+            <span class="modal-value">{{ selectedProductForDescription?.stock }}</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-label">Costo</span>
+            <span class="modal-value">${{ selectedProductForDescription?.cost | number: '1.0-2' }}</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-label">Precio de Venta</span>
+            <span class="modal-value">${{ selectedProductForDescription?.price | number: '1.0-2' }}</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-label">Estado</span>
+            <span class="modal-value">
+              <span class="stock-badge" 
+                    [ngClass]="{
+                      'stock-low': getStockStatus(selectedProductForDescription) === 'low',
+                      'stock-out': getStockStatus(selectedProductForDescription) === 'out',
+                      'stock-normal': getStockStatus(selectedProductForDescription) === 'normal'
+                    }">
+                {{ getStockStatus(selectedProductForDescription) === 'normal' ? 'Normal' : getStockStatus(selectedProductForDescription) === 'low' ? 'Bajo' : 'Sin Stock' }}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeDescriptionModal()">Cerrar</button>
+      </div>
+    </div>
   </div>
 </div>

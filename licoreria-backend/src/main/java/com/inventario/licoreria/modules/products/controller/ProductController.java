@@ -2,8 +2,11 @@ package com.inventario.licoreria.modules.products.controller;
 
 import com.inventario.licoreria.modules.products.dto.AdjustStockDTO;
 import com.inventario.licoreria.modules.products.dto.ProductDTO;
+import com.inventario.licoreria.modules.products.dto.ProductAlertDTO;
 import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.model.ProductAlert;
 import com.inventario.licoreria.modules.products.service.ProductService;
+import com.inventario.licoreria.modules.products.service.ProductAlertService;
 import com.inventario.licoreria.modules.inventory.service.TransactionService;
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.security.JwtUtil;
@@ -22,11 +25,13 @@ import org.springframework.lang.NonNull;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductAlertService productAlertService;
     private final TransactionService transactionService;
     private final JwtUtil jwtUtil;
 
-    public ProductController(ProductService productService, TransactionService transactionService, JwtUtil jwtUtil) {
+    public ProductController(ProductService productService, ProductAlertService productAlertService, TransactionService transactionService, JwtUtil jwtUtil) {
         this.productService = productService;
+        this.productAlertService = productAlertService;
         this.transactionService = transactionService;
         this.jwtUtil = jwtUtil;
     }
@@ -126,5 +131,40 @@ public class ProductController {
         }
         
         return updated;
+    }
+
+    @PutMapping("/{id}/alert")
+    public ProductAlert saveOrUpdateAlert(
+        @PathVariable @NonNull Long id,
+        @Valid @RequestBody ProductAlertDTO dto,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        return productAlertService.saveOrUpdate(id, dto, authentication.getName());
+    }
+
+    @GetMapping("/{id}/alert")
+    public ResponseEntity<ProductAlert> getAlert(
+        @PathVariable @NonNull Long id,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        return productAlertService.findByProductId(id)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}/alert")
+    public ResponseEntity<Void> deleteAlert(
+        @PathVariable @NonNull Long id,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        productService.validateUserOwnsProduct(id, authentication.getName());
+        productAlertService.deleteByProductId(id);
+        return ResponseEntity.noContent().build();
     }
 }
