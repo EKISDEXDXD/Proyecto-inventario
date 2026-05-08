@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { catchError, EMPTY } from 'rxjs';
 import { ApiConfigService } from '../../auth/api-config.service';
 
 @Component({
@@ -52,6 +53,12 @@ export class InventarioComponent implements OnInit {
   showDescriptionModal = false;
   selectedProductForDescription: any = null;
 
+  // Product Image properties
+  productImage: any = null;
+  imageUploadMessage: string = '';
+  imageUploadMessageType: string = ''; // 'success' or 'error'
+  isUploadingImage: boolean = false;
+
   // Collapsible state variables
   showProductsList: boolean = this.loadCollapsibleState('showProductsList', true);
   showAdminCostsList: boolean = this.loadCollapsibleState('showAdminCostsList', true);
@@ -68,11 +75,13 @@ export class InventarioComponent implements OnInit {
   private apiStoresUrl: string = '';
   private apiProductsUrl: string = '';
   private apiAdminCostsUrl: string = '';
+  private apiProductImagesUrl: string = '';
 
   private initializeApiUrls() {
     this.apiStoresUrl = this.apiConfig.getApiUrl('/api/stores');
     this.apiProductsUrl = this.apiConfig.getApiUrl('/api/products');
     this.apiAdminCostsUrl = this.apiConfig.getApiUrl('/api/administrative-costs');
+    this.apiProductImagesUrl = this.apiConfig.getApiUrl('/api/product-images');
   }
 
   constructor(
@@ -80,6 +89,7 @@ export class InventarioComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     private apiConfig: ApiConfigService
   ) {}
 
@@ -425,11 +435,187 @@ export class InventarioComponent implements OnInit {
   openDescriptionModal(product: any) {
     this.selectedProductForDescription = { ...product };
     this.showDescriptionModal = true;
+    this.loadProductImage(product.id);
   }
 
   closeDescriptionModal() {
     this.showDescriptionModal = false;
     this.selectedProductForDescription = null;
+    this.productImage = null;
+    this.imageUploadMessage = '';
+  }
+
+  // Métodos para manejo de imágenes
+  loadProductImage(productId: number) {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    this.http.get<any>(`${this.apiProductImagesUrl}/${productId}`, { headers })
+      .pipe(
+        catchError(error => {
+          // Silenciar 404 - es esperado cuando no hay imagen
+          if (error.status === 404) {
+            return EMPTY;
+          }
+          // Propagar otros errores al interceptor global
+          throw error;
+        })
+      )
+      .subscribe({
+        next: (image) => {
+          this.productImage = image;
+          this.cdr.markForCheck();
+        },
+        error: (error) => {
+          this.productImage = null;
+          this.cdr.markForCheck();
+        },
+        complete: () => {
+          // Cuando se completa sin imagen (404), dejar productImage como null
+          if (!this.productImage) {
+            this.productImage = null;
+          }
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  getProductImageUrl(productId: number | undefined): string {
+    if (!productId) return '';
+    return `${this.apiProductImagesUrl}/file/${productId}`;
+  }
+
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tamaño
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSize) {
+      this.showImageMessage('El archivo supera 2MB', 'error');
+      return;
+    }
+
+    // Validar tipo
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      this.showImageMessage('Formato no permitido. Solo JPG, PNG o WebP', 'error');
+      return;
+    }
+
+    this.uploadProductImage(file);
+  }
+
+  uploadProductImage(file: File) {
+    if (!this.selectedProductForDescription?.id) return;
+
+    this.isUploadingImage = true;
+    this.cdr.markForCheck();
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      this.showImageMessage('No autorizado', 'error');
+      this.isUploadingImage = false;
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<any>(
+      `${this.apiProductImagesUrl}/${this.selectedProductForDescription.id}`,
+      formData,
+      { headers }
+    )
+      .pipe(
+        catchError(error => {
+          // Capturar el error 400 localmente para manejarlo aquí
+          if (error.status === 400) {
+            const errorMsg = error.error?.message || 'Error al subir la imagen';
+            this.showImageMessage(errorMsg, 'error');
+            this.isUploadingImage = false;
+            this.cdr.markForCheck();
+            return EMPTY;
+          }
+          // Propagar otros errores al interceptor global
+          throw error;
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          this.productImage = response.image;
+          this.showImageMessage(response.message, 'success');
+          this.isUploadingImage = false;
+          this.cdr.markForCheck();
+        },
+        error: (error) => {
+          // Solo llega aquí si no fue 400
+          const errorMsg = error.error?.message || 'Error al subir la imagen';
+          this.showImageMessage(errorMsg, 'error');
+          this.isUploadingImage = false;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  deleteProductImage() {
+    if (!this.selectedProductForDescription?.id) return;
+
+    if (!confirm('¿Estás seguro que deseas eliminar la foto?')) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      this.showImageMessage('No autorizado', 'error');
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    this.http.delete<any>(
+      `${this.apiProductImagesUrl}/${this.selectedProductForDescription.id}`,
+      { headers }
+    ).subscribe({
+      next: () => {
+        this.productImage = null;
+        this.showImageMessage('Foto eliminada correctamente', 'success');
+        this.cdr.markForCheck();
+      },
+      error: (error) => {
+        const errorMsg = error.error?.message || 'Error al eliminar la imagen';
+        this.showImageMessage(errorMsg, 'error');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  onImageError() {
+    this.productImage = null;
+    this.cdr.markForCheck();
+  }
+
+  private showImageMessage(message: string, type: string) {
+    this.imageUploadMessage = message;
+    this.imageUploadMessageType = type;
+    this.cdr.markForCheck();
+    
+    this.ngZone.runOutsideAngular(() => {
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          this.imageUploadMessage = '';
+          this.cdr.markForCheck();
+        });
+      }, 4000);
+    });
   }
 
   saveProductAlert() {

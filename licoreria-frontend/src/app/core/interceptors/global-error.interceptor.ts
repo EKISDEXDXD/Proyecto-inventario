@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import {
   HttpInterceptor,
   HttpRequest,
@@ -12,7 +12,7 @@ import { ToastrService } from 'ngx-toastr';
 
 @Injectable()
 export class GlobalErrorInterceptor implements HttpInterceptor {
-  constructor(private toastr: ToastrService) {}
+  constructor(private toastr: ToastrService, private ngZone: NgZone) {}
 
   intercept(
     request: HttpRequest<any>,
@@ -20,6 +20,12 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
   ): Observable<HttpEvent<any>> {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
+        // No mostrar toast para errores de product-images
+        // (se manejan localmente en inventario.ts con catchError)
+        if (error.url?.includes('/product-images/')) {
+          return throwError(() => error);
+        }
+
         let errorMessage = 'Error desconocido';
 
         if (error.error instanceof ErrorEvent) {
@@ -52,7 +58,9 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
           }
         }
 
+        // Ejecutar toastr dentro de Angular zone
         this.toastr.error(errorMessage, 'Error');
+
         return throwError(() => error);
       })
     );

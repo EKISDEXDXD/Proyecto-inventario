@@ -411,6 +411,56 @@
             </span>
           </div>
         </div>
+
+        <!-- SECCIÓN DE FOTO DEL PRODUCTO -->
+        <div class="modal-section photo-section">
+          <h4>Foto del Producto</h4>
+          <div class="photo-container">
+            <!-- Si existe foto -->
+            <img *ngIf="productImage" 
+                 [src]="getProductImageUrl(selectedProductForDescription?.id)" 
+                 alt="Foto del producto"
+                 class="product-photo"
+                 (error)="onImageError()">
+            
+            <!-- Si no existe foto -->
+            <div *ngIf="!productImage" class="no-photo-placeholder">
+              <i class="bx bx-image-add"></i>
+              <p>Sin foto</p>
+            </div>
+          </div>
+
+          <!-- Botones de subir y eliminar -->
+          <div class="photo-actions">
+            <div class="file-input-wrapper">
+              <button class="btn btn-primary btn-upload" type="button" (click)="fileInput.click()">
+                <i class="bx bx-upload"></i>
+                {{ productImage ? 'Reemplazar Foto' : 'Subir Foto' }}
+              </button>
+              <input #fileInput 
+                     type="file" 
+                     accept="image/jpeg,image/png,image/webp" 
+                     (change)="onFileSelected($event)"
+                     class="hidden-input"
+                     style="display: none;">
+            </div>
+            
+            <button *ngIf="productImage" 
+                    class="btn btn-danger btn-delete" 
+                    type="button" 
+                    (click)="deleteProductImage()">
+              <i class="bx bx-trash"></i> Eliminar Foto
+            </button>
+          </div>
+
+          <!-- Instrucciones -->
+          <div class="photo-instructions">
+            <p>💡 Tamaño máximo: 2MB • Mínimo: 500x500px • Fondo blanco recomendado</p>
+            <p *ngIf="imageUploadMessage" class="upload-message" [ngClass]="imageUploadMessageType">
+              {{ imageUploadMessage }}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
