@@ -79,9 +79,6 @@
       </div>
     </div>
 
-    
-
-
     <!-- SECCIÓN 4: TOP 5 PRODUCTOS MÁS VENDIDOS -->
     <section class="expandable-card top-sold-card">
       <div class="expandable-header" (click)="toggleSection('topSold')">
@@ -106,8 +103,8 @@
               <p class="product-code">{{ product.sku || 'N/A' }}</p>
             </div>
             <div class="ranking-stats">
-              <span class="stat-label">Stock:</span>
-              <span class="stat-value">{{ product.stock || 0 }}</span>
+              <span class="stat-label">Vendido:</span>
+              <span class="stat-value">{{ product.salesCount || 0 }} unidades</span>
             </div>
           </div>
         </div>
@@ -138,8 +135,8 @@
               <p class="product-code">{{ product.sku || 'N/A' }}</p>
             </div>
             <div class="ranking-stats">
-              <span class="stat-label">Stock:</span>
-              <span class="stat-value low">{{ product.stock || 0 }}</span>
+              <span class="stat-label">Vendido:</span>
+              <span class="stat-value low">{{ product.salesCount || 0 }} unidades</span>
             </div>
           </div>
         </div>

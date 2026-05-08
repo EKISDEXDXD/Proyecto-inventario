@@ -506,9 +506,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.75rem;
-  cursor: pointer;
+ 
   background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
@@ -570,12 +570,16 @@
 .expandable-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  transition: all 0.3s ease;
+  min-height: auto;
+  
 }
 
 .expandable-content.expanded {
   max-height: 5000px;
   padding: 2rem;
+  animation: slideDown 0.3s ease-out;
 }
 
 /* ============ STOCK LEVELS CARD ============ */
@@ -1569,6 +1573,99 @@
   .expandable-content.expanded {
     padding: 1rem;
   }
+
+  /* Balance General Responsive */
+  .balance-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .balance-title {
+    gap: 1rem;
+  }
+
+  .balance-title h2 {
+    font-size: 1.25rem;
+  }
+
+  .balance-summary {
+    width: 100%;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  /* Balance Cards Responsive */
+  .balance-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  .balance-card {
+    padding: 1.5rem;
+  }
+
+  .card-value {
+    font-size: 1.75rem;
+  }
+
+  .balance-equation {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .equation-item {
+    width: 100%;
+  }
+
+  .equation-operator {
+    display: none;
+  }
+
+  .distribution-bar {
+    height: 40px;
+  }
+
+  .balance-chart-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .pie-svg {
+    width: 220px;
+    height: 220px;
+  }
+
+  .balance-item {
+    padding: 1rem;
+  }
+
+  .item-value {
+    font-size: 1.25rem;
+  }
+
+  .flow-bar {
+    height: 40px;
+  }
+
+  .flow-label {
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+  }
+
+  .health-metric {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metric-label {
+    min-width: auto;
+  }
+
+  .metric-value {
+    align-self: flex-end;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1668,6 +1765,58 @@
     height: 40px;
     font-size: 0.9rem;
   }
+
+  /* Balance Cards Mobile */
+  .balance-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .balance-card {
+    padding: 1.25rem;
+  }
+
+  .card-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .card-value {
+    font-size: 1.5rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .section-header p {
+    font-size: 0.8rem;
+  }
+
+  .balance-equation {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .equation-item {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
+  .distribution-bar {
+    height: 35px;
+  }
+
+  .segment-label {
+    font-size: 0.75rem;
+    padding: 0 0.25rem;
+  }
 }
 /* =========================================
    MODO OSCURO INTEGRAL (.dark)
@@ -1676,6 +1825,7 @@
 :host-context(.dark) .dashboard-container {
   background: #0f111a; /* Fondo ultra oscuro */
   color: #e2e8f0;
+  border-radius: 16px;
 }
 
 /* --- Cartas de Estadísticas Superiores --- */

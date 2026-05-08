@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -28,8 +28,8 @@ interface ExportHistory {
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule],
   template: `
-    <div class="export-modal-overlay">
-      <div class="export-modal">
+    <div class="export-modal-overlay" [class.dark]="isDarkMode">
+      <div class="export-modal" [class.dark]="isDarkMode">
         <!-- Header -->
         <div class="modal-header">
           <div class="header-content">
@@ -337,16 +337,16 @@ interface ExportHistory {
     /* Overlay */
     .export-modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 9999;
       padding: 1rem;
+      pointer-events: auto;
     }
 
     /* Modal Container */
@@ -361,16 +361,19 @@ interface ExportHistory {
       display: flex;
       flex-direction: column;
       font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      pointer-events: auto;
+      position: relative;
+      z-index: 10000;
     }
 
     /* Dark Mode Support */
-    :host-context(.dark) .export-modal {
-      background: #1a1a2e;
-      color: #ffffff;
+    .export-modal-overlay.dark {
+      background: transparent;
     }
 
-    :host-context(.dark) .export-modal-overlay {
-      background: rgba(0, 0, 0, 0.7);
+    .export-modal.dark {
+      background: #1a1a2e;
+      color: #ffffff;
     }
 
     /* Header */
@@ -446,7 +449,7 @@ interface ExportHistory {
       border-bottom: 1px solid #e9ecef;
     }
 
-    :host-context(.dark) .info-section {
+    .export-modal.dark .info-section {
       background: #0f0f1a;
       border-bottom-color: #2a2a3e;
     }
@@ -477,7 +480,7 @@ interface ExportHistory {
       font-weight: 600;
     }
 
-    :host-context(.dark) .info-content h4 {
+    .export-modal.dark .info-content h4 {
       color: #ffffff;
     }
 
@@ -505,7 +508,7 @@ interface ExportHistory {
       font-size: 0.9rem;
     }
 
-    :host-context(.dark) .info-text {
+    .export-modal.dark .info-text {
       color: #cccccc;
     }
 
@@ -524,7 +527,7 @@ interface ExportHistory {
       gap: 0.5rem;
     }
 
-    :host-context(.dark) .section-title {
+    .export-modal.dark .section-title {
       color: #ffffff;
     }
 
@@ -549,7 +552,7 @@ interface ExportHistory {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
-    :host-context(.dark) .export-card {
+    .export-modal.dark .export-card {
       background: #1e1e2e;
       border-color: #2a2a3e;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -560,7 +563,7 @@ interface ExportHistory {
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
     }
 
-    :host-context(.dark) .export-card:hover {
+    .export-modal.dark .export-card:hover {
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     }
 
@@ -614,7 +617,7 @@ interface ExportHistory {
       font-weight: 600;
     }
 
-    :host-context(.dark) .card-info h4 {
+    .export-modal.dark .card-info h4 {
       color: #ffffff;
     }
 
@@ -624,7 +627,7 @@ interface ExportHistory {
       font-size: 0.9rem;
     }
 
-    :host-context(.dark) .card-info p {
+    .export-modal.dark .card-info p {
       color: #cccccc;
     }
 
@@ -654,7 +657,7 @@ interface ExportHistory {
       background: #f8f9fa;
     }
 
-    :host-context(.dark) .radio-option:hover {
+    .export-modal.dark .radio-option:hover {
       background: #2a2a3e;
     }
 
@@ -669,7 +672,7 @@ interface ExportHistory {
       font-weight: 500;
     }
 
-    :host-context(.dark) .radio-label {
+    .export-modal.dark .radio-label {
       color: #cccccc;
     }
 
@@ -689,7 +692,7 @@ interface ExportHistory {
       line-height: 1.5;
     }
 
-    :host-context(.dark) .daily-info {
+    .export-modal.dark .daily-info {
       background: #4a3a1a;
       border-left-color: #f59e0b;
       color: #fcd34d;
@@ -713,7 +716,7 @@ interface ExportHistory {
       font-weight: 500;
     }
 
-    :host-context(.dark) .date-input label {
+    .export-modal.dark .date-input label {
       color: #cccccc;
     }
 
@@ -725,7 +728,7 @@ interface ExportHistory {
       transition: border-color 0.2s;
     }
 
-    :host-context(.dark) .date-input input {
+    .export-modal.dark .date-input input {
       background: #2a2a3e;
       border-color: #3a3a4e;
       color: #ffffff;
@@ -782,7 +785,7 @@ interface ExportHistory {
       color: #999;
     }
 
-    :host-context(.dark) .empty-state {
+    .export-modal.dark .empty-state {
       color: #666;
     }
 
@@ -807,7 +810,7 @@ interface ExportHistory {
       gap: 1rem;
     }
 
-    :host-context(.dark) .history-item {
+    .export-modal.dark .history-item {
       background: #2a2a3e;
     }
 
@@ -821,7 +824,7 @@ interface ExportHistory {
       margin-bottom: 0.25rem;
     }
 
-    :host-context(.dark) .history-period {
+    .export-modal.dark .history-period {
       color: #ffffff;
     }
 
@@ -830,7 +833,7 @@ interface ExportHistory {
       color: #666;
     }
 
-    :host-context(.dark) .history-date {
+    .export-modal.dark .history-date {
       color: #cccccc;
     }
 
@@ -881,7 +884,7 @@ interface ExportHistory {
       color: #666;
     }
 
-    :host-context(.dark) .action-btn {
+    .export-modal.dark .action-btn {
       background: #3a3a4e;
       border-color: #4a4a5e;
       color: #cccccc;
@@ -893,7 +896,7 @@ interface ExportHistory {
       color: #0369a1;
     }
 
-    :host-context(.dark) .action-btn.download:hover {
+    .export-modal.dark .action-btn.download:hover {
       background: #1a3a4a;
       border-color: #0369a1;
       color: #0369a1;
@@ -905,7 +908,7 @@ interface ExportHistory {
       color: #dc2626;
     }
 
-    :host-context(.dark) .action-btn.delete:hover {
+    .export-modal.dark .action-btn.delete:hover {
       background: #4a1a1a;
       border-color: #dc2626;
       color: #dc2626;
@@ -921,7 +924,7 @@ interface ExportHistory {
       background: #f8f9fa;
     }
 
-    :host-context(.dark) .modal-footer {
+    .export-modal.dark .modal-footer {
       background: #0f0f1a;
       border-top-color: #2a2a3e;
     }
@@ -937,7 +940,7 @@ interface ExportHistory {
       color: #333;
     }
 
-    :host-context(.dark) .btn-secondary {
+    .export-modal.dark .btn-secondary {
       background: #2a2a3e;
       border-color: #3a3a4e;
       color: #ffffff;
@@ -948,7 +951,7 @@ interface ExportHistory {
       transform: translateY(-1px);
     }
 
-    :host-context(.dark) .btn-secondary:hover {
+    .export-modal.dark .btn-secondary:hover {
       background: #3a3a4e;
     }
 
@@ -1040,11 +1043,13 @@ interface ExportHistory {
     }
   `]
 })
-export class ExportModalComponent implements OnInit {
+export class ExportModalComponent implements OnInit, OnDestroy {
   storeId: number = 0;
   isLoading: boolean = false;
   errorMessage: string = '';
   successMessage: string = '';
+  isDarkMode: boolean = false;
+  private darkModeObserver?: MutationObserver;
 
   // Complete Report
   completeReportPeriod: string = '30days';
@@ -1082,6 +1087,32 @@ export class ExportModalComponent implements OnInit {
   ngOnInit(): void {
     this.initializeDates();
     this.loadExportHistory();
+    this.detectDarkMode();
+  }
+
+  detectDarkMode(): void {
+    // Detectar si la clase .dark existe en el documento
+    const homeContainer = document.querySelector('.home-container.dark');
+    this.isDarkMode = !!homeContainer;
+    
+    // Si el usuario cambia el dark mode, detectarlo también
+    // Observar cambios en la clase dark del contenedor principal
+    this.darkModeObserver = new MutationObserver(() => {
+      const homeContainer = document.querySelector('.home-container.dark');
+      this.isDarkMode = !!homeContainer;
+      this.cdr.detectChanges();
+    });
+    
+    const mainContainer = document.querySelector('.home-container');
+    if (mainContainer) {
+      this.darkModeObserver.observe(mainContainer, { attributes: true, attributeFilter: ['class'] });
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.darkModeObserver) {
+      this.darkModeObserver.disconnect();
+    }
   }
 
   initializeDates(): void {

@@ -42,6 +42,7 @@ export class DashboardInfoComponent implements OnInit {
   productsWithLowStock: any[] = [];
   topSoldProducts: any[] = [];
   bottomSoldProducts: any[] = [];
+  transactions: any[] = [];
   
   // Control de secciones desplegables
   expandedSections: { [key: string]: boolean } = {
@@ -76,10 +77,12 @@ export class DashboardInfoComponent implements OnInit {
 
   private apiStoresUrl: string = '';
   private apiProductsUrl: string = '';
+  private apiTransactionsUrl: string = '';
 
   private initializeApiUrls() {
     this.apiStoresUrl = this.apiConfig.getApiUrl('/api/stores');
     this.apiProductsUrl = this.apiConfig.getApiUrl('/api/products');
+    this.apiTransactionsUrl = this.apiConfig.getApiUrl('/api/transactions');
   }
 
   constructor(
@@ -96,8 +99,10 @@ export class DashboardInfoComponent implements OnInit {
     this.initializeApiUrls();
     this.route.params.subscribe(params => {
       this.storeId = +params['id'] || 1;
+      console.log('=== DASHBOARD INIT: Store ID =', this.storeId);
       this.loadStoreData();
       this.loadStoreProducts();
+      // loadTransactions se llama después de que loadStoreProducts se complete
       this.loadReports();
     });
     this.setDefaultDates();
@@ -141,12 +146,44 @@ export class DashboardInfoComponent implements OnInit {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: data => {
         this.products = data || [];
+        console.log('Productos cargados:', this.products.length);
+        // Cargar transacciones después de cargar productos
+        this.loadTransactions();
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        console.error('Error cargando productos:', err);
+        this.loading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadTransactions() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No se encontró token en localStorage');
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+
+    this.http.get<any[]>(`${this.apiTransactionsUrl}`, { headers }).subscribe({
+      next: data => {
+        console.log('Transacciones cargadas total:', data?.length);
+        const productIds = this.products.map(p => p.id);
+        console.log('Product IDs para filtrar:', productIds);
+        this.transactions = (data || []).filter(t => productIds.includes(t.productId));
+        console.log('Transacciones filtradas por tienda:', this.transactions.length);
+        console.log('Transacciones:', this.transactions);
         this.computeMetrics();
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: err => {
-        console.error('Error cargando productos:', err);
+        console.error('Error cargando transacciones:', err);
         this.loading = false;
         this.cdr.detectChanges();
       }
@@ -190,11 +227,40 @@ export class DashboardInfoComponent implements OnInit {
     this.topProducts = [...this.products]
       .sort((a, b) => (b.stock || 0) - (a.stock || 0))
       .slice(0, 5);
-    this.topSoldProducts = [...this.products]
-      .sort((a, b) => (a.stock || 0) - (b.stock || 0))
+
+    // Calcular cantidad de salidas (ventas) para cada producto
+    const productSalesCount: { [key: number]: number } = {};
+    this.transactions.forEach(transaction => {
+      // Verificar diferentes variantes del tipo de transacción
+      const txType = transaction.type || transaction.transactionType || '';
+      const isOutgoing = txType.toUpperCase() === 'SALIDA' || txType.toUpperCase() === 'VENTA';
+      
+      // Obtener el ID del producto (puede estar en diferentes campos)
+      const pId = transaction.productId || transaction.product?.id || transaction.productID;
+      
+      if (isOutgoing && pId) {
+        const quantity = transaction.quantity || transaction.amount || 1;
+        productSalesCount[pId] = (productSalesCount[pId] || 0) + quantity;
+        console.log(`Producto ${pId}: +${quantity} (total: ${productSalesCount[pId]})`);
+      }
+    });
+
+    console.log('Resumen de ventas por producto:', productSalesCount);
+
+    // Enriquecer productos con cantidad de ventas
+    const productsWithSales = this.products.map(product => ({
+      ...product,
+      salesCount: productSalesCount[product.id] || 0
+    }));
+
+    // Top 5 productos más vendidos (mayor cantidad de salidas)
+    this.topSoldProducts = [...productsWithSales]
+      .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
       .slice(0, 5);
-    this.bottomSoldProducts = [...this.products]
-      .sort((a, b) => (b.stock || 0) - (a.stock || 0))
+
+    // Top 5 productos menos vendidos (menor cantidad de salidas)
+    this.bottomSoldProducts = [...productsWithSales]
+      .sort((a, b) => (a.salesCount || 0) - (b.salesCount || 0))
       .slice(0, 5);
   }
 

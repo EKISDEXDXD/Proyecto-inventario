@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MenuService } from '../core/menu.service';
 import { ExportModalComponent } from './export-modal.component';
 import { ApiConfigService } from '../auth/api-config.service';
@@ -11,7 +11,7 @@ import { ApiConfigService } from '../auth/api-config.service';
 @Component({
   selector: 'app-dashboard-tienda',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatDialogModule],
   templateUrl: './dashboard-tienda.component.html',
   styleUrls: ['./dashboard-tienda.component.css']
 })
