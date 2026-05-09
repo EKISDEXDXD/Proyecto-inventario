@@ -64,12 +64,12 @@ public class ProductImageController {
     /**
      * Obtiene la imagen de un producto
      * GET /api/product-images/{productId}
+     * Retorna 200 con null si no existe imagen en lugar de 404
      */
     @GetMapping("/{productId}")
     public ResponseEntity<ProductImageDTO> getProductImage(@PathVariable Long productId) {
         Optional<ProductImageDTO> image = productImageService.getProductImage(productId);
-        return image.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return ResponseEntity.ok(image.orElse(null));
     }
 
     /**

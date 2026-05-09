@@ -3,6 +3,7 @@ package com.inventario.licoreria.modules.products.model;
 import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,6 +40,13 @@ public class Product {
 
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private ProductAlert alert;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductTag> tags;
+
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ProductImage image;
 
     public Product() {
     }
@@ -123,5 +131,35 @@ public class Product {
 
     public void setAlert(ProductAlert alert) {
         this.alert = alert;
+    }
+
+    public List<ProductTag> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<ProductTag> tags) {
+        this.tags = tags;
+    }
+
+    public ProductImage getImage() {
+        return image;
+    }
+
+    public void setImage(ProductImage image) {
+        this.image = image;
+    }
+
+    /**
+     * Get tags as a list of Tag objects (for JSON serialization)
+     * This method is used by Jackson to serialize tags without circular references
+     */
+    @JsonProperty("tags")
+    public List<Tag> getTagsAsTagList() {
+        if (tags == null) {
+            return List.of();
+        }
+        return tags.stream()
+            .map(ProductTag::getTag)
+            .toList();
     }
 }

@@ -1,0 +1,226 @@
+<div class="gallery-modal-overlay" *ngIf="isOpen" (click)="close()" role="presentation">
+  <div class="gallery-modal-content" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <!-- Header -->
+    <div class="gallery-modal-header">
+      <div>
+        <h2><i class="bx bx-image"></i>Galería de Productos</h2>
+        <p class="header-subtitle">
+          <i class="bx bx-sparkles"></i>
+          Gestiona y organiza tus productos con etiquetas
+        </p>
+      </div>
+      <button class="btn-close" (click)="close()" aria-label="Cerrar galería" title="Cerrar (ESC)">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+
+    <div class="gallery-modal-body">
+      <!-- Left Sidebar - Tags & New Tag -->
+      <nav class="gallery-sidebar" aria-label="Filtros de etiquetas">
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3><i class="bx bx-tag"></i> Etiquetas</h3>
+            <button class="btn btn-sm btn-primary" (click)="toggleNewTagForm()" title="Crear nueva etiqueta" aria-expanded="showNewTagForm">
+              <i class="bx bx-plus"></i> Crear
+            </button>
+          </div>
+
+          <!-- Help text -->
+          
+
+          <!-- New Tag Form -->
+          <div *ngIf="showNewTagForm" class="new-tag-form" role="region" aria-label="Formulario crear etiqueta">
+            <label style="font-size: 12px; font-weight: 600; color: #4b5563; margin-bottom: 4px;">
+              <i class="bx bx-tag-plus" style="margin-right: 4px;"></i> Nombre de la etiqueta
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="newTagName" 
+              placeholder="nueva etiqueta" 
+              class="form-control"
+              (keyup.enter)="createNewTag()"
+              aria-label="Nombre de etiqueta"
+            />
+            <div class="form-actions">
+              <button class="btn btn-sm btn-success" (click)="createNewTag()" [disabled]="creatingTag" aria-busy="creatingTag">
+                <i class="bx bx-check"></i> {{ creatingTag ? 'Creando...' : 'Crear' }}
+              </button>
+              <button class="btn btn-sm btn-secondary" (click)="toggleNewTagForm()">
+                <i class="bx bx-x"></i> Cancelar
+              </button>
+            </div>
+          </div>
+
+          <!-- Tags List -->
+          <div *ngIf="loadingTags" class="loading-state" role="status" aria-label="Cargando etiquetas">
+            <i class="bx bx-loader bx-spin"></i> Cargando etiquetas...
+          </div>
+
+          <div *ngIf="tagsError" class="error-state" role="alert">
+            <i class="bx bx-error-circle"></i>
+            <p>{{ tagsError }}</p>
+          </div>
+
+          <div *ngIf="!loadingTags && !tagsError && allTags.length === 0" class="empty-state">
+            <p>No hay etiquetas. Crea una para empezar.</p>
+          </div>
+
+          <div *ngIf="!loadingTags && !tagsError && allTags.length > 0" class="tags-list" role="list">
+            
+            <div *ngFor="let tag of allTags" class="tag-item" role="listitem" draggable="true" 
+              (dragstart)="onTagDragStart($event, tag)"
+              (dragend)="onTagDragEnd($event)"
+              (touchstart)="onTagTouchStart($event, tag)"
+              (touchend)="onTagTouchEnd($event)"
+              [class.touch-selected]="touchDraggedTag?.id === tag.id"
+              [title]="isMobile ? 'Toca para seleccionar, luego toca un producto' : 'Arrastra para asignar a un producto'">
+              <label class="tag-checkbox">
+                <input 
+                  type="checkbox" 
+                  [checked]="isTagSelected(tag.id)"
+                  (change)="toggleTag(tag)"
+                  [attr.aria-label]="'Filtrar por ' + tag.name"
+                />
+                <span class="tag-label">{{ tag.name }}</span>
+              </label>
+              <button class="btn-tag-delete" (click)="deleteTag(tag)" [attr.aria-label]="'Eliminar etiqueta ' + tag.name" title="Eliminar etiqueta">
+                <i class="bx bx-trash"></i>
+              </button>
+            </div>
+
+            <!-- Clear Filters Button -->
+            <button 
+              *ngIf="selectedTagIds.length > 0" 
+              class="btn btn-sm btn-outline"
+              (click)="clearFilters()"
+              aria-label="Limpiar todos los filtros"
+            >
+              <i class="bx bx-reset"></i> Limpiar filtros
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main Content - Gallery -->
+      <main class="gallery-main">
+        <!-- Search Bar -->
+        <div class="gallery-search" role="search">
+          <div class="search-header">
+            <label class="search-label">
+              <i class="bx bx-search-alt"></i> Buscar Productos
+            </label>
+            <span class="search-badge">
+              <i class="bx bx-package"></i> {{ displayedProducts.length }} resultados
+            </span>
+          </div>
+          <div class="search-input-group">
+            <i class="bx bx-search"></i>
+            <input 
+              type="text" 
+              [(ngModel)]="searchQuery"
+              (input)="onSearchChange(searchQuery)"
+              placeholder="Busca por nombre, descripción..."
+              class="search-input"
+              aria-label="Buscar productos"
+            />
+          </div>
+
+          <!-- Active Filters Display -->
+          <div *ngIf="selectedTagIds.length > 0" class="active-filters" role="status" aria-live="polite">
+            <span class="filters-label">Filtros activos:</span>
+            <div *ngFor="let tagId of selectedTagIds" class="filter-badge">
+              <span>{{ getTagName(tagId) }}</span>
+              <button (click)="toggleTag({id: tagId})" class="badge-close" [attr.aria-label]="'Eliminar filtro ' + getTagName(tagId)">
+                <i class="bx bx-x"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Products Gallery -->
+        <div class="gallery-container" (scroll)="onGalleryScroll($event)" role="region" aria-label="Galería de productos">
+          <!-- Loading State -->
+          <div *ngIf="loading && displayedProducts.length === 0" class="gallery-loading" role="status" aria-label="Cargando productos">
+            <i class="bx bx-loader bx-spin"></i>
+            <p>Cargando productos...</p>
+          </div>
+
+          <!-- Error State -->
+          <div *ngIf="productsError" class="gallery-error" role="alert">
+            <i class="bx bx-error-circle"></i>
+            <p>{{ productsError }}</p>
+          </div>
+
+          <!-- Empty State -->
+          <div *ngIf="!loading && !productsError && displayedProducts.length === 0" class="gallery-empty">
+            <i class="bx bx-package"></i>
+            <p>No se encontraron productos</p>
+          </div>
+
+          <!-- Products Grid -->
+          <div *ngIf="displayedProducts.length > 0" class="products-grid" role="list">
+            <article *ngFor="let product of displayedProducts" class="product-card" role="listitem"
+              (dragover)="onProductDragOver($event, product.id)"
+              (dragleave)="onProductDragLeave($event, product.id)"
+              (drop)="onProductDrop($event, product)"
+              (click)="touchDraggedTag ? onProductTouchAssign(product) : null"
+              [class.drag-over]="dragOverProductId === product.id"
+              [class.touch-target]="touchDraggedTag !== null"
+              [class.assigning]="assigningTag"
+              [style.cursor]="touchDraggedTag ? 'pointer' : 'default'">
+              <!-- Product Image -->
+              <div class="product-image-container">
+                <img 
+                  [src]="getImagePath(product)" 
+                  [alt]="'Imagen de ' + product.name"
+                  class="product-image"
+                  (error)="onImageError($event)"
+                />
+              </div>
+
+              <!-- Product Info -->
+              <div class="product-info">
+                <h4 class="product-name" [title]="product.name">{{ product.name }}</h4>
+                <p class="product-description">{{ product.description }}</p>
+
+                <!-- Prices Section -->
+                <div class="product-prices">
+                  <div class="price-row">
+                    <span class="price-label"><i class="bx bx-dollar" style="font-size: 12px; margin-right: 2px;"></i>Costo:</span>
+                    <span class="price-value">${{ product.cost }}</span>
+                  </div>
+                  <div class="price-row">
+                    <span class="price-label"><i class="bx bx-tag" style="font-size: 12px; margin-right: 2px;"></i>Precio:</span>
+                    <span class="price-value highlight">${{ product.price }}</span>
+                  </div>
+                </div>
+
+                <!-- Tags Section -->
+                <div *ngIf="product.tags && product.tags.length > 0" class="product-tags" role="list" style="margin-top: 4px;">
+                  <div style="font-size: 10px; color: #9ca3af; margin-bottom: 4px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                    <i class="bx bx-tag-alt"></i> Etiquetas
+                  </div>
+                  <span *ngFor="let tag of product.tags" class="tag-badge" role="listitem" (click)="removeTagFromProduct(product, tag)" title="Click para eliminar etiqueta" style="cursor: pointer;">
+                    <i class="bx bx-x" style="font-size: 12px; margin-right: 2px;"></i>
+                    {{ tag.name }}
+                  </span>
+                </div>
+
+                <div *ngIf="!product.tags || product.tags.length === 0" class="product-tags empty" style="margin-top: 4px;">
+                  <div style="background: #f0fdf4; border: 1px dashed #86efac; padding: 6px 8px; border-radius: 4px; font-size: 11px; color: #15803d; width: 100%; text-align: center;">
+                    <i class="bx bx-plus" style="font-size: 12px;"></i> Sin etiquetas - Arrastra una aquí
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Loading More -->
+          <div *ngIf="loading && displayedProducts.length > 0" class="gallery-loading-more" role="status" aria-label="Cargando más productos">
+            <i class="bx bx-loader bx-spin"></i>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>

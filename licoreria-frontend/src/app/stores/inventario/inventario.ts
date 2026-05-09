@@ -5,11 +5,12 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { catchError, EMPTY } from 'rxjs';
 import { ApiConfigService } from '../../auth/api-config.service';
+import { ProductGalleryModalComponent } from './product-gallery-modal.component';
 
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ProductGalleryModalComponent],
   templateUrl: './inventario.html',
   styleUrl: './inventario.css'
 })
@@ -21,6 +22,9 @@ export class InventarioComponent implements OnInit {
   loading: boolean = true;
   searchTerm: string = '';
   showCreateForm: boolean = false;
+
+  // Gallery Modal
+  showGalleryModal: boolean = false;
 
   // Administrative Costs properties
   administrativeCosts: any[] = [];
@@ -455,16 +459,6 @@ export class InventarioComponent implements OnInit {
     });
 
     this.http.get<any>(`${this.apiProductImagesUrl}/${productId}`, { headers })
-      .pipe(
-        catchError(error => {
-          // Silenciar 404 - es esperado cuando no hay imagen
-          if (error.status === 404) {
-            return EMPTY;
-          }
-          // Propagar otros errores al interceptor global
-          throw error;
-        })
-      )
       .subscribe({
         next: (image) => {
           this.productImage = image;
@@ -472,13 +466,6 @@ export class InventarioComponent implements OnInit {
         },
         error: (error) => {
           this.productImage = null;
-          this.cdr.markForCheck();
-        },
-        complete: () => {
-          // Cuando se completa sin imagen (404), dejar productImage como null
-          if (!this.productImage) {
-            this.productImage = null;
-          }
           this.cdr.markForCheck();
         }
       });
@@ -827,5 +814,16 @@ export class InventarioComponent implements OnInit {
         }
       });
     }
+  }
+
+  /**
+   * Gallery Modal methods
+   */
+  openGalleryModal() {
+    this.showGalleryModal = true;
+  }
+
+  closeGalleryModal() {
+    this.showGalleryModal = false;
   }
 }

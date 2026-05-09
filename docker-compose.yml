@@ -22,6 +22,7 @@ services:
 
   # ============ BACKEND (Spring Boot) ============
   backend:
+    build: ./licoreria-backend
     image: licoreria-backend:latest
     container_name: licoreria-backend
     environment:
@@ -46,6 +47,7 @@ services:
 
   # ============ FRONTEND (Nginx + Angular) ============
   frontend:
+    build: ./licoreria-frontend
     image: licoreria-frontend:latest
     container_name: licoreria-frontend
     ports:

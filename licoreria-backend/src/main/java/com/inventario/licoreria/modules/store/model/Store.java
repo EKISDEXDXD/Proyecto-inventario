@@ -1,6 +1,7 @@
 package com.inventario.licoreria.modules.store.model;
 
 import com.inventario.licoreria.modules.users.model.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,6 +22,7 @@ public class Store {
     private String address;
     private String accessPassword;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "manager_id", nullable = false)
     private User manager;

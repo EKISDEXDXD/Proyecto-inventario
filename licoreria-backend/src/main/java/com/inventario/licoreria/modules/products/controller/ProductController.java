@@ -11,6 +11,9 @@ import com.inventario.licoreria.modules.inventory.service.TransactionService;
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.security.JwtUtil;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -166,5 +169,25 @@ public class ProductController {
         productService.validateUserOwnsProduct(id, authentication.getName());
         productAlertService.deleteByProductId(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Búsqueda con paginación y filtro de etiquetas para la galería visual
+     * GET /api/products/gallery/search?storeId=1&search=coca&page=0&size=20&tags=1,2
+     */
+    @GetMapping("/gallery/search")
+    public ResponseEntity<Page<Product>> searchGallery(
+        @RequestParam @NonNull Long storeId,
+        @RequestParam(defaultValue = "") String search,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(required = false) List<Long> tags,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> result = productService.searchWithPagination(storeId, search, tags, pageable);
+        return ResponseEntity.ok(result);
     }
 }

@@ -5,6 +5,8 @@ import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.products.repository.ProductRepository;
 import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.store.service.StoreService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -96,6 +98,10 @@ public class ProductService {
         productRepository.delete(product);
     }
 
+    public Product save(@NonNull Product product) {
+        return productRepository.save(product);
+    }
+
     public Product adjustStock(@NonNull final Long id, final int stockDelta, @NonNull String username) {
         validateUserOwnsProduct(id, username);
         final Product product = findById(id);
@@ -139,6 +145,23 @@ public class ProductService {
 
     public List<Product> findByStoreId(@NonNull Long storeId) {
         return productRepository.findByStoreId(storeId);
+    }
+
+    /**
+     * Buscar productos con paginación y filtro opcional de etiquetas
+     * Si tagIds está vacío, busca solo por nombre
+     * Si tagIds tiene valores, busca productos que tengan TODAS las etiquetas
+     */
+    public Page<Product> searchWithPagination(@NonNull Long storeId, String searchQuery, 
+                                              List<Long> tagIds, Pageable pageable) {
+        String query = searchQuery != null ? searchQuery.trim() : "";
+        List<Long> tags = (tagIds != null && !tagIds.isEmpty()) ? tagIds : List.of();
+        
+        if (tags.isEmpty()) {
+            return productRepository.searchByNameAndStore(query, storeId, pageable);
+        } else {
+            return productRepository.searchByNameAndTags(query, storeId, tags, pageable);
+        }
     }
 
 }
