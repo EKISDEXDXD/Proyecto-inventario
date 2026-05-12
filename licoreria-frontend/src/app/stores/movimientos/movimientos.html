@@ -211,7 +211,7 @@
           <thead>
             <tr>
               <th>Producto</th>
-              <th>Descripción</th>
+              
               <th>Stock</th>
               <th>Precio</th>
             </tr>
@@ -219,7 +219,7 @@
           <tbody>
             <tr *ngFor="let product of filteredProducts">
               <td>{{ product.name }}</td>
-              <td>{{ product.description }}</td>
+              
               <td>
                 <span class="stock-badge"
                   [ngClass]="{'low': product.stock < 10, 'out': product.stock === 0, 'normal': product.stock >= 10}">

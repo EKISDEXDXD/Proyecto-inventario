@@ -644,6 +644,7 @@
 .products-table thead {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
+  
 }
 
 .products-table th,

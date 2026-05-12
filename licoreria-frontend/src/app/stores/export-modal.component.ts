@@ -917,7 +917,7 @@ interface ExportHistory {
 
     /* Footer */
     .modal-footer {
-      padding: 1.5rem;
+      padding: 1rem;
       border-top: 1px solid #e9ecef;
       display: flex;
       justify-content: flex-end;
