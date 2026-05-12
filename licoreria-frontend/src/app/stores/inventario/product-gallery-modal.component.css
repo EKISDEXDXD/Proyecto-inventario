@@ -105,7 +105,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 24px 32px;
+  padding-top: 24px;
+  padding-left: 32px;
+  padding-right: 32px;
   border-radius: 24px 24px 0 0;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafb 100%);
   color: var(--color-text-primary);
@@ -183,7 +185,7 @@
 
 /* ==================== SIDEBAR ==================== */
 .gallery-sidebar {
-  width: 280px;
+  width: 260px;
   overflow-y: auto;
   padding: 24px;
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
@@ -371,7 +373,7 @@
   border: 1.5px solid var(--color-border);
   cursor: grab;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.246);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.065);
 }
 
 .tag-item:hover {
@@ -623,7 +625,7 @@
 /* ==================== PRODUCTS GRID ==================== */
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
   gap: 24px;
   animation: fadeIn 0.4s ease-out;
 }
@@ -922,6 +924,7 @@
   .gallery-modal-header {
     padding: 16px 20px;
     gap: 12px;
+    
   }
 
   .gallery-container {
@@ -956,10 +959,10 @@
     padding: 10px;
   }
 
-  .gallery-modal-header {
+  .gallery-modal-header:nth-child(3) {
     padding: 10px 12px;
     gap: 6px;
-    flex-direction: column;
+    flex-direction: row;
     border-radius: 16px 16px 0 0;
   }
 
@@ -968,7 +971,7 @@
   }
 
   .gallery-modal-header h2 {
-    font-size: 14px;
+    font-size: 12x;
     gap: 6px;
     margin: 0;
     font-weight: 700;
@@ -984,13 +987,17 @@
     display: none;
   }
 
-  .btn-close {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-    padding: 0;
-    flex-shrink: 0;
-    display: none;
+  .btn-close:nth-child(4) {
+   width: 10px !important;
+    height: 10px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-close svg, .btn-close img {
+    width: 12px !important; 
+    height: 12px !important;
   }
 
   .gallery-modal-body {
@@ -1000,8 +1007,8 @@
 
   .gallery-sidebar {
     width: 100%;
-    max-height: 60px;
-    min-height: 50px;
+    max-height: 70px;
+    min-height: 70px;
     padding: 6px 10px;
     border-radius: 0;
     overflow-y: auto;

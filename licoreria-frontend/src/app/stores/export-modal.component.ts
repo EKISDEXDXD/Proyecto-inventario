@@ -409,6 +409,7 @@ interface ExportHistory {
       font-size: 1.5rem;
       font-weight: 600;
     }
+    
 
     .header-text p {
       margin: 0;
@@ -1005,6 +1006,11 @@ interface ExportHistory {
 
       .modal-header {
         padding: 1rem;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important; /* Centra verticalmente icono, texto y X */
+        justify-content: space-between !important;
+
       }
 
       .header-content {

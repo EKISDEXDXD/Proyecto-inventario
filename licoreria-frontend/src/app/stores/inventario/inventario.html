@@ -151,7 +151,7 @@
                   <thead>
                     <tr>
                       <th>Producto</th>
-                      <th>Descripción</th>
+                      
                       <th>Stock</th>
                       <th>Costo</th>
                       <th>Precio</th>
@@ -162,7 +162,7 @@
                     <ng-container *ngFor="let product of filteredProducts">
                       <tr class="product-row" (click)="openDescriptionModal(product)" [class.mobile-clickable]="true">
                         <td><strong>{{ product.name }}</strong></td>
-                        <td class="description-column">{{ product.description }}</td>
+                        
                         <td>
                           <span class="stock-badge" 
                                 [ngClass]="{
@@ -250,11 +250,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label>Nombre</label>
-                <input type="text" [(ngModel)]="newProduct.name" name="name" class="form-control" placeholder="Ej: Vodka Absolut" required>
+                <input type="text" [(ngModel)]="newProduct.name" name="name" class="form-control" placeholder="Nombre del producto" required>
               </div>
               <div class="form-group">
                 <label>Descripción</label>
-                <input type="text" [(ngModel)]="newProduct.description" name="description" class="form-control" placeholder="Ej: Botella 1L" required>
+                <input type="text" [(ngModel)]="newProduct.description" name="description" class="form-control" placeholder="Descripción del producto" required>
               </div>
             </div>
             <div class="form-row compact-row">
@@ -349,7 +349,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label>Nombre del Costo</label>
-                <input type="text" [(ngModel)]="newAdminCost.name" name="name" class="form-control" placeholder="Ej: Alquiler" required>
+                <input type="text" [(ngModel)]="newAdminCost.name" name="name" class="form-control" placeholder="Nombre del costo" required>
               </div>
             </div>
             <div class="form-row compact-row">
@@ -361,7 +361,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label>Descripción</label>
-                <textarea [(ngModel)]="newAdminCost.description" name="description" class="form-control" placeholder="Ej: Alquiler del local principal" rows="3" required></textarea>
+                <textarea [(ngModel)]="newAdminCost.description" name="description" class="form-control" placeholder="Añade una descripción del costo" rows="3" required></textarea>
               </div>
             </div>
             <div class="form-actions" style="margin-top: 1rem;">

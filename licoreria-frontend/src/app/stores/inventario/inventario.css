@@ -271,7 +271,7 @@
 .icon-btn {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
   background-color: var(--bg-surface);
   color: var(--text-main);
@@ -570,7 +570,8 @@
 /* Columnas de tabla para desktop */
 .products-table th:nth-child(1),
 .products-table td:nth-child(1) {
-  width: 25%;
+  width: 40%;
+  text-align: left;
 }
 
 .products-table th:nth-child(2),
@@ -601,7 +602,7 @@
 .products-table th, 
 .products-table td {
   padding: 1.25rem 1rem;
-  text-align: left;
+  text-align: center;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -612,6 +613,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+
 }
 
 :host-context(.dark) .products-table th {
@@ -708,7 +710,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 1.5rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
 }
@@ -1446,6 +1448,7 @@
     border-collapse: collapse;
     table-layout: fixed !important;
     width: 100% !important;
+    text-align: center
   }
 
   /* Ancho de columnas para móviles */
@@ -1465,6 +1468,7 @@
   .products-table td:nth-child(3) {
     width: 17% !important;
     box-sizing: border-box !important;
+    text-align: center
   }
 
   .products-table th:nth-child(4),
@@ -1472,12 +1476,14 @@
     display: table-cell !important;
     width: 17% !important;
     box-sizing: border-box !important;
+    text-align: center
   }
 
   .products-table th:nth-child(5),
   .products-table td:nth-child(5) {
     width: 17% !important;
     box-sizing: border-box !important;
+    text-align: center
   }
 
   .products-table th:nth-child(6),
@@ -1944,8 +1950,9 @@
 
   .description-modal {
     max-width: 100%;
-    width: 100%;
-    max-height: 95vh;
+    width: 90%;
+    
+    max-height: 75%;
     border-radius: 12px;
   }
 
