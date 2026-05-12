@@ -6,11 +6,13 @@ import { FormsModule } from '@angular/forms';
 import { catchError, EMPTY } from 'rxjs';
 import { ApiConfigService } from '../../auth/api-config.service';
 import { ProductGalleryModalComponent } from './product-gallery-modal.component';
+import { CurrencyService, Currency } from '../../services/currency.service';
+import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductGalleryModalComponent],
+  imports: [CommonModule, FormsModule, ProductGalleryModalComponent, CurrencyFormatPipe],
   templateUrl: './inventario.html',
   styleUrl: './inventario.css'
 })
@@ -53,6 +55,10 @@ export class InventarioComponent implements OnInit {
     isEnabled: true
   };
 
+  // Currency properties
+  availableCurrencies: Currency[] = [];
+  selectedCurrency: Currency | null = null;
+
   // Description modal properties
   showDescriptionModal = false;
   selectedProductForDescription: any = null;
@@ -94,7 +100,8 @@ export class InventarioComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
-    private apiConfig: ApiConfigService
+    private apiConfig: ApiConfigService,
+    private currencyService: CurrencyService
   ) {}
 
   ngOnInit() {
@@ -111,6 +118,10 @@ export class InventarioComponent implements OnInit {
     // Sincronizar el formulario con los valores cargados
     this.thresholdForm.lowStockThreshold = this.lowStockThreshold;
     this.thresholdForm.normalStockThreshold = this.normalStockThreshold;
+
+    // Initialize currency
+    this.availableCurrencies = this.currencyService.getCurrencies();
+    this.selectedCurrency = this.currencyService.getCurrentCurrency();
   }
 
   private tryLoadStoreData() {
@@ -363,6 +374,13 @@ export class InventarioComponent implements OnInit {
 
     this.showThresholdConfig = false;
     alert('Ajustes guardados permanentemente en este navegador.');
+  }
+
+  changeCurrency(currencyCode: string | undefined): void {
+    if (currencyCode) {
+      this.currencyService.setCurrency(currencyCode);
+      this.selectedCurrency = this.currencyService.getCurrentCurrency();
+    }
   }
 
   toggleProductsList() {

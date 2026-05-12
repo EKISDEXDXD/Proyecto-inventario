@@ -27,6 +27,16 @@
       <form class="threshold-form" (ngSubmit)="saveThresholdConfig()">
         <div class="form-row compact-row">
           <div class="form-group">
+            <label>Moneda</label>
+            <select [(ngModel)]="selectedCurrency" (change)="changeCurrency(selectedCurrency?.code)" name="currency" class="form-control">
+              <option *ngFor="let currency of availableCurrencies" [ngValue]="currency">
+                {{ currency.symbol }} - {{ currency.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row compact-row">
+          <div class="form-group">
             <label>Límite Stock Bajo</label>
             <input type="number" [(ngModel)]="thresholdForm.lowStockThreshold" name="lowStockThreshold" min="1" class="form-control" />
           </div>
@@ -173,8 +183,8 @@
                             {{ product.stock }}
                           </span>
                         </td>
-                        <td>${{ product.cost | number: '1.0-2' }}</td>
-                        <td>${{ product.price | number: '1.0-2' }}</td>
+                        <td>{{ product.cost | currencyFormat }}</td>
+                        <td>{{ product.price | currencyFormat }}</td>
                         <td (click)="$event.stopPropagation()">
                           <div class="action-buttons">
                             <button class="btn btn-info btn-icon" (click)="openAlertConfig(product)" title="Configurar alerta"><i class="bx bx-bell"></i></button>
@@ -314,7 +324,7 @@
                     <h4>{{ cost.name }}</h4>
                     <p class="cost-description">{{ cost.description }}</p>
                     <div class="cost-details">
-                      <span class="cost-amount">${{ cost.cost | number: '1.0-2' }}</span>
+                      <span class="cost-amount">{{ cost.cost | currencyFormat }}</span>
                     </div>
                   </div>
                   <div class="cost-actions">
@@ -395,11 +405,11 @@
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Costo</span>
-            <span class="modal-value">${{ selectedProductForDescription?.cost | number: '1.0-2' }}</span>
+            <span class="modal-value">{{ selectedProductForDescription?.cost | currencyFormat }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Precio de Venta</span>
-            <span class="modal-value">${{ selectedProductForDescription?.price | number: '1.0-2' }}</span>
+            <span class="modal-value">{{ selectedProductForDescription?.price | currencyFormat }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Estado</span>

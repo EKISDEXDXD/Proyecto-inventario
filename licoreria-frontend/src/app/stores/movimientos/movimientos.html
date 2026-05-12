@@ -226,7 +226,7 @@
                   {{ product.stock }}
                 </span>
               </td>
-              <td>${{ product.price }}</td>
+              <td>{{ product.price | currencyFormat }}</td>
             </tr>
           </tbody>
         </table>
@@ -278,7 +278,7 @@
                 <div class="movement-details">
                   <div class="detail">
                     <span class="detail-label">Monto:</span>
-                    <span class="detail-value">${{ movement.amountPaid | number: '1.0-2' }}</span>
+                    <span class="detail-value">{{ movement.amountPaid | currencyFormat }}</span>
                   </div>
                   <div class="detail">
                     <span class="detail-label">Usuario:</span>

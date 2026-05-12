@@ -338,15 +338,18 @@ interface ExportHistory {
     .export-modal-overlay {
       position: fixed;
       inset: 0;
-      width: 100%;
-      height: 100%;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 9999;
-      padding: 1rem;
-      pointer-events: auto;
+      z-index: 1000;
+      
+      
     }
 
     /* Modal Container */
@@ -1100,7 +1103,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     // Detectar si la clase .dark existe en el documento
     const homeContainer = document.querySelector('.home-container.dark');
     this.isDarkMode = !!homeContainer;
-    
+
     // Si el usuario cambia el dark mode, detectarlo también
     // Observar cambios en la clase dark del contenedor principal
     this.darkModeObserver = new MutationObserver(() => {
@@ -1108,7 +1111,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       this.isDarkMode = !!homeContainer;
       this.cdr.detectChanges();
     });
-    
+
     const mainContainer = document.querySelector('.home-container');
     if (mainContainer) {
       this.darkModeObserver.observe(mainContainer, { attributes: true, attributeFilter: ['class'] });
@@ -1189,7 +1192,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     };
 
     const baseUrl = this.apiConfig.getBaseUrl();
-    console.log('Enviando solicitud de exportación:', { 
+    console.log('Enviando solicitud de exportación:', {
       url: `${baseUrl}/api/export/sales-report`,
       params,
       hasToken: !!token
@@ -1213,7 +1216,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
         this.ngZone.run(() => {
           this.isLoading = false;
           console.error('Error descargando reporte:', err);
-          
+
           if (err.status === 403) {
             this.errorMessage = 'Acceso denegado (403). Verifica tus permisos.';
           } else if (err.status === 401) {
@@ -1255,7 +1258,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
 
     const baseUrl = this.apiConfig.getBaseUrl();
 
-    console.log('Enviando solicitud de reporte diario:', { 
+    console.log('Enviando solicitud de reporte diario:', {
       url: `${baseUrl}/api/export/sales-report`,
       params,
       hasToken: !!token
@@ -1279,7 +1282,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
         this.ngZone.run(() => {
           this.isLoading = false;
           console.error('Error descargando reporte diario:', err);
-          
+
           if (err.status === 403) {
             this.errorMessage = 'Acceso denegado (403). Verifica tus permisos.';
           } else if (err.status === 401) {
@@ -1328,7 +1331,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       endpoint = `${baseUrl}/api/reports/export/excel/${this.storeId}/all`;
     }
 
-    console.log('Exportando reportes de información:', { 
+    console.log('Exportando reportes de información:', {
       url: endpoint,
       periodType,
       hasToken: !!token
@@ -1352,7 +1355,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
         this.ngZone.run(() => {
           this.isLoading = false;
           console.error('Error descargando reportes de información:', err);
-          
+
           if (err.status === 403) {
             this.errorMessage = 'Acceso denegado (403). Verifica tus permisos.';
           } else if (err.status === 401) {

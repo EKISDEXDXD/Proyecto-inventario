@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TagService } from '../../core/tag.service';
 import { ApiConfigService } from '../../auth/api-config.service';
+import { CurrencyService } from '../../services/currency.service';
+import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-gallery-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe],
   templateUrl: './product-gallery-modal.component.html',
   styleUrl: './product-gallery-modal.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -60,7 +62,8 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   constructor(
     private tagService: TagService,
     private cdr: ChangeDetectorRef,
-    private apiConfig: ApiConfigService
+    private apiConfig: ApiConfigService,
+    private currencyService: CurrencyService
   ) {}
 
   ngOnInit() {

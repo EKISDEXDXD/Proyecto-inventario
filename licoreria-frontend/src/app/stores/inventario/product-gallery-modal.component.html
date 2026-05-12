@@ -187,11 +187,11 @@
                 <div class="product-prices">
                   <div class="price-row">
                     <span class="price-label"><i class="bx bx-dollar" style="font-size: 12px; margin-right: 2px;"></i>Costo:</span>
-                    <span class="price-value">${{ product.cost }}</span>
+                    <span class="price-value">{{ product.cost | currencyFormat }}</span>
                   </div>
                   <div class="price-row">
                     <span class="price-label"><i class="bx bx-tag" style="font-size: 12px; margin-right: 2px;"></i>Precio:</span>
-                    <span class="price-value highlight">${{ product.price }}</span>
+                    <span class="price-value highlight">{{ product.price | currencyFormat }}</span>
                   </div>
                 </div>
 

@@ -6,11 +6,12 @@ import { FormsModule } from '@angular/forms';
 import { JwtHelper } from '../../core/jwt.helper';
 import { ApiConfigService } from '../../auth/api-config.service';
 import { ReportService, Report } from '../../home/dashboard-info/report.service';
+import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-movimientos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe],
   templateUrl: './movimientos.html',
   styleUrl: './movimientos.css'
 })
