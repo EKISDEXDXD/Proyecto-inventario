@@ -7,6 +7,8 @@ import com.inventario.licoreria.modules.products.repository.ProductImageReposito
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -18,9 +20,12 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 public class ProductImageService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProductImageService.class);
 
     @Value("${product.image.path:${user.home}/product-images}")
     private String imageBasePath;
@@ -47,8 +52,8 @@ public class ProductImageService {
      */
     public ProductImageDTO uploadProductImage(MultipartFile file, Long productId) throws IOException {
         try {
-            System.out.println("=== Iniciando uploadProductImage ===");
-            System.out.println("ProductId: " + productId + ", Archivo: " + file.getOriginalFilename() + ", Tamaño: " + file.getSize());
+            logger.info("=== Iniciando uploadProductImage ===");
+            logger.info("ProductId: {}, Archivo: {}, Tamaño: {}", productId, file.getOriginalFilename(), file.getSize());
 
             // Validar producto existe
             Product product = productService.findById(productId);
@@ -58,35 +63,54 @@ public class ProductImageService {
 
             // Validar archivo
             validateFile(file);
-            System.out.println("Validación de archivo pasada");
+            logger.info("Validación de archivo pasada");
 
             // Crear directorio si no existe
             ensureDirectoryExists();
-            System.out.println("Directorio verificado: " + imageBasePath);
+            logger.info("Directorio verificado: {}", imageBasePath);
 
             // Procesar y comprimir imagen
-            System.out.println("Intentando leer imagen...");
+            logger.info("Intentando leer imagen...");
             BufferedImage originalImage = ImageIO.read(file.getInputStream());
             if (originalImage == null) {
                 throw new RuntimeException("No se pudo leer la imagen. Asegúrate que sea una imagen válida (ImageIO retornó null)");
             }
-            System.out.println("Imagen leída exitosamente: " + originalImage.getWidth() + "x" + originalImage.getHeight());
+            logger.info("Imagen leída exitosamente: {}x{}", originalImage.getWidth(), originalImage.getHeight());
 
             // Generar nombre único para el archivo
             String fileName = generateFileName(file.getOriginalFilename());
             Path imagePath = Paths.get(imageBasePath, fileName);
-            System.out.println("Guardando en: " + imagePath.toAbsolutePath());
+            logger.info("Guardando en: {}", imagePath.toAbsolutePath());
 
             // Guardar imagen comprimida
             long compressedSize = saveCompressedImage(originalImage, imagePath, fileName);
-            System.out.println("Imagen comprimida guardada: " + compressedSize + " bytes");
+            logger.info("Imagen comprimida guardada: {} bytes", compressedSize);
 
-            // Eliminar imagen anterior si existe
-            Optional<ProductImage> existingImage = productImageRepository.findByProductId(productId);
-            if (existingImage.isPresent()) {
-                deleteImageFile(existingImage.get().getImagePath());
-                productImageRepository.delete(existingImage.get());
-                System.out.println("Imagen anterior eliminada");
+            // Eliminar imagen anterior si existe (garantizar una sola imagen por producto)
+            // IMPORTANTE: Usar deleteByProductId() que es @Transactional para garantizar commit
+            List<ProductImage> existingImages = productImageRepository.findAllByProductId(productId);
+            if (!existingImages.isEmpty()) {
+                logger.warn("ALERTA: Se encontraron {} imágenes existentes para product_id={}. Eliminando duplicados...", 
+                    existingImages.size(), productId);
+                
+                // Eliminar archivos físicos primero
+                for (ProductImage oldImage : existingImages) {
+                    try {
+                        deleteImageFile(oldImage.getImagePath());
+                        logger.info("Archivo físico eliminado: path={}", oldImage.getImagePath());
+                    } catch (Exception e) {
+                        logger.error("Error al eliminar archivo físico: {} - {}", oldImage.getImagePath(), e.getMessage());
+                    }
+                }
+                
+                // Luego eliminar todos los registros de BD de una vez (con @Transactional)
+                try {
+                    productImageRepository.deleteByProductId(productId);
+                    logger.info("Registros de BD eliminados para product_id={}", productId);
+                } catch (Exception e) {
+                    logger.error("Error crítico al eliminar registros de BD para product_id={}: {}", productId, e.getMessage(), e);
+                    throw new RuntimeException("No se pudo eliminar imagen anterior: " + e.getMessage(), e);
+                }
             }
 
             // Guardar en BD - usar solo el nombre del archivo como ruta relativa
@@ -101,16 +125,14 @@ public class ProductImageService {
             productImage.setUpdatedAt(LocalDateTime.now());
 
             ProductImage saved = productImageRepository.save(productImage);
-            System.out.println("=== uploadProductImage completado exitosamente ===");
+            logger.info("=== uploadProductImage completado exitosamente. Image ID: {} ===", saved.getId());
 
             return convertToDTO(saved);
         } catch (IOException e) {
-            System.err.println("ERROR IOException: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("ERROR IOException al subir imagen: {}", e.getMessage(), e);
             throw new IOException("Error al procesar la imagen: " + e.getMessage(), e);
         } catch (Exception e) {
-            System.err.println("ERROR Exception: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("ERROR Exception al subir imagen: {}", e.getMessage(), e);
             throw new IOException("Error inesperado al procesar la imagen: " + (e.getMessage() != null ? e.getMessage() : "Desconocido"), e);
         }
     }
@@ -266,18 +288,54 @@ public class ProductImageService {
             
             // Validar que la ruta está dentro de imageBasePath por seguridad
             if (!path.toAbsolutePath().startsWith(Paths.get(imageBasePath).toAbsolutePath())) {
-                System.err.println("Intento de acceso a ruta fuera del directorio permitido: " + imagePath);
+                logger.warn("Intento de acceso a ruta fuera del directorio permitido: {}", imagePath);
                 return;
             }
             
             if (Files.exists(path)) {
                 Files.delete(path);
-                System.out.println("Archivo eliminado: " + imagePath);
+                logger.info("Archivo eliminado: {}", imagePath);
             }
         } catch (IOException e) {
             // Log pero no fallar - la imagen ya está en BD
-            System.err.println("Error al eliminar archivo: " + imagePath + " - " + e.getMessage());
+            logger.error("Error al eliminar archivo: {} - {}", imagePath, e.getMessage());
         }
+    }
+
+    /**
+     * Valida y limpia duplicados de imágenes en la base de datos
+     * Este método se ejecuta al iniciar la aplicación
+     */
+    public void validateAndCleanupDuplicates() {
+        try {
+            List<Long> productsWithDuplicates = productImageRepository.findProductsWithDuplicateImages();
+            
+            if (!productsWithDuplicates.isEmpty()) {
+                logger.warn("ALERTA CRÍTICA: Se encontraron {} productos con imágenes duplicadas: {}", 
+                    productsWithDuplicates.size(), productsWithDuplicates);
+                
+                int cleaned = productImageRepository.cleanupDuplicateImages();
+                logger.warn("LIMPIEZA COMPLETADA: Se eliminaron {} registros duplicados de product_image", cleaned);
+            } else {
+                logger.info("Validación de integridad completada: No se encontraron imágenes duplicadas");
+            }
+        } catch (Exception e) {
+            logger.error("Error durante validación de duplicados: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Obtiene todos los IDs de productos con múltiples imágenes
+     */
+    public List<Long> getProductsWithDuplicateImages() {
+        return productImageRepository.findProductsWithDuplicateImages();
+    }
+
+    /**
+     * Obtiene todas las imágenes de un producto (útil para auditoría)
+     */
+    public List<ProductImage> getAllProductImages(Long productId) {
+        return productImageRepository.findAllByProductId(productId);
     }
 
     /**

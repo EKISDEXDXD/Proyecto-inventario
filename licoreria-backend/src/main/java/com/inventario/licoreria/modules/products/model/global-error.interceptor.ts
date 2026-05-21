@@ -9,11 +9,10 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ToastrService } from 'ngx-toastr';
-import { Router } from '@angular/router';
 
 @Injectable()
 export class GlobalErrorInterceptor implements HttpInterceptor {
-  constructor(private toastr: ToastrService, private ngZone: NgZone, private router: Router) {}
+  constructor(private toastr: ToastrService, private ngZone: NgZone) {}
 
   intercept(
     request: HttpRequest<any>,
@@ -42,13 +41,8 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                 errorMessage = 'Solicitud inválida';
                 break;
               case 401:
-                // Sesión expirada - limpiar y redirigir silenciosamente
-                localStorage.removeItem('token');
-                sessionStorage.removeItem('externalStore');
-                this.ngZone.run(() => {
-                  this.router.navigate(['/login']);
-                });
-                return throwError(() => error);
+                errorMessage = 'No autenticado. Por favor inicia sesión.';
+                break;
               case 403:
                 errorMessage = 'No tienes permiso para acceder a este recurso';
                 break;

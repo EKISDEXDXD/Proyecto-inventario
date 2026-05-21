@@ -9,11 +9,22 @@ public class StoreUpdateDTO {
 
     private String accessPassword;
 
+    private String address;
+
+    private String description;
+
     public StoreUpdateDTO() {}
 
     public StoreUpdateDTO(String name, String accessPassword) {
         this.name = name;
         this.accessPassword = accessPassword;
+    }
+
+    public StoreUpdateDTO(String name, String accessPassword, String address, String description) {
+        this.name = name;
+        this.accessPassword = accessPassword;
+        this.address = address;
+        this.description = description;
     }
 
     public String getName() {
@@ -30,5 +41,21 @@ public class StoreUpdateDTO {
 
     public void setAccessPassword(String accessPassword) {
         this.accessPassword = accessPassword;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

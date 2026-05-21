@@ -1,6 +1,7 @@
 package com.inventario.licoreria.modules.inventory.controller;
 
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
+import com.inventario.licoreria.modules.inventory.dto.BatchTransactionDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.inventario.licoreria.modules.inventory.service.TransactionService;
 import jakarta.validation.Valid;
@@ -45,6 +46,25 @@ public class TransactionController {
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             logger.error("❌ [API] Error al crear transacción: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<List<Transaction>> createBatch(@Valid @RequestBody BatchTransactionDTO request) {
+        logger.info("📦 [API] POST /api/transactions/batch - Recibida solicitud para crear {} transacciones", 
+            request.getTransactions() != null ? request.getTransactions().size() : 0);
+        try {
+            List<TransactionDTO> transactions = request.getTransactions();
+            if (transactions == null || transactions.isEmpty()) {
+                logger.warn("⚠️ [API] Se recibió una solicitud batch vacía");
+                return ResponseEntity.ok(List.of());
+            }
+            List<Transaction> created = transactionService.createBatch(transactions);
+            logger.info("✅ [API] {} transacciones creadas exitosamente en lote", created.size());
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            logger.error("❌ [API] Error al crear transacciones en lote: {}", e.getMessage(), e);
             throw e;
         }
     }

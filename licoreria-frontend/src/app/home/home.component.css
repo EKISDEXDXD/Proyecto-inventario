@@ -248,6 +248,10 @@ p {
 @media (max-width: 768px) {
   .header {
     margin-bottom: 2rem;
+    transition: transform 0.5s
+  }
+  .header:hover {
+  transform: translateX(8px);
   }
   
   .logo-title {
@@ -256,6 +260,11 @@ p {
   
   .surface-card {
     padding: 1.5rem;
+    transition: transform 0.5s;
+  }
+  .surface-card:hover {
+    transform: translateX(8px);
+
   }
   
   .dashboard-grid {

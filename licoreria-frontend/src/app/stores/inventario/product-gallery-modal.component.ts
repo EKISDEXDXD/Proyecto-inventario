@@ -20,6 +20,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   @Input() isOpen: boolean = false;
   @Input() storeId: number = 0;
   @Output() onClose = new EventEmitter<void>();
+  @Output() onProductSelect = new EventEmitter<any>();
 
   // Products
   products: any[] = [];
@@ -306,6 +307,13 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
    */
   close() {
     this.onClose.emit();
+  }
+
+  /**
+   * Select a product to open description modal
+   */
+  selectProduct(product: any) {
+    this.onProductSelect.emit(product);
   }
 
   /**

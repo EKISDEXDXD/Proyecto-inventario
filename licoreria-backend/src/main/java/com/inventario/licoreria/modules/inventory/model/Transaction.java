@@ -27,6 +27,9 @@ public class Transaction {
     @Column(name = "date_time", nullable = false)
     private LocalDateTime dateTime;
 
+    @Column(name = "reason")
+    private String reason;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -108,5 +111,13 @@ public class Transaction {
     public void setUserId(Long userId) {
         // This is handled by the user relationship now
         // But kept for backwards compatibility
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 }

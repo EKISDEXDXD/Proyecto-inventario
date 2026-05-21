@@ -51,6 +51,7 @@ export class AuthService {
   logout() {
     localStorage.removeItem('token');
     sessionStorage.removeItem('externalStore');
+    sessionStorage.removeItem('token');
   }
 
   // Método para verificar si el usuario está autenticado

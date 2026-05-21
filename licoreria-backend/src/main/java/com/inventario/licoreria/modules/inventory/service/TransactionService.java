@@ -35,8 +35,8 @@ public class TransactionService {
 
     @Transactional 
     public Transaction create(final TransactionDTO dto) {
-        logger.info("🔄 [CREATE TRANSACTION] Iniciando creación de transacción: productId={}, type={}, quantity={}, userId={}",
-            dto.getProductId(), dto.getType(), dto.getQuantity(), dto.getUserId());
+        logger.info("🔄 [CREATE TRANSACTION] Iniciando creación de transacción: productId={}, type={}, quantity={}, reason={}, userId={}",
+            dto.getProductId(), dto.getType(), dto.getQuantity(), dto.getReason(), dto.getUserId());
         
         try {
             final Product product = productService.findById(dto.getProductId());
@@ -50,6 +50,11 @@ public class TransactionService {
                 logger.error("❌ [CREATE TRANSACTION] Tipo inválido: {}", tipo);
                 throw new RuntimeException("Tipo de transacción inválido: " + tipo);
             }
+            
+            // Validar reason según el tipo
+            final String reason = dto.getReason();
+            validateReason(tipo, reason);
+            logger.info("✅ [CREATE TRANSACTION] Reason validado: {}", reason);
             
             final int stockDelta;
             if ("ENTRADA".equalsIgnoreCase(tipo)) {
@@ -67,6 +72,7 @@ public class TransactionService {
             transaction.setProduct(product);
             transaction.setType(tipo.toUpperCase());
             transaction.setQuantity(dto.getQuantity());
+            transaction.setReason(reason.toUpperCase());
             transaction.setDateTime(dto.getDateTime() != null ? dto.getDateTime() : LocalDateTime.now());
             transaction.setUser(user);
             
@@ -81,6 +87,32 @@ public class TransactionService {
         } catch (Exception e) {
             logger.error("❌ [CREATE TRANSACTION] Error inesperado: {}", e.getMessage(), e);
             throw new RuntimeException("Error al crear transacción: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Valida que el motivo (reason) sea válido según el tipo de transacción
+     */
+    private void validateReason(String type, String reason) {
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new RuntimeException("El motivo es obligatorio");
+        }
+        
+        final String reasonUpper = reason.toUpperCase();
+        
+        if ("ENTRADA".equalsIgnoreCase(type)) {
+            // ENTRADA: solo COMPRA y AJUSTE
+            if (!reasonUpper.equals("COMPRA") && !reasonUpper.equals("AJUSTE")) {
+                logger.error("❌ [VALIDATE REASON] Motivo inválido para ENTRADA: {}. Opciones válidas: COMPRA, AJUSTE", reason);
+                throw new RuntimeException("Para una ENTRADA, el motivo debe ser COMPRA o AJUSTE. Recibido: " + reason);
+            }
+        } else if ("SALIDA".equalsIgnoreCase(type)) {
+            // SALIDA: VENTA, DEVOLUCIÓN, PÉRDIDA, AJUSTE
+            if (!reasonUpper.equals("VENTA") && !reasonUpper.equals("DEVOLUCION") && 
+                !reasonUpper.equals("PERDIDA") && !reasonUpper.equals("AJUSTE")) {
+                logger.error("❌ [VALIDATE REASON] Motivo inválido para SALIDA: {}. Opciones válidas: VENTA, DEVOLUCION, PERDIDA, AJUSTE", reason);
+                throw new RuntimeException("Para una SALIDA, el motivo debe ser VENTA, DEVOLUCION, PERDIDA o AJUSTE. Recibido: " + reason);
+            }
         }
     }
 
@@ -131,5 +163,25 @@ public class TransactionService {
             : transaction.getQuantity();
         productService.adjustStock(transaction.getProductId(), revertDelta);
         transactionRepository.delete(transaction);
+    }
+
+    @Transactional
+    public List<Transaction> createBatch(final List<TransactionDTO> dtos) {
+        logger.info("🔄 [CREATE BATCH TRANSACTIONS] Iniciando creación de {} transacciones en lote", dtos.size());
+        
+        try {
+            List<Transaction> createdTransactions = new java.util.ArrayList<>();
+            
+            for (TransactionDTO dto : dtos) {
+                Transaction created = create(dto);
+                createdTransactions.add(created);
+            }
+            
+            logger.info("✅ [CREATE BATCH TRANSACTIONS] {} transacciones creadas exitosamente en lote", createdTransactions.size());
+            return createdTransactions;
+        } catch (Exception e) {
+            logger.error("❌ [CREATE BATCH TRANSACTIONS] Error al crear transacciones en lote: {}", e.getMessage());
+            throw new RuntimeException("Error al crear transacciones en lote: " + e.getMessage());
+        }
     }
 }

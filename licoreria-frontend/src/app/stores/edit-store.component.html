@@ -12,7 +12,7 @@
           <i class="bx bx-edit"></i>
           Editar Tienda
         </h2>
-        <p class="form-subtitle">Actualiza el nombre y contraseña de acceso de tu tienda</p>
+        <p class="form-subtitle">Actualiza los datos de tu tienda</p>
       </div>
 
       <form [formGroup]="storeForm" (ngSubmit)="updateStore()">
@@ -89,6 +89,52 @@
           <small class="form-hint" *ngIf="showPasswordField">
             <i class="bx bx-shield"></i> Esta nueva contraseña permitirá que otros usuarios accedan a tu tienda de forma externa.
           </small>
+        </div>
+
+        <!-- Dirección de la tienda -->
+        <div class="form-group">
+          <label for="address" class="form-label">
+            <span class="label-text">Dirección</span>
+            <span class="optional">(Opcional)</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-map"></i></span>
+            <input
+              type="text"
+              id="address"
+              formControlName="address"
+              placeholder="Ej: Calle Principal 123, Apt 4B"
+              class="form-input"
+              [class.input-error]="address?.invalid && address?.touched"/>
+          </div>
+          <div class="validation-messages" *ngIf="address?.invalid && address?.touched">
+            <small class="error-text" *ngIf="address?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 255 caracteres
+            </small>
+          </div>
+        </div>
+
+        <!-- Descripción de la tienda -->
+        <div class="form-group">
+          <label for="description" class="form-label">
+            <span class="label-text">Descripción</span>
+            <span class="optional">(Opcional)</span>
+          </label>
+          <div class="input-wrapper">
+            <span class="input-icon"><i class="bx bx-info-circle"></i></span>
+            <textarea
+              id="description"
+              formControlName="description"
+              placeholder="Describe brevemente tu tienda..."
+              class="form-input form-textarea"
+              [class.input-error]="description?.invalid && description?.touched"
+              rows="3"></textarea>
+          </div>
+          <div class="validation-messages" *ngIf="description?.invalid && description?.touched">
+            <small class="error-text" *ngIf="description?.errors?.['maxlength']">
+              <i class="bx bx-x"></i> Máximo 500 caracteres
+            </small>
+          </div>
         </div>
 
         <!-- Success Message -->

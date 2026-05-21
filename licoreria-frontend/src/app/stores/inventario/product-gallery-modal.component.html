@@ -163,11 +163,11 @@
               (dragover)="onProductDragOver($event, product.id)"
               (dragleave)="onProductDragLeave($event, product.id)"
               (drop)="onProductDrop($event, product)"
-              (click)="touchDraggedTag ? onProductTouchAssign(product) : null"
+              (click)="touchDraggedTag ? onProductTouchAssign(product) : selectProduct(product)"
               [class.drag-over]="dragOverProductId === product.id"
               [class.touch-target]="touchDraggedTag !== null"
               [class.assigning]="assigningTag"
-              [style.cursor]="touchDraggedTag ? 'pointer' : 'default'">
+              [style.cursor]="touchDraggedTag ? 'pointer' : 'pointer'">
               <!-- Product Image -->
               <div class="product-image-container">
                 <img 

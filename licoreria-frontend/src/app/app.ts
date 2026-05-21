@@ -1,5 +1,5 @@
-import { Component, HostListener, signal } from '@angular/core';
-import { NavigationStart, Router, RouterOutlet } from '@angular/router';
+import { Component, signal } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,20 +10,7 @@ import { CommonModule } from '@angular/common';
 })
 export class App {
   protected readonly title = signal('licoreria-frontend');
-  hasUnsavedChanges = false; // Propiedad para rastrear cambios no guardados
+  hasUnsavedChanges = false;
 
-  constructor(private router: Router) {
-    this.router.events.subscribe(event => {
-      if (event instanceof NavigationStart) {
-        const isAuthenticated = !!sessionStorage.getItem('token');
-        if (isAuthenticated && (event.url === '/login' || event.url === '/register')) {
-          const confirmLeave = confirm('¿Estás seguro? Perderás tu sesión actual. ¿Quieres continuar?');
-          if (!confirmLeave) {
-            this.router.navigate(['/']);
-          }
-        }
-      }
-    });
-  }
-
+  constructor() {}
 }

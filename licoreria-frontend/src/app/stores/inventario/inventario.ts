@@ -70,8 +70,8 @@ export class InventarioComponent implements OnInit {
   isUploadingImage: boolean = false;
 
   // Collapsible state variables
-  showProductsList: boolean = this.loadCollapsibleState('showProductsList', true);
-  showAdminCostsList: boolean = this.loadCollapsibleState('showAdminCostsList', true);
+  showProductsList: boolean = this.loadCollapsibleState('showProductsList', false);
+  showAdminCostsList: boolean = this.loadCollapsibleState('showAdminCostsList', false);
 
   // Form fields
   newProduct = {
@@ -176,11 +176,11 @@ export class InventarioComponent implements OnInit {
       next: (data) => {
         console.log('loadStoreData - SUCCESS:', data);
         this.store = data;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       },
       error: (err) => {
         console.error('loadStoreData - ERROR:', err);
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       }
     });
   }
@@ -201,12 +201,12 @@ export class InventarioComponent implements OnInit {
         this.products = data;
         this.filteredProducts = data;
         this.loading = false;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       },
       error: (err) => {
         console.error('loadStoreProducts - ERROR:', err);
         this.loading = false;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       }
     });
   }
@@ -467,6 +467,14 @@ export class InventarioComponent implements OnInit {
     this.imageUploadMessage = '';
   }
 
+  // Abrir descripción modal desde galería (mantiene galería abierta)
+  openDescriptionModalFromGallery(product: any) {
+    // Abrir modal de descripción encima de la galería
+    this.selectedProductForDescription = { ...product };
+    this.showDescriptionModal = true;
+    this.loadProductImage(product.id);
+  }
+
   // Métodos para manejo de imágenes
   loadProductImage(productId: number) {
     const token = localStorage.getItem('token');
@@ -656,7 +664,7 @@ export class InventarioComponent implements OnInit {
         }
         this.closeAlertPanel();
         alert('Alerta configurada correctamente');
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       },
       error: (err) => {
         console.error('Error al guardar alerta:', err);
@@ -695,12 +703,12 @@ export class InventarioComponent implements OnInit {
         console.log('loadAdministrativeCosts - SUCCESS, cantidad de costos:', data?.length);
         this.administrativeCosts = data;
         this.loadingAdminCosts = false;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       },
       error: (err) => {
         console.error('loadAdministrativeCosts - ERROR:', err);
         this.loadingAdminCosts = false;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => this.cdr.detectChanges());
       }
     });
   }
@@ -795,7 +803,7 @@ export class InventarioComponent implements OnInit {
             this.showCreateAdminCostForm = false;
             this.showAdminCostsList = true;
 
-            this.cdr.detectChanges();
+            this.ngZone.run(() => this.cdr.detectChanges());
 
             alert('Costo administrativo creado correctamente');
           

@@ -128,12 +128,12 @@
     <div class="content-layout">
       <div class="main-content">
         <div class="card products-card">
-          <div class="flex-between products-header" (click)="toggleProductsList()" [style.cursor]="'pointer'" [style.userSelect]="'none'">
-            <div>
+          <div class="flex-between products-header" [style.cursor]="'pointer'" [style.userSelect]="'none'">
+            <div (click)="toggleProductsList()">
               <h3><i class=""></i> Lista de Productos</h3>
               <p>Gestiona los productos disponibles en tu tienda.</p>
             </div>
-            <div class="products-header-actions" (click)="$event.stopPropagation()">
+            <div class="products-header-actions" (click)="toggleProductsList()">
               <i class="bx bx-lg" [ngClass]="showProductsList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
             </div>
           </div>
@@ -487,6 +487,7 @@
   <app-product-gallery-modal 
     [isOpen]="showGalleryModal" 
     [storeId]="storeId"
-    (onClose)="closeGalleryModal()">
+    (onClose)="closeGalleryModal()"
+    (onProductSelect)="openDescriptionModalFromGallery($event)">
   </app-product-gallery-modal>
 </div>

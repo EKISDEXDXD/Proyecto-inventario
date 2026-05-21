@@ -7,11 +7,14 @@ import { JwtHelper } from '../../core/jwt.helper';
 import { ApiConfigService } from '../../auth/api-config.service';
 import { ReportService, Report } from '../../home/dashboard-info/report.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
+import { ClickOutsideDirective } from '../../core/directives/click-outside.directive';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
   selector: 'app-movimientos',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe, ClickOutsideDirective],
   templateUrl: './movimientos.html',
   styleUrl: './movimientos.css'
 })
@@ -43,6 +46,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   showHistoryList: boolean = false;
   showAdminMovementsList: boolean = false;
 
+  // Shopping Cart State
+  showCart: boolean = false;
+  cartItems: any[] = [];
+  isRegisteringAllMovements: boolean = false;
+
   // Reports Properties
   reports: Report[] = [];
   filteredReports: Report[] = [];
@@ -67,6 +75,19 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     quantity: 0,
     reason: 'VENTA'
   };
+
+  // Autocomplete de productos
+  productSearchTerm: string = '';
+  selectedProductId: number = 0;
+  filteredProductsForAutocomplete: any[] = [];
+  showProductDropdown: boolean = false;
+  recentProducts: any[] = [];
+  private productSearchSubject = new Subject<string>();
+  private readonly RECENT_PRODUCTS_KEY = 'recent_products_movement';
+  private readonly MAX_RECENT_PRODUCTS = 5;
+
+  // Motivos disponibles según el tipo
+  availableReasons: Array<{ value: string; label: string }> = [];
 
   // Administrative Cost Movement form
   adminCostMovement = {
@@ -109,6 +130,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.tryLoadStoreData();
     this.watchStoreIdChanges();
     this.loadReports();
+    this.initializeProductSearchDebounce();
+    this.loadRecentProducts();
+    this.updateAvailableReasons();
   }
 
   ngOnDestroy() {
@@ -116,6 +140,149 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+    this.productSearchSubject.complete();
+  }
+
+  // =============== MÉTODOS PARA AUTOCOMPLETE DE PRODUCTOS ===============
+
+  private initializeProductSearchDebounce() {
+    this.productSearchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.filterProductsForAutocomplete();
+    });
+  }
+
+  private loadRecentProducts() {
+    const stored = localStorage.getItem(this.RECENT_PRODUCTS_KEY);
+    if (stored) {
+      try {
+        const recentIds = JSON.parse(stored) as number[];
+        this.recentProducts = this.products.filter(p => recentIds.includes(p.id)).slice(0, this.MAX_RECENT_PRODUCTS);
+      } catch (e) {
+        console.error('Error loading recent products:', e);
+      }
+    }
+  }
+
+  private saveRecentProduct(productId: number) {
+    const stored = localStorage.getItem(this.RECENT_PRODUCTS_KEY);
+    let recentIds: number[] = [];
+    
+    if (stored) {
+      try {
+        recentIds = JSON.parse(stored);
+      } catch (e) {
+        console.error('Error parsing recent products:', e);
+      }
+    }
+
+    // Remover si ya existe y agregar al inicio
+    recentIds = recentIds.filter(id => id !== productId);
+    recentIds.unshift(productId);
+    
+    // Guardar solo los últimos MAX_RECENT_PRODUCTS
+    recentIds = recentIds.slice(0, this.MAX_RECENT_PRODUCTS);
+    localStorage.setItem(this.RECENT_PRODUCTS_KEY, JSON.stringify(recentIds));
+    
+    // Actualizar array local
+    this.loadRecentProducts();
+  }
+
+  onProductSearch() {
+    this.productSearchSubject.next(this.productSearchTerm);
+  }
+
+  private filterProductsForAutocomplete() {
+    if (this.productSearchTerm.trim() === '') {
+      this.filteredProductsForAutocomplete = [];
+    } else {
+      const searchLower = this.productSearchTerm.toLowerCase();
+      this.filteredProductsForAutocomplete = this.products.filter(product =>
+        product.name.toLowerCase().includes(searchLower) ||
+        (product.description && product.description.toLowerCase().includes(searchLower))
+      );
+    }
+    this.cdr.detectChanges();
+  }
+
+  openProductDropdown() {
+    this.showProductDropdown = true;
+    this.cdr.detectChanges();
+  }
+
+  closeProductDropdown() {
+    this.showProductDropdown = false;
+    this.cdr.detectChanges();
+  }
+
+  selectProductFromAutocomplete(product: any) {
+    this.selectedProductId = product.id;
+    this.movement.productId = product.id;
+    this.productSearchTerm = product.name;
+    this.showProductDropdown = false;
+    this.saveRecentProduct(product.id);
+    
+    // Mover el foco a cantidad automáticamente
+    setTimeout(() => {
+      const quantityInput = document.querySelector('input[name="quantity"]') as HTMLInputElement;
+      if (quantityInput) {
+        quantityInput.focus();
+      }
+    }, 100);
+    
+    this.cdr.detectChanges();
+  }
+
+  clearProductSearch() {
+    this.productSearchTerm = '';
+    this.selectedProductId = 0;
+    this.movement.productId = 0;
+    this.filteredProductsForAutocomplete = [];
+    this.showProductDropdown = false;
+    this.cdr.detectChanges();
+  }
+
+  onProductSearchKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      this.closeProductDropdown();
+    }
+  }
+
+  // =============== MÉTODOS PARA MOTIVOS DINÁMICOS ===============
+
+  private updateAvailableReasons() {
+    if (this.movement.type === 'ENTRADA') {
+      // ENTRADA: COMPRA, AJUSTE
+      this.availableReasons = [
+        { value: 'COMPRA', label: 'Compra' },
+        { value: 'AJUSTE', label: 'Ajuste' }
+      ];
+      // Si el reason actual no es válido, resetear a COMPRA
+      if (this.movement.reason !== 'COMPRA' && this.movement.reason !== 'AJUSTE') {
+        this.movement.reason = 'COMPRA';
+      }
+    } else if (this.movement.type === 'SALIDA') {
+      // SALIDA: VENTA, DEVOLUCIÓN, PÉRDIDA, AJUSTE
+      this.availableReasons = [
+        { value: 'VENTA', label: 'Venta' },
+        { value: 'DEVOLUCION', label: 'Devolución' },
+        { value: 'PERDIDA', label: 'Pérdida' },
+        { value: 'AJUSTE', label: 'Ajuste' }
+      ];
+      // Si el reason actual no es válido, resetear a VENTA
+      if (this.movement.reason !== 'VENTA' && this.movement.reason !== 'DEVOLUCION' && 
+          this.movement.reason !== 'PERDIDA' && this.movement.reason !== 'AJUSTE') {
+        this.movement.reason = 'VENTA';
+      }
+    }
+    this.cdr.detectChanges();
+  }
+
+  onMovementTypeChange() {
+    this.clearProductSearch(); // Limpiar producto al cambiar tipo
+    this.updateAvailableReasons(); // Actualizar motivos disponibles
   }
 
   private checkExternalAccess() {
@@ -360,9 +527,75 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.applyTransactionFilters();
   }
 
-  registerMovement() {
+  // =============== MÉTODOS DEL CARRITO ===============
+
+  addToCart() {
     if (this.movement.productId === 0 || this.movement.quantity <= 0) {
       alert('Por favor selecciona un producto y cantidad válida');
+      return;
+    }
+
+    if (!this.movement.reason || this.movement.reason.trim() === '') {
+      alert('Por favor selecciona un motivo válido');
+      return;
+    }
+
+    // Encontrar el producto en la lista para obtener su nombre y precio
+    const product = this.products.find(p => p.id === this.movement.productId);
+    if (!product) {
+      alert('Producto no encontrado');
+      return;
+    }
+
+    // Crear item del carrito
+    const cartItem = {
+      tempId: Date.now() + Math.random(), // ID temporal único para el carrito
+      productId: this.movement.productId,
+      productName: product.name,
+      type: this.movement.type,
+      quantity: this.movement.quantity,
+      reason: this.movement.reason,
+      price: product.price
+    };
+
+    // Agregar al carrito
+    this.cartItems.push(cartItem);
+    
+    // Abrir carrito automáticamente
+    this.showCart = true;
+
+    // Limpiar formulario
+    this.clearProductSearch();
+    this.movement = { 
+      type: this.movement.type, 
+      productId: 0, 
+      quantity: 0, 
+      reason: this.movement.reason 
+    };
+
+    this.cdr.detectChanges();
+  }
+
+  removeFromCart(index: number) {
+    this.cartItems.splice(index, 1);
+    this.cdr.detectChanges();
+  }
+
+  clearCart() {
+    if (confirm('¿Estás seguro de que deseas limpiar el carrito?')) {
+      this.cartItems = [];
+      this.cdr.detectChanges();
+    }
+  }
+
+  toggleCart() {
+    this.showCart = !this.showCart;
+    this.cdr.detectChanges();
+  }
+
+  registerAllMovements() {
+    if (this.cartItems.length === 0) {
+      alert('El carrito está vacío. Agrega productos primero.');
       return;
     }
 
@@ -379,65 +612,107 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       'Content-Type': 'application/json'
     });
 
+    this.isRegisteringAllMovements = true;
+    this.cdr.detectChanges();
+
     // Obtener la hora local correctamente ajustada
     const now = new Date();
-    const timezoneOffset = now.getTimezoneOffset() * 60 * 1000; // Convertir a milisegundos
+    const timezoneOffset = now.getTimezoneOffset() * 60 * 1000;
     const localDateTime = new Date(now.getTime() - timezoneOffset).toISOString();
 
-    const transactionData = {
-      productId: this.movement.productId,
-      type: this.movement.type,
-      quantity: this.movement.quantity,
+    // Crear array de transacciones a registrar
+    const transactionsToRegister = this.cartItems.map(item => ({
+      productId: item.productId,
+      type: item.type,
+      quantity: item.quantity,
+      reason: item.reason,
       dateTime: localDateTime,
       userId: this.userId
-    };
+    }));
 
-    // Actualización optimista: agregar transacción inmediatamente
-    const optimisticTransaction = {
-      id: Date.now(),
-      ...transactionData,
+    // Agregar transacciones de forma optimista
+    const optimisticTransactions = transactionsToRegister.map((trans, index) => ({
+      id: Date.now() + index,
+      ...trans,
       dateTime: localDateTime
-    };
-    this.transactions.unshift(optimisticTransaction); // Agregar al inicio
+    }));
+
+    this.transactions.unshift(...optimisticTransactions);
     this.cdr.detectChanges();
     const originalTransactions = [...this.transactions];
 
-    // También actualizar stock optimistamente
-    const productIndex = this.products.findIndex(p => p.id === this.movement.productId);
-    let originalStock = 0;
-    if (productIndex !== -1) {
-      originalStock = this.products[productIndex].stock;
-      this.products[productIndex].stock += this.movement.type === 'ENTRADA' ? this.movement.quantity : -this.movement.quantity;
-      this.cdr.detectChanges();
-    }
-
-    this.http.post(`${this.apiTransactionsUrl}`, transactionData, { headers }).subscribe({
-      next: (createdTransaction: any) => {
-        console.log('Transacción creada:', createdTransaction);
-        // Reemplazar la transacción optimista con la real
-        const index = this.transactions.findIndex(t => t.id === optimisticTransaction.id);
-        if (index !== -1) {
-          this.transactions[index] = createdTransaction;
-          // Re-ordenar después de reemplazar
-          this.sortTransactions();
-        }
-        // Recargar también la lista de productos para actualizar stock
-        this.loadStoreProducts();
-        this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'VENTA' };
-        this.cdr.detectChanges();
-        alert('Movimiento registrado correctamente');
-      },
-      error: (err) => {
-        console.error('Error registrando movimiento:', err);
-        // Revertir cambios optimistas
-        this.transactions = originalTransactions;
-        if (productIndex !== -1) {
-          this.products[productIndex].stock = originalStock;
-        }
-        this.cdr.detectChanges();
-        alert('Error al registrar el movimiento. Inténtalo de nuevo.');
+    // Actualizar stock optimistamente para todos los productos
+    const originalStocks: { [key: number]: number } = {};
+    this.cartItems.forEach(item => {
+      const productIndex = this.products.findIndex(p => p.id === item.productId);
+      if (productIndex !== -1) {
+        originalStocks[item.productId] = this.products[productIndex].stock;
+        this.products[productIndex].stock += item.type === 'ENTRADA' ? item.quantity : -item.quantity;
       }
     });
+    this.cdr.detectChanges();
+
+    // Enviar todas las transacciones al servidor
+    const batchRequest = { transactions: transactionsToRegister };
+
+    console.log('Enviando batch:', batchRequest);
+
+    this.http.post(`${this.apiTransactionsUrl}/batch`, batchRequest, { headers }).subscribe({
+      next: (response: any) => {
+        console.log('Respuesta del servidor:', response);
+        
+        // Si response es un array de transacciones
+        const createdTransactions = Array.isArray(response) ? response : response.transactions || [];
+        console.log('Transacciones creadas:', createdTransactions);
+        
+        // Reemplazar transacciones optimistas con las reales
+        createdTransactions.forEach((createdTrans: any, index: number) => {
+          const optIndex = this.transactions.findIndex(t => t.id === optimisticTransactions[index].id);
+          if (optIndex !== -1) {
+            this.transactions[optIndex] = createdTrans;
+          }
+        });
+
+        this.sortTransactions();
+        this.loadStoreProducts();
+        
+        // Limpiar carrito
+        this.cartItems = [];
+        this.showCart = false;
+        this.isRegisteringAllMovements = false;
+        this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
+        this.updateAvailableReasons();
+        this.clearProductSearch();
+        
+        this.cdr.detectChanges();
+        alert(`¡${createdTransactions.length} movimiento(s) registrado(s) correctamente!`);
+      },
+      error: (err) => {
+        console.error('Error registrando movimientos en lote:', err);
+        console.error('Status:', err.status);
+        console.error('Mensaje:', err.error?.message || err.statusText);
+        
+        // Revertir cambios optimistas
+        this.transactions = originalTransactions;
+        Object.keys(originalStocks).forEach(productIdStr => {
+          const productId = parseInt(productIdStr);
+          const productIndex = this.products.findIndex(p => p.id === productId);
+          if (productIndex !== -1) {
+            this.products[productIndex].stock = originalStocks[productId];
+          }
+        });
+
+        this.isRegisteringAllMovements = false;
+        this.cdr.detectChanges();
+        const errorMsg = err.error?.message || 'Error al registrar los movimientos. Inténtalo de nuevo.';
+        alert(errorMsg);
+      }
+    });
+  }
+
+  registerMovement() {
+    // Mantener el método original para compatibilidad
+    this.addToCart();
   }
 
   deleteTransaction(transactionId: number) {

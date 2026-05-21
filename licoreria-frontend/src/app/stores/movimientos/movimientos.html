@@ -56,17 +56,79 @@
       <div class="movement-grid">
         <div class="form-group">
           <label>Tipo</label>
-          <select [(ngModel)]="movement.type" name="type" class="form-control" required>
+          <select [(ngModel)]="movement.type" (change)="onMovementTypeChange()" name="type" class="form-control" required>
             <option value="ENTRADA">Entrada</option>
             <option value="SALIDA">Salida</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group product-autocomplete-group">
           <label>Producto</label>
-          <select [(ngModel)]="movement.productId" name="productId" class="form-control" required>
-            <option value="0">Seleccionar producto</option>
-            <option *ngFor="let product of products" [value]="product.id">{{ product.name }}</option>
-          </select>
+          <div class="autocomplete-container" appClickOutside (clickOutside)="closeProductDropdown()">
+            <div class="autocomplete-input-wrapper">
+              <input
+                type="text"
+                [(ngModel)]="productSearchTerm"
+                name="productSearch"
+                class="form-control autocomplete-input"
+                placeholder="Buscar producto..."
+                (input)="onProductSearch()"
+                (focus)="openProductDropdown()"
+                (keydown)="onProductSearchKeydown($event)"
+                required>
+              <button
+                *ngIf="productSearchTerm && selectedProductId === 0"
+                type="button"
+                class="clear-btn"
+                (click)="clearProductSearch()"
+                title="Limpiar">
+                <i class="bx bx-x"></i>
+              </button>
+              <span *ngIf="selectedProductId > 0" class="check-icon">
+                <i class="bx bx-check"></i>
+              </span>
+            </div>
+
+            <!-- Dropdown Flotante -->
+            <div *ngIf="showProductDropdown && filteredProductsForAutocomplete.length > 0" class="autocomplete-dropdown">
+              <!-- Historial de productos recientes -->
+              <div *ngIf="productSearchTerm === '' && recentProducts.length > 0" class="dropdown-section">
+                <div class="section-label">✨ Recientes</div>
+                <button
+                  *ngFor="let product of recentProducts"
+                  type="button"
+                  class="dropdown-item recent-item"
+                  (click)="selectProductFromAutocomplete(product)">
+                  <span class="product-name">{{ product.name }}</span>
+                  <span class="product-meta">Stock: {{ product.stock }}</span>
+                </button>
+              </div>
+
+              <!-- Resultados de búsqueda -->
+              <div *ngIf="productSearchTerm !== ''" class="dropdown-section">
+                <button
+                  *ngFor="let product of filteredProductsForAutocomplete"
+                  type="button"
+                  class="dropdown-item"
+                  (click)="selectProductFromAutocomplete(product)">
+                  <span class="product-name">{{ product.name }}</span>
+                  <span class="product-meta">
+                    <span class="stock-indicator" [ngClass]="{'low': product.stock < 10, 'out': product.stock === 0, 'normal': product.stock >= 10}">
+                      Stock: {{ product.stock }}
+                    </span>
+                    <span class="product-price">${{ product.price }}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Mensaje sin resultados -->
+            <div *ngIf="showProductDropdown && productSearchTerm !== '' && filteredProductsForAutocomplete.length === 0" class="autocomplete-dropdown no-results">
+              <div class="state-message">
+                <i class="bx bx-inbox"></i> No se encontraron productos
+              </div>
+            </div>
+          </div>
+          <input type="hidden" [(ngModel)]="movement.productId" name="productId">
         </div>
         <div class="form-group">
           <label>Cantidad</label>
@@ -74,19 +136,85 @@
         </div>
         <div class="form-group">
           <label>Motivo</label>
-          <select [(ngModel)]="movement.reason" name="reason" class="form-control">
-            <option value="VENTA">Venta</option>
-            <option value="COMPRA">Compra</option>
-            <option value="DEVOLUCION">Devolución</option>
-            <option value="AJUSTE">Ajuste</option>
-            <option value="PERDIDA">Pérdida</option>
+          <select [(ngModel)]="movement.reason" name="reason" class="form-control" required>
+            <option value="">Seleccionar motivo...</option>
+            <option *ngFor="let motivo of availableReasons" [value]="motivo.value">{{ motivo.label }}</option>
           </select>
         </div>
         <div class="form-group action-block">
-          <button type="submit" class="submit-btn">Registrar movimiento</button>
+          <button type="submit" class="submit-btn">Agregar al carrito</button>
         </div>
       </div>
     </form>
+  </div>
+
+  <!-- CARRITO DE MOVIMIENTOS -->
+  <div class="card movement-card cart-card">
+    <div class="cart-header" (click)="toggleCart()">
+      <div>
+        <h3>
+          <i class="bx bx-cart"></i> 
+          Carrito de movimientos
+          
+        </h3>
+        <p>{{ cartItems.length > 0 ? cartItems.length + ' producto(s) agregado(s)' : 'Agrega productos para registrar múltiples movimientos' }}</p>
+      </div>
+      <i class="bx" [ngClass]="showCart ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
+    </div>
+
+    <div *ngIf="showCart" class="cart-content">
+      <!-- Carrito vacío -->
+      <div *ngIf="cartItems.length === 0" class="state-message">
+        <i class="bx bx-inbox"></i> El carrito está vacío. Agrega productos desde el formulario superior.
+      </div>
+
+      <!-- Tabla de productos en carrito -->
+      <div *ngIf="cartItems.length > 0" class="cart-table-wrapper">
+        <table class="cart-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Tipo</th>
+              <th>Motivo</th>
+              <th>Cantidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of cartItems; let i = index" class="cart-item-row">
+              <td><strong>{{ item.productName }}</strong></td>
+              <td>
+                <span class="badge" [ngClass]="item.type === 'ENTRADA' ? 'badge-success' : 'badge-danger'">
+                  {{ item.type }}
+                </span>
+              </td>
+              <td>{{ item.reason }}</td>
+              <td><span class="quantity-badge">{{ item.quantity }}</span></td>
+              <td>
+                <button type="button" class="btn btn-delete" (click)="removeFromCart(i)" title="Eliminar del carrito">
+                  <i class="bx bx-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Botones de acción -->
+        <div class="cart-actions">
+          <button type="button" class="btn-clear" (click)="clearCart()" [disabled]="isRegisteringAllMovements">
+            <i class="bx bx-refresh"></i> Limpiar carrito
+          </button>
+          <button type="button" class="btn-register-all" (click)="registerAllMovements()" [disabled]="isRegisteringAllMovements">
+            <span *ngIf="!isRegisteringAllMovements">
+              <i class="bx bx-check"></i> Registrar ({{ cartItems.length }})
+            </span>
+            <span *ngIf="isRegisteringAllMovements">
+              <i class="bx bx-loader bx-spin"></i> Registrando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Historial y Lista de Productos -->
@@ -169,7 +297,7 @@
                 </td>
                 <td>{{ getProductName(transaction.productId) }}</td>
                 <td>{{ transaction.quantity }}</td>
-                <td>{{ transaction.type === 'ENTRADA' ? 'Compra' : 'Venta' }}</td>
+                <td>{{ transaction.reason || '-' }}</td>
                 <td>
                   <button class="delete-btn" *ngIf="!isExternalMode" (click)="deleteTransaction(transaction.id)"
                     title="Eliminar movimiento">

@@ -20,6 +20,10 @@ public class TransactionDTO {
     @NotNull(message = "El ID del usuario es obligatorio")
     private Long userId;
 
+    @NotNull(message = "El motivo es obligatorio")
+    @Pattern(regexp = "^(COMPRA|VENTA|DEVOLUCION|AJUSTE|PERDIDA)$", message = "El motivo debe ser COMPRA, VENTA, DEVOLUCION, AJUSTE o PERDIDA")
+    private String reason;
+
     public TransactionDTO() {
     }
 
@@ -69,5 +73,13 @@ public class TransactionDTO {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 }

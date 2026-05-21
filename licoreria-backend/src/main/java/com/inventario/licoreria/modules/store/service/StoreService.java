@@ -104,6 +104,16 @@ public class StoreService {
                 store.setAccessPassword(passwordEncoder.encode(password.trim()));
             }
             
+            // Actualizar dirección si se proporciona
+            if (dto.getAddress() != null && !dto.getAddress().trim().isEmpty()) {
+                store.setAddress(dto.getAddress().trim());
+            }
+            
+            // Actualizar descripción si se proporciona
+            if (dto.getDescription() != null && !dto.getDescription().trim().isEmpty()) {
+                store.setDescription(dto.getDescription().trim());
+            }
+            
             Store updated = storeRepository.save(store);
             log.info("Tienda {} actualizada exitosamente", id);
             return convertToResponseDTO(updated);

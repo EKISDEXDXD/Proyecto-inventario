@@ -50,7 +50,9 @@ export class EditStoreComponent implements OnInit {
   initializeForm() {
     this.storeForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
-      accessPassword: ['', [Validators.minLength(6), Validators.maxLength(50)]]
+      accessPassword: ['', [Validators.minLength(6), Validators.maxLength(50)]],
+      address: ['', [Validators.maxLength(255)]],
+      description: ['', [Validators.maxLength(500)]]
     });
   }
 
@@ -62,7 +64,9 @@ export class EditStoreComponent implements OnInit {
     this.http.get(apiUrl, { headers }).subscribe({
       next: (store: any) => {
         this.storeForm.patchValue({
-          name: store.name
+          name: store.name,
+          address: store.address || '',
+          description: store.description || ''
         });
         this.cdr.markForCheck();
       },
@@ -80,6 +84,14 @@ export class EditStoreComponent implements OnInit {
 
   get accessPassword() {
     return this.storeForm.get('accessPassword');
+  }
+
+  get address() {
+    return this.storeForm.get('address');
+  }
+
+  get description() {
+    return this.storeForm.get('description');
   }
 
   togglePasswordField() {
@@ -120,9 +132,11 @@ export class EditStoreComponent implements OnInit {
     const token = localStorage.getItem('token');
     const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : undefined;
 
-    // Preparar datos: solo incluir contraseña si se está cambiando
+    // Preparar datos a actualizar
     const updateData = {
-      name: this.storeForm.get('name')?.value?.trim()
+      name: this.storeForm.get('name')?.value?.trim(),
+      address: this.storeForm.get('address')?.value?.trim() || '',
+      description: this.storeForm.get('description')?.value?.trim() || ''
     } as any;
 
     // Solo incluir contraseña si el usuario está intentando cambiarla y proporciona un valor válido

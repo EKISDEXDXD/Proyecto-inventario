@@ -6,10 +6,18 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Table;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(
+    name = "product_image",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = "product_id", name = "uk_product_image_product_id")
+    }
+)
 public class ProductImage {
 
     @Id

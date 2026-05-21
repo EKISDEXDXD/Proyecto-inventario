@@ -79,8 +79,19 @@ public class ProductController {
             @PathVariable @NonNull Long storeId, 
             Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        validateNotExternal(authHeader);
-        return productService.findByStoreId(storeId, authentication.getName());
+        try {
+            validateNotExternal(authHeader);
+            System.out.println("=== getByStore START - storeId: " + storeId + ", user: " + authentication.getName());
+            List<Product> products = productService.findByStoreId(storeId, authentication.getName());
+            System.out.println("=== getByStore SUCCESS - productos encontrados: " + (products != null ? products.size() : 0));
+            return products;
+        } catch (Exception e) {
+            System.err.println("=== getByStore ERROR ===");
+            System.err.println("Error type: " + e.getClass().getName());
+            System.err.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @PostMapping
