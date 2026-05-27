@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -8,17 +8,20 @@ import { ApiConfigService } from '../../auth/api-config.service';
 import { ReportService, Report } from '../../home/dashboard-info/report.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { ClickOutsideDirective } from '../../core/directives/click-outside.directive';
+import { PaymentMethodModalComponent } from './payment-method-modal.component';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
   selector: 'app-movimientos',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyFormatPipe, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe, ClickOutsideDirective, PaymentMethodModalComponent],
   templateUrl: './movimientos.html',
   styleUrl: './movimientos.css'
 })
 export class MovimientosComponent implements OnInit, OnDestroy {
+  @ViewChild(PaymentMethodModalComponent) paymentMethodModal!: PaymentMethodModalComponent;
+
   storeId: number = 0;
   store: any = null;
   products: any[] = [];
@@ -50,6 +53,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   showCart: boolean = false;
   cartItems: any[] = [];
   isRegisteringAllMovements: boolean = false;
+  selectedPaymentMethodConfigId: number | null = null;
+  pendingCartRegistration: boolean = false;
 
   // Reports Properties
   reports: Report[] = [];
@@ -432,17 +437,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     });
 
     console.log('Cargando transacciones para storeId:', this.storeId);
-    // Para obtener transacciones de la tienda, asumimos que hay un endpoint o filtramos por productos de la tienda
-    // Por ahora, cargamos todas y filtramos después
-    this.http.get<any[]>(`${this.apiTransactionsUrl}`, { headers }).subscribe({
+    // Usar el nuevo endpoint de transacciones por tienda
+    const endpoint = `${this.apiTransactionsUrl}/store/${this.storeId}`;
+    this.http.get<any[]>(endpoint, { headers }).subscribe({
       next: (data) => {
         console.log('Transacciones cargadas, total:', data?.length);
-        // Filtrar transacciones de productos de esta tienda
-        const productIds = this.products.map(p => p.id);
-        console.log('Product IDs de esta tienda:', productIds);
-        const filteredTransactions = data.filter(t => productIds.includes(t.productId));
-        console.log('Transacciones filtradas para esta tienda:', filteredTransactions?.length);
-        this.transactions = filteredTransactions.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+        // Las transacciones ya están filtradas por tienda en el backend
+        this.transactions = data.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
         this.applyTransactionFilters(); // Aplicar filtros después de cargar
         this.loading = false;
         this.cdr.detectChanges();
@@ -604,6 +605,21 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Mostrar modal de forma de pago
+    this.pendingCartRegistration = true;
+    this.paymentMethodModal.open();
+  }
+
+  onPaymentMethodConfigIdSelected(paymentMethodConfigId: number) {
+    this.selectedPaymentMethodConfigId = paymentMethodConfigId;
+    this.proceedWithRegistration();
+  }
+
+  private proceedWithRegistration() {
+    if (this.selectedPaymentMethodConfigId === null || !this.pendingCartRegistration) {
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -613,6 +629,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     });
 
     this.isRegisteringAllMovements = true;
+    this.pendingCartRegistration = false;
     this.cdr.detectChanges();
 
     // Obtener la hora local correctamente ajustada
@@ -620,14 +637,15 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     const timezoneOffset = now.getTimezoneOffset() * 60 * 1000;
     const localDateTime = new Date(now.getTime() - timezoneOffset).toISOString();
 
-    // Crear array de transacciones a registrar
+    // Crear array de transacciones a registrar CON método de pago
     const transactionsToRegister = this.cartItems.map(item => ({
       productId: item.productId,
       type: item.type,
       quantity: item.quantity,
       reason: item.reason,
       dateTime: localDateTime,
-      userId: this.userId
+      userId: this.userId,
+      paymentMethodConfigId: this.selectedPaymentMethodConfigId  // Usar el ID del método de pago
     }));
 
     // Agregar transacciones de forma optimista
@@ -680,12 +698,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         this.cartItems = [];
         this.showCart = false;
         this.isRegisteringAllMovements = false;
+        this.selectedPaymentMethodConfigId = null;
         this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
         this.updateAvailableReasons();
         this.clearProductSearch();
         
         this.cdr.detectChanges();
-        alert(`¡${createdTransactions.length} movimiento(s) registrado(s) correctamente!`);
       },
       error: (err) => {
         console.error('Error registrando movimientos en lote:', err);
@@ -703,6 +721,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         });
 
         this.isRegisteringAllMovements = false;
+        this.selectedPaymentMethodConfigId = null;
         this.cdr.detectChanges();
         const errorMsg = err.error?.message || 'Error al registrar los movimientos. Inténtalo de nuevo.';
         alert(errorMsg);

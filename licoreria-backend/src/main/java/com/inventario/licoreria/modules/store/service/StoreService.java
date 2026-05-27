@@ -40,6 +40,19 @@ public class StoreService {
                 .toList();
     }
 
+    public StoreResponseDTO findMyStore(String username) {
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado");
+        }
+        List<Store> stores = storeRepository.findByManager(user);
+        if (stores.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró ninguna tienda asociada al usuario");
+        }
+        // Devolver la primera tienda (si hay múltiples, devolver la primera creada)
+        return convertToResponseDTO(stores.get(0));
+    }
+
     public StoreResponseDTO findById(Long id, String username) {
         Store store = findStoreById(id);
         // Permitir que cualquier usuario autenticado vea cualquier tienda (acceso en lectura)

@@ -311,16 +311,18 @@ public class SalesReportService {
 
         // Configurar ancho de columnas
         sheet.setColumnWidth(0, 24);  // Para fechas completas con hora
-        sheet.setColumnWidth(1, 12);
-        sheet.setColumnWidth(2, 20);
-        sheet.setColumnWidth(3, 12);
-        sheet.setColumnWidth(4, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(5, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(6, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(7, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(8, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(9, 16);  // Aumentado para dinero
-        sheet.setColumnWidth(10, 15);
+        sheet.setColumnWidth(1, 12);  // Tipo
+        sheet.setColumnWidth(2, 15);  // Motivo
+        sheet.setColumnWidth(3, 20);  // Método de Pago
+        sheet.setColumnWidth(4, 20);  // Producto
+        sheet.setColumnWidth(5, 12);  // Cantidad
+        sheet.setColumnWidth(6, 16);  // Costo Unit
+        sheet.setColumnWidth(7, 16);  // Costo Total
+        sheet.setColumnWidth(8, 16);  // Precio Unit
+        sheet.setColumnWidth(9, 16);  // Precio Total
+        sheet.setColumnWidth(10, 16); // Ganancia Unit
+        sheet.setColumnWidth(11, 16); // Ganancia Total
+        sheet.setColumnWidth(12, 15); // Usuario
 
         // TÍTULO
         Row titleRow = sheet.createRow(rowNum++);
@@ -328,12 +330,12 @@ public class SalesReportService {
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("MOVIMIENTOS DETALLADOS");
         titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 10));
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 12));
 
         // Encabezados de columnas (sin espacios extras)
         Row headerRow = sheet.createRow(rowNum++);
         headerRow.setHeightInPoints(18);
-        String[] headers = {"Fecha", "Tipo", "Producto", "Cantidad", "Costo Unit", "Costo Total", 
+        String[] headers = {"Fecha", "Tipo", "Motivo", "Método de Pago", "Producto", "Cantidad", "Costo Unit", "Costo Total", 
                           "Precio Unit", "Precio Total", "Ganancia Unit", "Ganancia Total", "Usuario"};
         
         for (int i = 0; i < headers.length; i++) {
@@ -358,7 +360,7 @@ public class SalesReportService {
             monthRow.setHeightInPoints(16);
             monthRow.createCell(0).setCellValue(month.toString());
             monthRow.getCell(0).setCellStyle(subtitleStyle);
-            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 10));
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 12));
 
             // Datos del mes
             for (Transaction t : monthTransactions.stream()
@@ -390,11 +392,27 @@ public class SalesReportService {
                 typeCell.setCellValue(t.getType());
                 typeCell.setCellStyle(dataCellStyle);
 
-                Cell productCell = row.createCell(2);
+                Cell reasonCell = row.createCell(2);
+                reasonCell.setCellValue(t.getReason() != null ? t.getReason() : "N/A");
+                reasonCell.setCellStyle(dataCellStyle);
+
+                Cell paymentMethodCell = row.createCell(3);
+                String paymentMethodName = "N/A";
+                try {
+                    if (t.getPaymentMethod() != null && t.getPaymentMethod().getPaymentMethodConfig() != null) {
+                        paymentMethodName = t.getPaymentMethod().getPaymentMethodConfig().getName();
+                    }
+                } catch (Exception e) {
+                    paymentMethodName = "N/A";
+                }
+                paymentMethodCell.setCellValue(paymentMethodName);
+                paymentMethodCell.setCellStyle(dataCellStyle);
+
+                Cell productCell = row.createCell(4);
                 productCell.setCellValue(product.getName());
                 productCell.setCellStyle(dataCellStyle);
 
-                Cell qtyCell = row.createCell(3);
+                Cell qtyCell = row.createCell(5);
                 qtyCell.setCellValue(t.getQuantity());
                 qtyCell.setCellStyle(numberStyle);
 
@@ -408,25 +426,25 @@ public class SalesReportService {
                     ? gainUnit.multiply(new BigDecimal(t.getQuantity())) 
                     : BigDecimal.ZERO;
 
-                row.createCell(4).setCellValue(costUnit.doubleValue());
-                row.getCell(4).setCellStyle(currencyStyle);
-                
-                row.createCell(5).setCellValue(costTotal.doubleValue());
-                row.getCell(5).setCellStyle(currencyStyle);
-                
-                row.createCell(6).setCellValue(priceUnit.doubleValue());
+                row.createCell(6).setCellValue(costUnit.doubleValue());
                 row.getCell(6).setCellStyle(currencyStyle);
                 
-                row.createCell(7).setCellValue(priceTotal.doubleValue());
+                row.createCell(7).setCellValue(costTotal.doubleValue());
                 row.getCell(7).setCellStyle(currencyStyle);
                 
-                row.createCell(8).setCellValue(gainUnit.doubleValue());
+                row.createCell(8).setCellValue(priceUnit.doubleValue());
                 row.getCell(8).setCellStyle(currencyStyle);
                 
-                row.createCell(9).setCellValue(gainTotal.doubleValue());
+                row.createCell(9).setCellValue(priceTotal.doubleValue());
                 row.getCell(9).setCellStyle(currencyStyle);
+                
+                row.createCell(10).setCellValue(gainUnit.doubleValue());
+                row.getCell(10).setCellStyle(currencyStyle);
+                
+                row.createCell(11).setCellValue(gainTotal.doubleValue());
+                row.getCell(11).setCellStyle(currencyStyle);
 
-                Cell userCell = row.createCell(10);
+                Cell userCell = row.createCell(12);
                 userCell.setCellValue(user != null ? user.getUsername() : "N/A");
                 userCell.setCellStyle(dataCellStyle);
             }

@@ -51,8 +51,11 @@ public class UserService {
     }
 
     public User findByUsername(@NonNull final String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
+        return userRepository.findByUsername(username).orElse(null);
+    }
+
+    public User findByEmail(@NonNull final String email) {
+        return userRepository.findByEmail(email).orElse(null);
     }
 
     public UserResponseDTO updateUsername(@NonNull final Long id, @NonNull final String newUsername) {

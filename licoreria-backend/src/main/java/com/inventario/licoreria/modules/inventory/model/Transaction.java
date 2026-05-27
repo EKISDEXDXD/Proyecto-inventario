@@ -2,6 +2,7 @@ package com.inventario.licoreria.modules.inventory.model;
 
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.users.model.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import org.springframework.lang.NonNull;
@@ -33,6 +34,10 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonIgnore
+    private PaymentMethod paymentMethod;
 
     public Transaction() {
     }
@@ -119,5 +124,13 @@ public class Transaction {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 }

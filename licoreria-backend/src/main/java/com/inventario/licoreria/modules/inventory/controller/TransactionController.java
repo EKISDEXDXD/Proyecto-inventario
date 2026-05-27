@@ -74,6 +74,11 @@ public class TransactionController {
         return transactionService.findByProductId(productId);
     }
 
+    @GetMapping("/store/{storeId}")
+    public List<Transaction> getByStore(@PathVariable @NonNull Long storeId) {
+        return transactionService.findByStoreId(storeId);
+    }
+
     @GetMapping("/range")
     public List<Transaction> getByRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,

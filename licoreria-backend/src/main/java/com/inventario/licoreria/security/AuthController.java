@@ -20,7 +20,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@Valid @RequestBody AuthRequest request) {
-        String token = authService.login(request.username(), request.password());
+        String token = authService.login(request.email() != null ? request.email() : request.username(), request.password());
         return ResponseEntity.ok(token);
     }
 
@@ -30,6 +30,6 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body("Usuario registrado correctamente");
     }
 
-    public record AuthRequest(String username, String password) {}
+    public record AuthRequest(String username, String email, String password) {}
     public record RegisterRequest(String username, String password) {}
 }

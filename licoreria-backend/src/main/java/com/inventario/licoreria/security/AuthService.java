@@ -35,12 +35,17 @@ public class AuthService {
         Objects.requireNonNull(username, "username no puede ser null");
         Objects.requireNonNull(password, "password no puede ser null");
 
-        User user = userService.findByUsername(username);
+        // Intentar buscar por email primero, luego por username
+        User user = userService.findByEmail(username);
+        if (user == null) {
+            user = userService.findByUsername(username);
+        }
+        
         if (user == null || !passwordEncoder.matches(password, user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
         }
-        String token = jwtUtil.generateTokenWithRoleAndId(username, user.getRole().name(), user.getId());
-        loginLogRepository.save(new LoginLog(username));
+        String token = jwtUtil.generateTokenWithRoleAndId(user.getUsername(), user.getRole().name(), user.getId());
+        loginLogRepository.save(new LoginLog(user.getUsername()));
         return token;
     }
 

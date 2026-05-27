@@ -197,5 +197,163 @@
       </div>
     </div>
 
+    <!-- Card: Métodos de Pago de Tienda -->
+    <div class="settings-card">
+      <div class="card-header">
+        <i class="bx bx-credit-card"></i>
+        <h2>Métodos de Pago de Tienda</h2>
+      </div>
+      
+      <div class="card-body">
+        <p class="section-description">
+          <i class="bx bx-info-circle" style="color: #667eea; margin-right: 0.5rem;"></i>
+          Configura los métodos de pago disponibles en tu tienda. Estos aparecerán al registrar movimientos de inventario.
+        </p>
+
+        <!-- Lista de métodos de pago existentes -->
+        <div *ngIf="!loadingPaymentMethods && paymentMethods.length > 0" class="payment-methods-list">
+          <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Métodos configurados:</h3>
+          <div class="methods-grid">
+            <div *ngFor="let method of paymentMethods" class="method-card">
+              <div class="method-header">
+                <div class="method-info">
+                  <h4>{{ method.name }}</h4>
+                  <span class="method-type" [ngClass]="'type-' + method.type.toLowerCase()">
+                    {{ method.type }}
+                  </span>
+                </div>
+                <button 
+                  (click)="deletePaymentMethod(method.id)"
+                  class="btn btn-danger btn-sm"
+                  title="Eliminar método">
+                  <i class="bx bx-trash"></i>
+                </button>
+              </div>
+              
+              <div *ngIf="method.type === 'QR' && method.imageUrl" class="method-preview">
+                <img [src]="method.imageUrl" alt="QR Code" class="qr-image">
+              </div>
+              
+              <div class="method-footer">
+                <small class="text-muted">
+                  <i class="bx bx-calendar"></i>
+                  {{ method.createdAt | date:'short' }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensaje si no hay métodos -->
+        <div *ngIf="!loadingPaymentMethods && paymentMethods.length === 0" class="empty-state">
+          <i class="bx bx-inbox"></i>
+          <p>No hay métodos de pago configurados aún</p>
+        </div>
+
+        <!-- Botón de agregar nuevo método -->
+        <button 
+          *ngIf="!showPaymentMethodForm"
+          class="btn btn-primary" 
+          (click)="togglePaymentMethodForm()"
+          [disabled]="loadingPaymentMethods">
+          <i class="bx bx-plus"></i>
+          Agregar método de pago
+        </button>
+
+        <!-- Formulario de nuevo método de pago -->
+        <form 
+          *ngIf="showPaymentMethodForm" 
+          [formGroup]="paymentMethodForm"
+          class="settings-form payment-method-form"
+          (ngSubmit)="createPaymentMethod()">
+          
+          <div class="form-group">
+            <label for="pmName">
+              <i class="bx bx-tag" style="color: #667eea;"></i>
+              Nombre del método:
+            </label>
+            <input
+              type="text"
+              id="pmName"
+              formControlName="name"
+              placeholder="Ej: Efectivo principal, QR mostrador"
+              class="form-control">
+            <small *ngIf="paymentMethodForm.get('name')?.hasError('required')" class="error-text">
+              <i class="bx bx-info-circle"></i> El nombre es requerido
+            </small>
+            <small *ngIf="paymentMethodForm.get('name')?.hasError('minlength')" class="error-text">
+              <i class="bx bx-info-circle"></i> El nombre debe tener al menos 3 caracteres
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="pmType">
+              <i class="bx bx-briefcase" style="color: #667eea;"></i>
+              Tipo de método:
+            </label>
+            <select
+              id="pmType"
+              formControlName="type"
+              class="form-control">
+              <option value="EFECTIVO">💵 Efectivo</option>
+              <option value="QR">📱 Código QR</option>
+            </select>
+          </div>
+
+          <!-- Campo de imagen para QR -->
+          <div 
+            *ngIf="paymentMethodForm.get('type')?.value === 'QR'"
+            class="form-group">
+            <label for="pmImage">
+              <i class="bx bx-image" style="color: #667eea;"></i>
+              Imagen del QR:
+            </label>
+            
+            <!-- Preview de imagen -->
+            <div *ngIf="selectedQRImagePreview" class="image-preview">
+              <img [src]="selectedQRImagePreview" alt="QR Preview" class="qr-image-preview">
+              <button 
+                type="button"
+                class="btn btn-sm btn-danger"
+                (click)="clearQRImage()">
+                <i class="bx bx-trash"></i> Remover imagen
+              </button>
+            </div>
+
+            <!-- Input de archivo -->
+            <input
+              type="file"
+              id="pmImage"
+              accept="image/*"
+              (change)="onQRImageSelected($event)"
+              class="form-control"
+              [disabled]="selectedQRImagePreview !== null">
+            <small class="info-text">
+              <i class="bx bx-info-circle"></i> Sube una imagen del código QR (JPG, PNG, GIF o WebP - máx 5MB, mín 100x100px)
+            </small>
+          </div>
+
+          <div class="form-actions">
+            <button 
+              type="submit" 
+              class="btn btn-success"
+              [disabled]="!paymentMethodForm.valid || loadingPaymentMethodCreation">
+              <i class="bx bx-save"></i>
+              <span *ngIf="!loadingPaymentMethodCreation">Crear método</span>
+              <span *ngIf="loadingPaymentMethodCreation"><i class="bx bx-loader-alt bx-spin"></i> Creando...</span>
+            </button>
+            <button 
+              type="button"
+              class="btn btn-secondary"
+              (click)="togglePaymentMethodForm()"
+              [disabled]="loadingPaymentMethodCreation">
+              <i class="bx bx-x"></i>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </div>

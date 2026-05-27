@@ -30,6 +30,11 @@ public class StoreController {
         return ResponseEntity.ok(storeService.findAllByUser(authentication.getName()));
     }
 
+    @GetMapping("/my-store")
+    public ResponseEntity<StoreResponseDTO> getMyStore(Authentication authentication) {
+        return ResponseEntity.ok(storeService.findMyStore(authentication.getName()));
+    }
+
     @GetMapping("/external/{id}")
     public ResponseEntity<Store> getByIdExternal(@PathVariable Long id) {
         return ResponseEntity.ok(storeService.findStoreByIdExternal(id));

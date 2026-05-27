@@ -1,5 +1,11 @@
 <div class="movimientos-container">
 
+  <!-- Modal de Forma de Pago -->
+  <app-payment-method-modal
+    [storeId]="storeId"
+    (paymentMethodConfigIdSelected)="onPaymentMethodConfigIdSelected($event)"
+    (closed)="pendingCartRegistration = false">
+  </app-payment-method-modal>
 
   <div class="card main-title-card">
     <h1 class="main-title"><i class="bx bx-trending-up"></i> Movimientos</h1>

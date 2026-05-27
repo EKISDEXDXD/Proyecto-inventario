@@ -1,6 +1,7 @@
 package com.inventario.licoreria.modules.inventory.service;
 
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
+import com.inventario.licoreria.modules.inventory.dto.PaymentMethodDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
 import com.inventario.licoreria.modules.products.model.Product;
@@ -22,11 +23,13 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final ProductService productService; // Inyectar para actualizar stock
     private final UserService userService;
+    private final PaymentMethodService paymentMethodService;
 
-    public TransactionService(TransactionRepository transactionRepository, ProductService productService, UserService userService) {
+    public TransactionService(TransactionRepository transactionRepository, ProductService productService, UserService userService, PaymentMethodService paymentMethodService) {
         this.transactionRepository = transactionRepository;
         this.productService = productService;
         this.userService = userService;
+        this.paymentMethodService = paymentMethodService;
     }
 
     public List<Transaction> findAll() {
@@ -80,6 +83,19 @@ public class TransactionService {
             final Transaction saved = transactionRepository.save(transaction);
             logger.info("✅ [CREATE TRANSACTION] Transacción guardada exitosamente: ID = {}", saved.getId());
             
+            // Crear PaymentMethod si se proporciona en el DTO
+            if (dto.getPaymentMethodConfigId() != null) {
+                logger.info("💳 [CREATE TRANSACTION] Creando método de pago: configId = {}", dto.getPaymentMethodConfigId());
+                try {
+                    PaymentMethodDTO paymentMethodDTO = new PaymentMethodDTO(saved.getId(), dto.getPaymentMethodConfigId());
+                    paymentMethodService.create(paymentMethodDTO);
+                    logger.info("✅ [CREATE TRANSACTION] Método de pago creado exitosamente");
+                } catch (Exception e) {
+                    logger.error("⚠️ [CREATE TRANSACTION] Error al crear método de pago (no crítico): {}", e.getMessage());
+                    // No lanzamos excepción para no romper la transacción
+                }
+            }
+            
             return saved;
         } catch (RuntimeException e) {
             logger.error("❌ [CREATE TRANSACTION] Error: {}", e.getMessage());
@@ -131,6 +147,11 @@ public class TransactionService {
     // Buscar transacciones por rango de fechas
     public List<Transaction> findByDateRange(LocalDateTime start, LocalDateTime end) {
         return transactionRepository.findByDateTimeBetweenOrderByDateTimeDesc(start, end);
+    }
+
+    // Buscar transacciones por tienda
+    public List<Transaction> findByStoreId(@NonNull Long storeId) {
+        return transactionRepository.findByStoreIdOrderByDateTimeDesc(storeId);
     }
 
     @Transactional

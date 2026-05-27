@@ -680,3 +680,228 @@
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
   color: #fca5a5;
 }
+
+/* ========================================================================
+   PAYMENT METHODS SECTION STYLES
+   ======================================================================== */
+.payment-method-form {
+  margin-top: 1.5rem;
+}
+
+.payment-methods-list {
+  margin-bottom: 2rem;
+}
+
+.methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.method-card {
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+:host-context(.dark) .method-card {
+  background: #2d2d44;
+  border-color: #3d3d54;
+}
+
+.method-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.method-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.method-info h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+:host-context(.dark) .method-info h4 {
+  color: #f1f5f9;
+}
+
+.method-type {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.method-type.type-efectivo {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1));
+  color: #15803d;
+}
+
+:host-context(.dark) .method-type.type-efectivo {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.method-type.type-qr {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.1));
+  color: #1e40af;
+}
+
+:host-context(.dark) .method-type.type-qr {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.method-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: white;
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-height: 100px;
+}
+
+:host-context(.dark) .method-preview {
+  background: #1a1a2e;
+}
+
+.qr-image,
+.qr-image-preview {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.method-footer {
+  border-top: 1px solid #e0e0e0;
+  padding-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+:host-context(.dark) .method-footer {
+  border-top-color: #3d3d54;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+}
+
+:host-context(.dark) .empty-state {
+  color: #cbd5e1;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+  display: block;
+}
+
+.image-preview {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+:host-context(.dark) .image-preview {
+  background: #2d2d44;
+}
+
+.info-text {
+  color: #0ea5e9;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+:host-context(.dark) .info-text {
+  color: #0ea5e9;
+}
+
+.btn-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+:host-context(.dark) .btn-secondary {
+  background: #3d3d54;
+  color: #f1f5f9;
+  border-color: #4d4d64;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+:host-context(.dark) .btn-secondary:hover:not(:disabled) {
+  background: #4d4d64;
+}
+
+/* ========================================================================
+   PAYMENT METHODS RESPONSIVE DESIGN
+   ======================================================================== */
+@media (max-width: 768px) {
+  .methods-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .method-card {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .methods-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .method-card {
+    padding: 0.875rem;
+  }
+
+  .method-info h4 {
+    font-size: 1rem;
+  }
+}

@@ -24,6 +24,8 @@ public class TransactionDTO {
     @Pattern(regexp = "^(COMPRA|VENTA|DEVOLUCION|AJUSTE|PERDIDA)$", message = "El motivo debe ser COMPRA, VENTA, DEVOLUCION, AJUSTE o PERDIDA")
     private String reason;
 
+    private Long paymentMethodConfigId; // ID de la configuración del método de pago (obligatorio para SALIDA)
+
     public TransactionDTO() {
     }
 
@@ -81,5 +83,13 @@ public class TransactionDTO {
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public Long getPaymentMethodConfigId() {
+        return paymentMethodConfigId;
+    }
+
+    public void setPaymentMethodConfigId(Long paymentMethodConfigId) {
+        this.paymentMethodConfigId = paymentMethodConfigId;
     }
 }

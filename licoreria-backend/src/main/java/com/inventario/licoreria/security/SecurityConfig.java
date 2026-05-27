@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/product-images/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/store/external/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/gallery/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/payment-method-configs/**").permitAll()
                 .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/landing.html", "/home.html", "/css/**", "/js/**", "/images/**").permitAll() 
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/export/**").authenticated()
