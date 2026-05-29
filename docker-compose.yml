@@ -38,6 +38,7 @@ services:
       - "8081:8081"
     volumes:
       - ./exports:/app/exports
+      - ./product-images:/app/product-images
     depends_on:
       postgres:
         condition: service_healthy
