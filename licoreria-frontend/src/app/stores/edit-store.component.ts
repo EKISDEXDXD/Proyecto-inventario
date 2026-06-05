@@ -20,6 +20,27 @@ export class EditStoreComponent implements OnInit {
   successMessage = '';
   storeId!: number;
   showPasswordField = false;
+  selectedColor = '#00B8FF';
+
+  // Paleta de colores HD brillante y vibrante
+  colorPalette = [
+    { name: 'Azul Brillante HD', hex: '#00B8FF' },
+    { name: 'Azul Marino Vibrante', hex: '#0066FF' },
+    { name: 'Verde Intenso HD', hex: '#22D3EE' },
+    { name: 'Teal Vibrante HD', hex: '#14B8A6' },
+    { name: 'Cyan Brillante HD', hex: '#00FFFF' },
+    { name: 'Púrpura Brillante HD', hex: '#A855F7' },
+    { name: 'Violeta Intenso HD', hex: '#D946EF' },
+    { name: 'Rosa Intenso HD', hex: '#FF1493' },
+    { name: 'Rojo Intenso HD', hex: '#FF0000' },
+    { name: 'Rojo Oscuro Elegante', hex: '#8B0000' },
+    { name: 'Naranja Vibrante HD', hex: '#FF8C00' },
+    { name: 'Amarillo Brillante HD', hex: '#FFD700' },
+    { name: 'Índigo Brillante HD', hex: '#6366F1' },
+    { name: 'Verde Brillante HD', hex: '#10B981' },
+    { name: 'Lima Vibrante', hex: '#32CD32' },
+    { name: 'Turquesa Brillante HD', hex: '#00D9FF' }
+  ];
 
   get isMenuOpen$() {
     return this.menuService.isMenuOpen$;
@@ -52,7 +73,8 @@ export class EditStoreComponent implements OnInit {
       name: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
       accessPassword: ['', [Validators.minLength(6), Validators.maxLength(50)]],
       address: ['', [Validators.maxLength(255)]],
-      description: ['', [Validators.maxLength(500)]]
+      description: ['', [Validators.maxLength(500)]],
+      color: ['#00B8FF']
     });
   }
 
@@ -66,8 +88,10 @@ export class EditStoreComponent implements OnInit {
         this.storeForm.patchValue({
           name: store.name,
           address: store.address || '',
-          description: store.description || ''
+          description: store.description || '',
+          color: store.color || '#00B8FF'
         });
+        this.selectedColor = store.color || '#00B8FF';
         this.cdr.markForCheck();
       },
       error: (error) => {
@@ -99,6 +123,12 @@ export class EditStoreComponent implements OnInit {
     if (!this.showPasswordField) {
       this.storeForm.get('accessPassword')?.reset();
     }
+    this.cdr.markForCheck();
+  }
+
+  selectColor(color: string) {
+    this.selectedColor = color;
+    this.storeForm.get('color')?.setValue(color);
     this.cdr.markForCheck();
   }
 
@@ -136,7 +166,8 @@ export class EditStoreComponent implements OnInit {
     const updateData = {
       name: this.storeForm.get('name')?.value?.trim(),
       address: this.storeForm.get('address')?.value?.trim() || '',
-      description: this.storeForm.get('description')?.value?.trim() || ''
+      description: this.storeForm.get('description')?.value?.trim() || '',
+      color: this.storeForm.get('color')?.value || '#E8E8E8'
     } as any;
 
     // Solo incluir contraseña si el usuario está intentando cambiarla y proporciona un valor válido
@@ -170,5 +201,23 @@ export class EditStoreComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/my-stores']);
+  }
+
+  getColorGradient(hexColor: string): string {
+    // Convierte hex a RGB
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Crea una versión más clara del color (para el gradient)
+    const lighten = (val: number) => Math.min(255, Math.round(val + (255 - val) * 0.2));
+    const darken = (val: number) => Math.max(0, Math.round(val * 0.85));
+
+    const lightColor = `rgb(${lighten(r)}, ${lighten(g)}, ${lighten(b)})`;
+    const darkColor = `rgb(${darken(r)}, ${darken(g)}, ${darken(b)})`;
+
+    // Retorna un gradient diagonal
+    return `linear-gradient(135deg, ${lightColor} 0%, ${hexColor} 50%, ${darkColor} 100%)`;
   }
 }

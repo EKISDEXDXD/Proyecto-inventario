@@ -29,13 +29,25 @@ public class Product {
     private BigDecimal price;
     private Integer stock;
     private Integer initialStock;
+    
+    @jakarta.persistence.Column(name = "parent_id", nullable = true)
+    private Long parentId;
+    
+    @jakarta.persistence.Column(name = "is_active")
+    private Boolean isActive = true;
+    
+    @jakarta.persistence.Column(name = "is_active_for_sale")
+    private Boolean isActiveForSale = false;
+    
+    @jakarta.persistence.Column(name = "order_index")
+    private Integer orderIndex = 999;
 
     @ManyToOne
     @JoinColumn(name = "store_id", nullable = false)
     private Store store;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "product")
     private List<Transaction> transactions;
 
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -146,6 +158,38 @@ public class Product {
 
     public void setImage(ProductImage image) {
         this.image = image;
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public Boolean getIsActiveForSale() {
+        return isActiveForSale;
+    }
+
+    public void setIsActiveForSale(Boolean isActiveForSale) {
+        this.isActiveForSale = isActiveForSale;
+    }
+
+    public Integer getOrderIndex() {
+        return orderIndex;
+    }
+
+    public void setOrderIndex(Integer orderIndex) {
+        this.orderIndex = orderIndex;
     }
 
     /**

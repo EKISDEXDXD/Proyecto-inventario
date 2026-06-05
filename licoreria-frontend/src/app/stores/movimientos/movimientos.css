@@ -2695,3 +2695,147 @@
 :host-context(.dark) .btn-clear:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* ============ ESTILOS PARA SELECTOR DE LOTES ============ */
+.lotes-selector {
+  margin-top: 0.5rem;
+}
+
+.lotes-dropdown-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.lotes-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.lotes-button:hover {
+  border-color: var(--color-primary);
+  background-color: var(--bg-surface);
+}
+
+.lotes-button i {
+  margin-left: 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+.lotes-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-top: 0.25rem;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.lote-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  transition: background-color 0.2s ease;
+}
+
+.lote-option:last-child {
+  border-bottom: none;
+}
+
+.lote-option:hover {
+  background-color: var(--bg-body);
+}
+
+.lote-option.active-for-sale {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.lote-option.active-for-sale:hover {
+  background-color: rgba(16, 185, 129, 0.15);
+}
+
+.lote-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.25rem;
+}
+
+.lote-name {
+  color: var(--text-main);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.lote-stock {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.lote-badge {
+  display: inline-block;
+  background-color: #10b981;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+/* Dark mode adjustments */
+:host-context(.dark) .lotes-button {
+  background-color: var(--bg-input);
+  color: var(--text-main);
+}
+
+:host-context(.dark) .lotes-dropdown {
+  background-color: var(--bg-surface);
+  border-color: var(--border-color);
+}
+
+:host-context(.dark) .lote-option {
+  color: var(--text-main);
+  border-bottom-color: var(--border-color);
+}
+
+:host-context(.dark) .lote-option:hover {
+  background-color: var(--bg-body);
+}
+
+:host-context(.dark) .lote-option.active-for-sale {
+  background-color: rgba(16, 185, 129, 0.15);
+  border-left-color: #10b981;
+}
+
+:host-context(.dark) .lote-option.active-for-sale:hover {
+  background-color: rgba(16, 185, 129, 0.2);
+}
+
+:host-context(.dark) .lote-stock {
+  color: var(--text-muted);
+}

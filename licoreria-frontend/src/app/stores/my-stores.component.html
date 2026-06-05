@@ -29,7 +29,7 @@
 
     <!-- Stores Grid -->
     <div *ngIf="stores.length > 0" class="stores-grid">
-      <div *ngFor="let store of stores" class="store-card">
+      <div *ngFor="let store of stores" class="store-card" [ngStyle]="{'border-top': '4px solid ' + (store.color || '#E8E8E8')}">
         <!-- Card Header -->
         <div class="card-header">
           <div class="store-info">
@@ -72,7 +72,8 @@
 
         <!-- Card Footer -->
         <div class="card-footer">
-          <button class="primary-btn" (click)="manageStore(store.id)">
+          <button class="primary-btn" (click)="manageStore(store.id)" 
+                  [ngStyle]="{'background': getColorGradient(store.color || '#00B8FF')}">
             Gestionar Inventario
           </button>
         </div>

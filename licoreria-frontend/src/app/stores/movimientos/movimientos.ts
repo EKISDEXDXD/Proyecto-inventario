@@ -5,6 +5,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { JwtHelper } from '../../core/jwt.helper';
 import { ApiConfigService } from '../../auth/api-config.service';
+import { LotesService } from '../../services/lotes.service';
 import { ReportService, Report } from '../../home/dashboard-info/report.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { ClickOutsideDirective } from '../../core/directives/click-outside.directive';
@@ -26,6 +27,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   store: any = null;
   products: any[] = [];
   filteredProducts: any[] = [];
+  // Propiedades del selector de lotes
+  selectedLote: any = null;
+  lotesForSelected: any[] = [];
+  activeLoteId: number | null = null;
+
   transactions: any[] = []; // Los datos originales de la API
   filteredMovimientos: any[] = []; // Los datos que se muestran
   searchTerm: string = '';
@@ -91,6 +97,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   private readonly RECENT_PRODUCTS_KEY = 'recent_products_movement';
   private readonly MAX_RECENT_PRODUCTS = 5;
 
+  // Lotes del producto seleccionado
+  availableLotes: any[] = [];
+  selectedLoteId: number = 0;
+  showLotesDropdown: boolean = false;
+
   // Motivos disponibles según el tipo
   availableReasons: Array<{ value: string; label: string }> = [];
 
@@ -125,7 +136,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private apiConfig: ApiConfigService,
-    public reportService: ReportService
+    public reportService: ReportService,
+    private lotesService: LotesService
   ) { }
 
   ngOnInit() {
@@ -204,9 +216,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       this.filteredProductsForAutocomplete = [];
     } else {
       const searchLower = this.productSearchTerm.toLowerCase();
+      // Filtrar solo productos principales (sin lotes) - parent_id debe ser null
       this.filteredProductsForAutocomplete = this.products.filter(product =>
-        product.name.toLowerCase().includes(searchLower) ||
-        (product.description && product.description.toLowerCase().includes(searchLower))
+        !product.parentId && (
+          product.name.toLowerCase().includes(searchLower) ||
+          (product.description && product.description.toLowerCase().includes(searchLower))
+        )
       );
     }
     this.cdr.detectChanges();
@@ -229,6 +244,32 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.showProductDropdown = false;
     this.saveRecentProduct(product.id);
     
+    // Limpiar lotes previos
+    this.availableLotes = [];
+    this.selectedLoteId = 0;
+    this.showLotesDropdown = false;
+    
+    // Si el producto tiene lotes (parent_id es null), cargar los lotes disponibles
+    if (!product.parentId) {
+      this.lotesService.getLotesByProductId(product.id).subscribe({
+        next: (lotes) => {
+          // Solo mostrar lotes activos para venta (isActive = true AND isActiveForSale = true)
+          this.availableLotes = (lotes || []).filter(l => l.isActive && l.isActiveForSale);
+          // Auto-seleccionar el lote activo para venta
+          const activeForSaleLote = this.availableLotes.find(l => l.isActiveForSale);
+          if (activeForSaleLote) {
+            this.selectedLoteId = activeForSaleLote.id;
+            this.movement.productId = activeForSaleLote.id;
+          }
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error cargando lotes:', err);
+          this.availableLotes = [];
+        }
+      });
+    }
+    
     // Mover el foco a cantidad automáticamente
     setTimeout(() => {
       const quantityInput = document.querySelector('input[name="quantity"]') as HTMLInputElement;
@@ -240,12 +281,22 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  selectLote(lote: any) {
+    this.selectedLoteId = lote.id;
+    this.movement.productId = lote.id;
+    this.showLotesDropdown = false;
+    this.cdr.detectChanges();
+  }
+
   clearProductSearch() {
     this.productSearchTerm = '';
     this.selectedProductId = 0;
     this.movement.productId = 0;
     this.filteredProductsForAutocomplete = [];
     this.showProductDropdown = false;
+    this.availableLotes = [];
+    this.selectedLoteId = 0;
+    this.showLotesDropdown = false;
     this.cdr.detectChanges();
   }
 

@@ -27,4 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // Buscar transacciones por tienda
     @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
     List<Transaction> findByStoreIdOrderByDateTimeDesc(@Param("storeId") Long storeId);
+
+    // Contar transacciones de un producto (para validar edición)
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.product.id = :productId")
+    Long countByProductId(@Param("productId") Long productId);
 }

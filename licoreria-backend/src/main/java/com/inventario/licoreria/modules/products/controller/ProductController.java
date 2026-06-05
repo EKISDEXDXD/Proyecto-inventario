@@ -15,7 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -49,9 +50,18 @@ public class ProductController {
         }
     }
 
+    @NonNull
+    private String getUsername(Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : null;
+        if (username == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
+        }
+        return username;
+    }
+
     @GetMapping
     public List<Product> getAll(Authentication authentication) {
-        return productService.findAllByUsername(authentication.getName());
+        return productService.findAllByUsername(getUsername(authentication));
     }
 
     @GetMapping("/{id}")
@@ -81,8 +91,9 @@ public class ProductController {
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             validateNotExternal(authHeader);
-            System.out.println("=== getByStore START - storeId: " + storeId + ", user: " + authentication.getName());
-            List<Product> products = productService.findByStoreId(storeId, authentication.getName());
+            String username = getUsername(authentication);
+            System.out.println("=== getByStore START - storeId: " + storeId + ", user: " + username);
+            List<Product> products = productService.findByStoreId(storeId, username);
             System.out.println("=== getByStore SUCCESS - productos encontrados: " + (products != null ? products.size() : 0));
             return products;
         } catch (Exception e) {
@@ -98,22 +109,22 @@ public class ProductController {
     public Product create(@Valid @RequestBody ProductDTO dto, Authentication authentication, 
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         validateNotExternal(authHeader);
-        return productService.create(dto, authentication.getName());
+        return productService.create(dto, getUsername(authentication));
     }
 
     @PutMapping("/{id}")
     public Product update(@PathVariable @NonNull Long id, @Valid @RequestBody ProductDTO dto, Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         validateNotExternal(authHeader);
-        return productService.update(id, dto, authentication.getName());
+        return productService.update(id, dto, getUsername(authentication));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable @NonNull Long id, Authentication authentication,
+    public ResponseEntity<Product> delete(@PathVariable @NonNull Long id, Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         validateNotExternal(authHeader);
-        productService.delete(id, authentication.getName());
-        return ResponseEntity.noContent().build();
+        Product result = productService.delete(id, getUsername(authentication));
+        return ResponseEntity.ok(result);
     }
 
     @PatchMapping("/{id}/adjust-stock")
@@ -125,7 +136,7 @@ public class ProductController {
     ) {
         validateNotExternal(authHeader);
         // Ajustar el stock con validación de permisos
-        Product updated = productService.adjustStock(id, request.getDelta(), authentication.getName());
+        Product updated = productService.adjustStock(id, request.getDelta(), getUsername(authentication));
         
         // Registrar la transacción automáticamente
         try {
@@ -155,7 +166,10 @@ public class ProductController {
         @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         validateNotExternal(authHeader);
-        return productAlertService.saveOrUpdate(id, dto, authentication.getName());
+        if (dto == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ProductAlertDTO no puede ser nulo");
+        }
+        return productAlertService.saveOrUpdate(id, dto, getUsername(authentication));
     }
 
     @GetMapping("/{id}/alert")
@@ -177,7 +191,7 @@ public class ProductController {
         @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         validateNotExternal(authHeader);
-        productService.validateUserOwnsProduct(id, authentication.getName());
+        productService.validateUserOwnsProduct(id, getUsername(authentication));
         productAlertService.deleteByProductId(id);
         return ResponseEntity.noContent().build();
     }
@@ -200,5 +214,118 @@ public class ProductController {
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> result = productService.searchWithPagination(storeId, search, tags, pageable);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Verificar si un producto puede ser editado (no tiene transacciones)
+     * GET /api/products/{id}/can-edit
+     */
+    @GetMapping("/{id}/can-edit")
+    public ResponseEntity<java.util.Map<String, Object>> canEditProduct(
+        @PathVariable @NonNull Long id,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        productService.validateUserOwnsProduct(id, getUsername(authentication));
+        
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        boolean canEdit = productService.canEditProduct(id);
+        
+        response.put("canEdit", canEdit);
+        response.put("hasTransactions", !canEdit);
+        
+        if (canEdit) {
+            response.put("message", "El producto puede ser editado");
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("message", "No se puede editar este producto porque tiene movimientos registrados");
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * Obtener todos los lotes de un producto principal
+     * GET /api/products/{parentId}/lotes
+     */
+    @GetMapping("/{parentId}/lotes")
+    public ResponseEntity<List<Product>> getLotes(
+        @PathVariable @NonNull Long parentId,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        productService.validateUserOwnsProduct(parentId, getUsername(authentication));
+        
+        List<Product> lotes = productService.getLotesByProduct(parentId);
+        return ResponseEntity.ok(lotes);
+    }
+
+    /**
+     * Obtener el lote activo de un producto principal
+     * GET /api/products/{parentId}/active-lote
+     */
+    @GetMapping("/{parentId}/active-lote")
+    public ResponseEntity<Product> getActiveLote(
+        @PathVariable @NonNull Long parentId,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        productService.validateUserOwnsProduct(parentId, getUsername(authentication));
+        
+        Product activeLote = productService.getActiveLote(parentId);
+        return ResponseEntity.ok(activeLote);
+    }
+
+    /**
+     * Crear un nuevo lote para un producto principal
+     * POST /api/products/{parentId}/create-lote
+     */
+    @PostMapping("/{parentId}/create-lote")
+    public ResponseEntity<Product> createLote(
+        @PathVariable @NonNull Long parentId,
+        @Valid @RequestBody ProductDTO dto,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        
+        Product newLote = productService.createLote(parentId, dto, getUsername(authentication));
+        return ResponseEntity.status(HttpStatus.CREATED).body(newLote);
+    }
+
+    /**
+     * Establecer un lote como activo
+     * PUT /api/products/{loteId}/activate
+     */
+    @PutMapping("/{loteId}/activate")
+    public ResponseEntity<Product> activateLote(
+        @PathVariable @NonNull Long loteId,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        
+        Product activeLote = productService.setActiveLote(loteId, getUsername(authentication));
+        return ResponseEntity.ok(activeLote);
+    }
+
+    /**
+     * Cambiar isActiveForSale de un producto/lote
+     * PUT /api/products/{id}/active-for-sale?active=true
+     * Si se activa, desactiva automáticamente los hermanos (solo uno puede estar activo para venta)
+     */
+    @PutMapping("/{id}/active-for-sale")
+    public ResponseEntity<Product> setActiveForSale(
+        @PathVariable @NonNull Long id,
+        @RequestParam @NonNull Boolean active,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        
+        Product product = productService.setActiveForSale(id, active, getUsername(authentication));
+        return ResponseEntity.ok(product);
     }
 }

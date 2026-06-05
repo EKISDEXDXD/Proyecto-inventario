@@ -21,6 +21,7 @@ public class Store {
     private String description;
     private String address;
     private String accessPassword;
+    private String color;
 
     @JsonIgnore
     @ManyToOne
@@ -68,6 +69,14 @@ public class Store {
 
     public void setAccessPassword(String accessPassword) {
         this.accessPassword = accessPassword;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 
     public User getManager() {

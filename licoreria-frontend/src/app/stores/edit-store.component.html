@@ -137,6 +137,35 @@
           </div>
         </div>
 
+        <!-- Selector de Color de Tienda -->
+        <div class="form-group">
+          <label class="form-label">
+            <span class="label-text">Color de la Tienda</span>
+            <span class="optional">(Opcional)</span>
+          </label>
+          <div class="color-picker-container">
+            <div class="color-palette">
+              <button 
+                *ngFor="let color of colorPalette"
+                type="button"
+                class="color-option"
+                [style.background-color]="color.hex"
+                [class.selected]="selectedColor === color.hex"
+                (click)="selectColor(color.hex)"
+                [title]="color.name"
+                (keydown.enter)="selectColor(color.hex)"
+                (keydown.space)="selectColor(color.hex)">
+                <i *ngIf="selectedColor === color.hex" class="bx bx-check"></i>
+              </button>
+            </div>
+            <div class="color-preview">
+              <div class="preview-circle" [style.background-color]="selectedColor"></div>
+              <span class="color-hex">{{ selectedColor }}</span>
+            </div>
+          </div>
+          <input type="hidden" formControlName="color" [value]="selectedColor">
+        </div>
+
         <!-- Success Message -->
         <div *ngIf="successMessage" class="message success-message">
           <span class="message-icon"><i class="bx bx-check-circle"></i></span>

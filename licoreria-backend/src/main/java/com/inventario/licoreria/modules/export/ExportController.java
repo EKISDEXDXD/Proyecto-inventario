@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
@@ -111,6 +112,16 @@ public class ExportController {
             Authentication authentication) {
 
         try {
+            // Configurar directorio temporal para Apache POI
+            String userDir = System.getProperty("user.dir");
+            String poiTmpDir = userDir + File.separator + "exports" + File.separator + "poi-temp";
+            File poiTmpFile = new File(poiTmpDir);
+            if (!poiTmpFile.exists()) {
+                poiTmpFile.mkdirs();
+            }
+            System.setProperty("java.io.tmpdir", poiTmpDir);
+            logger.debug("Apache POI temp directory set to: {}", poiTmpDir);
+            
             // VALIDACIÓN DE AUTENTICACIÓN Y PERMISOS
             if (authentication == null || !authentication.isAuthenticated()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -166,19 +177,25 @@ public class ExportController {
             
         } catch (IOException e) {
             logger.error("Error de IO al generar reporte Excel", e);
+            logger.error("Causa del error:", e.getCause());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("message", "Error al generar el archivo Excel: " + e.getMessage()));
         } catch (NullPointerException e) {
             logger.error("NullPointerException al generar reporte - revisa datos nulos en transacciones", e);
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", "Error de datos: " + e.getMessage()));
+                .body(Map.of("message", "Error de datos: Verifica que haya transacciones válidas en el rango de fechas especificado"));
         } catch (DateTimeParseException e) {
             logger.error("Error al parsear fechas", e);
-            return ResponseEntity.badRequest().body(Map.of("message", "Fechas inválidas"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Fechas inválidas: " + e.getMessage()));
         } catch (Exception e) {
-            logger.error("Error inesperado al exportar reporte: {}", e.getMessage(), e);
+            logger.error("Error inesperado al exportar reporte: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("message", "Error interno: " + e.getClass().getSimpleName() + " - " + e.getMessage()));
+                .body(Map.of(
+                    "message", "Error interno al generar reporte: " + e.getClass().getSimpleName(),
+                    "detail", e.getMessage()
+                ));
         }
     }
 
@@ -286,23 +303,48 @@ public class ExportController {
     }
 
     private void createProductSheet(Sheet sheet, List<Product> products) {
+        // Filtrar solo productos principales (sin parent_id)
+        List<Product> mainProducts = products.stream()
+            .filter(p -> p.getParentId() == null)
+            .collect(Collectors.toList());
+
         Row headerRow = sheet.createRow(0);
         headerRow.createCell(0).setCellValue("ID");
         headerRow.createCell(1).setCellValue("Nombre");
         headerRow.createCell(2).setCellValue("Descripción");
-        headerRow.createCell(3).setCellValue("Costo");
-        headerRow.createCell(4).setCellValue("Precio");
-        headerRow.createCell(5).setCellValue("Stock");
+        headerRow.createCell(3).setCellValue("Costo Activo");
+        headerRow.createCell(4).setCellValue("Precio Activo");
+        headerRow.createCell(5).setCellValue("Stock Total");
+        headerRow.createCell(6).setCellValue("Cantidad Lotes");
+        headerRow.createCell(7).setCellValue("Lote Activo Número");
 
         int rowNum = 1;
-        for (Product product : products) {
+        for (Product product : mainProducts) {
+            // Obtener lotes de este producto
+            List<Product> lotes = products.stream()
+                .filter(p -> p.getParentId() != null && p.getParentId().equals(product.getId()))
+                .collect(Collectors.toList());
+            
+            // Obtener lote activo
+            Product activeLote = lotes.stream()
+                .filter(Product::getIsActive)
+                .findFirst()
+                .orElse(null);
+            
+            // Calcular stock total
+            Integer totalStock = lotes.stream()
+                .map(Product::getStock)
+                .reduce(0, Integer::sum);
+
             Row row = sheet.createRow(rowNum++);
             row.createCell(0).setCellValue(product.getId());
             row.createCell(1).setCellValue(product.getName());
-            row.createCell(2).setCellValue(product.getDescription());
-            row.createCell(3).setCellValue(product.getCost().doubleValue());
-            row.createCell(4).setCellValue(product.getPrice().doubleValue());
-            row.createCell(5).setCellValue(product.getStock());
+            row.createCell(2).setCellValue(product.getDescription() != null ? product.getDescription() : "");
+            row.createCell(3).setCellValue(activeLote != null ? activeLote.getCost().doubleValue() : product.getCost().doubleValue());
+            row.createCell(4).setCellValue(activeLote != null ? activeLote.getPrice().doubleValue() : product.getPrice().doubleValue());
+            row.createCell(5).setCellValue(totalStock);
+            row.createCell(6).setCellValue(lotes.size());
+            row.createCell(7).setCellValue(activeLote != null ? String.valueOf(activeLote.getOrderIndex()) : "N/A");
         }
     }
 
@@ -311,19 +353,116 @@ public class ExportController {
         headerRow.createCell(0).setCellValue("ID");
         headerRow.createCell(1).setCellValue("Tipo");
         headerRow.createCell(2).setCellValue("Cantidad");
-        headerRow.createCell(3).setCellValue("Producto ID");
-        headerRow.createCell(4).setCellValue("Usuario ID");
-        headerRow.createCell(5).setCellValue("Fecha");
+        headerRow.createCell(3).setCellValue("Producto");
+        headerRow.createCell(4).setCellValue("¿Es Lote?");
+        headerRow.createCell(5).setCellValue("Lote Número");
+        headerRow.createCell(6).setCellValue("Usuario ID");
+        headerRow.createCell(7).setCellValue("Fecha");
+        headerRow.createCell(8).setCellValue("Costo Unitario");
+        headerRow.createCell(9).setCellValue("Precio Unitario");
+
+        // Obtener todos los productos para buscar información
+        List<Product> allProducts = productService.findAll();
+        Map<Long, Product> productMap = allProducts.stream()
+            .collect(Collectors.toMap(Product::getId, p -> p));
 
         int rowNum = 1;
         for (Transaction transaction : transactions) {
-            Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(transaction.getId());
-            row.createCell(1).setCellValue(transaction.getType());
-            row.createCell(2).setCellValue(transaction.getQuantity());
-            row.createCell(3).setCellValue(transaction.getProductId());
-            row.createCell(4).setCellValue(transaction.getUserId());
-            row.createCell(5).setCellValue(transaction.getDateTime().toString());
+            Product product = transaction.getProduct() != null ? transaction.getProduct() : productMap.get(transaction.getProductId());
+            
+            if (product != null) {
+                String productName = product.getName();
+                boolean isLote = product.getParentId() != null;
+                Integer loteNum = isLote ? product.getOrderIndex() : null;
+                
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(transaction.getId());
+                row.createCell(1).setCellValue(transaction.getType());
+                row.createCell(2).setCellValue(transaction.getQuantity());
+                row.createCell(3).setCellValue(productName);
+                row.createCell(4).setCellValue(isLote ? "Sí" : "No");
+                row.createCell(5).setCellValue(loteNum != null ? String.valueOf(loteNum) : "");
+                row.createCell(6).setCellValue(transaction.getUserId());
+                row.createCell(7).setCellValue(transaction.getDateTime().toString());
+                row.createCell(8).setCellValue(product.getCost().doubleValue());
+                row.createCell(9).setCellValue(product.getPrice().doubleValue());
+            }
         }
+    }
+
+    @GetMapping("/audit-report")
+    public ResponseEntity<byte[]> exportAuditReport() throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        List<Product> allProducts = productService.findAll();
+
+        Sheet productHierarchySheet = workbook.createSheet("Jerarquía de Lotes");
+        createProductHierarchySheet(productHierarchySheet, allProducts);
+
+        Sheet transactionDetailSheet = workbook.createSheet("Historial Transacciones");
+        createTransactionSheet(transactionDetailSheet, transactionService.findAll());
+
+        Sheet auditSheet = workbook.createSheet("Auditoría");
+        createAuditSheet(auditSheet, allProducts);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        workbook.write(outputStream);
+        workbook.close();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "auditoria-lotes-" + LocalDate.now() + ".xlsx");
+
+        return ResponseEntity.ok().headers(headers).body(outputStream.toByteArray());
+    }
+
+    private void createProductHierarchySheet(Sheet sheet, List<Product> allProducts) {
+        Row headerRow = sheet.createRow(0);
+        headerRow.createCell(0).setCellValue("Producto Principal");
+        headerRow.createCell(1).setCellValue("ID Producto");
+        headerRow.createCell(2).setCellValue("Lote #");
+        headerRow.createCell(3).setCellValue("ID Lote");
+        headerRow.createCell(4).setCellValue("Activo");
+        headerRow.createCell(5).setCellValue("Costo");
+        headerRow.createCell(6).setCellValue("Precio");
+        headerRow.createCell(7).setCellValue("Stock");
+
+        List<Product> mainProducts = allProducts.stream().filter(p -> p.getParentId() == null).collect(Collectors.toList());
+
+        int rowNum = 1;
+        for (Product mainProduct : mainProducts) {
+            List<Product> lotes = allProducts.stream()
+                .filter(p -> p.getParentId() != null && p.getParentId().equals(mainProduct.getId()))
+                .collect(Collectors.toList());
+
+            Row mainRow = sheet.createRow(rowNum++);
+            mainRow.createCell(0).setCellValue(mainProduct.getName());
+            mainRow.createCell(1).setCellValue(mainProduct.getId());
+            mainRow.createCell(4).setCellValue("Principal");
+
+            for (Product lote : lotes) {
+                Row loteRow = sheet.createRow(rowNum++);
+                loteRow.createCell(0).setCellValue("  └─ " + mainProduct.getName());
+                loteRow.createCell(1).setCellValue(mainProduct.getId());
+                loteRow.createCell(2).setCellValue(lote.getOrderIndex());
+                loteRow.createCell(3).setCellValue(lote.getId());
+                loteRow.createCell(4).setCellValue(lote.getIsActive() ? "Activo" : "Inactivo");
+                loteRow.createCell(5).setCellValue(lote.getCost().doubleValue());
+                loteRow.createCell(6).setCellValue(lote.getPrice().doubleValue());
+                loteRow.createCell(7).setCellValue(lote.getStock());
+            }
+        }
+    }
+
+    private void createAuditSheet(Sheet sheet, List<Product> allProducts) {
+        Row headerRow = sheet.createRow(0);
+        headerRow.createCell(0).setCellValue("Verificación");
+        headerRow.createCell(1).setCellValue("Estado");
+
+        int rowNum = 1;
+        long orphanTransactions = transactionService.findAll().stream()
+            .filter(t -> t.getProduct() == null).count();
+        Row row1 = sheet.createRow(rowNum++);
+        row1.createCell(0).setCellValue("Transacciones huérfanas (sin producto)");
+        row1.createCell(1).setCellValue(orphanTransactions > 0 ? "⚠️ " + orphanTransactions + " encontradas" : "✓ OK");
     }
 }

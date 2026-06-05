@@ -1,0 +1,218 @@
+<!-- Modal Principal de Gestión de Lotes -->
+<div *ngIf="isOpen" class="lotes-modal-overlay" (click)="onClose()">
+  <div class="lotes-modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        <i class="bx bx-list"></i> Gestionar Lotes - {{ mainProduct?.name }}
+      </h2>
+      <div class="modal-header-actions">
+        <button class="icon-btn small" type="button" (click)="onClose()" aria-label="Cerrar">
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <!-- Lista de lotes existentes -->
+      <div *ngIf="lotes.length > 0" class="lotes-section">
+        <h3 class="section-title">Lotes Disponibles</h3>
+        <div class="lotes-list">
+          <div *ngFor="let lote of lotes; let i = index" class="lote-card" [ngClass]="{'active-for-sale': lote.isActiveForSale}">
+            <div class="lote-card-header">
+              <div class="lote-info-primary">
+                <span class="lote-name">{{ lote.parentId ? 'Lote ' + lote.orderIndex : '📦 Producto Raíz' }}</span>
+                <span *ngIf="lote.isActiveForSale" class="active-for-sale-badge" title="Activo para venta">
+                  <i class="bx bx-check-circle"></i> Activo para Venta
+                </span>
+                <span *ngIf="lote.isActiveForSale && !lote.parentId" class="default-badge" title="Marcado por defecto">
+                  <i class="bx bx-star"></i> Por Defecto
+                </span>
+              </div>
+              <span class="lote-stock-badge" [ngClass]="{'stock-low': lote.stock < 10, 'stock-out': lote.stock === 0, 'stock-normal': lote.stock >= 10}">
+                {{ lote.stock }} unidades
+              </span>
+            </div>
+
+            <div class="lote-details">
+              <div class="detail-item">
+                <span class="detail-label">Costo:</span>
+                <span class="detail-value">{{ lote.cost | currencyFormat }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Precio:</span>
+                <span class="detail-value">{{ lote.price | currencyFormat }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Margen:</span>
+                <span class="detail-value margin-value">{{ calculateMargin(lote.cost, lote.price) }}%</span>
+              </div>
+            </div>
+
+            <div class="lote-actions">
+              <button 
+                type="button"
+                class="btn-action btn-view"
+                (click)="viewLoteDetails(lote)"
+                [disabled]="loading"
+                title="Ver detalles">
+                <i class="bx bx-show"></i> Ver
+              </button>
+              <button 
+                *ngIf="!lote.isActive" 
+                type="button"
+                class="btn-action btn-activate"
+                (click)="activateLote(lote.id)"
+                [disabled]="loading"
+                title="Activar este lote">
+                <i class="bx bx-check"></i> Activar
+              </button>
+              <button 
+                *ngIf="lote.isActiveForSale"
+                type="button"
+                class="btn-action btn-active-for-sale"
+                (click)="toggleActiveForSale(lote)"
+                [disabled]="loading"
+                title="Desactivar de venta">
+                <i class="bx bx-check-circle"></i> En Venta
+              </button>
+              <button 
+                *ngIf="!lote.isActiveForSale"
+                type="button"
+                class="btn-action btn-inactive-for-sale"
+                (click)="toggleActiveForSale(lote)"
+                [disabled]="loading"
+                title="Activar para venta">
+                <i class="bx bx-circle"></i> No en Venta
+              </button>
+              <button 
+                *ngIf="lote.parentId"
+                type="button"
+                class="btn-action btn-delete"
+                (click)="deleteLote(lote.id)"
+                [disabled]="loading"
+                title="Eliminar lote">
+                <i class="bx bx-trash"></i> Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensaje si no hay lotes -->
+      <div *ngIf="lotes.length === 0" class="empty-state">
+        <div class="empty-state-icon">
+          <i class="bx bx-inbox"></i>
+        </div>
+        <p class="empty-state-text">No hay lotes aún. Crea el primero usando el formulario abajo.</p>
+      </div>
+
+      <!-- Divisor -->
+      <div class="section-divider" *ngIf="lotes.length > 0"></div>
+
+      <!-- Formulario para crear nuevo lote -->
+      <div class="create-lote-section">
+        <button 
+          type="button"
+          class="section-title toggle-btn"
+          (click)="toggleCreateForm()">
+          <i class="bx" [ngClass]="showCreateForm ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
+          Crear Nuevo Lote
+        </button>
+        
+        <div *ngIf="showCreateForm" class="create-form">
+          <div class="form-group">
+            <label for="nombre-lote">Nombre del Lote</label>
+            <input 
+              id="nombre-lote"
+              type="text" 
+              [(ngModel)]="newLoteForm.name"
+              placeholder="Ej: Coca-Cola (Lote 2)"
+              class="form-control"
+              required>
+          </div>
+          
+          <div class="form-group">
+            <label for="descripcion-lote">Descripción</label>
+            <textarea 
+              id="descripcion-lote"
+              [(ngModel)]="newLoteForm.description"
+              placeholder="Descripción del lote (opcional)"
+              rows="2"
+              class="form-control"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="costo-lote">Costo</label>
+              <input 
+                id="costo-lote"
+                type="number" 
+                [(ngModel)]="newLoteForm.cost"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                class="form-control"
+                required>
+            </div>
+
+            <div class="form-group">
+              <label for="precio-lote">Precio</label>
+              <input 
+                id="precio-lote"
+                type="number" 
+                [(ngModel)]="newLoteForm.price"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                class="form-control"
+                required>
+            </div>
+
+            <div class="form-group">
+              <label for="stock-lote">Stock Inicial</label>
+              <input 
+                id="stock-lote"
+                type="number" 
+                [(ngModel)]="newLoteForm.stock"
+                step="1"
+                min="0"
+                value="0"
+                placeholder="0"
+                class="form-control"
+                required>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button 
+              type="button"
+              class="btn btn-primary"
+              (click)="saveNewLote()"
+              [disabled]="loading || !isFormValid()">
+              <span *ngIf="!loading"><i class="bx bx-check"></i> Crear Lote</span>
+              <span *ngIf="loading"><i class="bx bx-loader-alt bx-spin"></i> Creando...</span>
+            </button>
+            <button 
+              type="button"
+              class="btn btn-secondary"
+              (click)="cancelCreateForm()"
+              [disabled]="loading">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="onClose()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Detalles del Lote -->
+<app-lote-detail-modal
+  [isOpen]="showLoteDetailModal"
+  [lote]="selectedLoteForDetail"
+  (close)="showLoteDetailModal = false">
+</app-lote-detail-modal>

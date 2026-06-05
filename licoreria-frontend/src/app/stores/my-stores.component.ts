@@ -121,4 +121,22 @@ export class MyStoresComponent implements OnInit {
       }
     });
   }
+
+  getColorGradient(hexColor: string): string {
+    // Convierte hex a RGB
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Crea una versión más clara del color (para el gradient)
+    const lighten = (val: number) => Math.min(255, Math.round(val + (255 - val) * 0.2));
+    const darken = (val: number) => Math.max(0, Math.round(val * 0.85));
+
+    const lightColor = `rgb(${lighten(r)}, ${lighten(g)}, ${lighten(b)})`;
+    const darkColor = `rgb(${darken(r)}, ${darken(g)}, ${darken(b)})`;
+
+    // Retorna un gradient diagonal
+    return `linear-gradient(135deg, ${lightColor} 0%, ${hexColor} 50%, ${darkColor} 100%)`;
+  }
 }

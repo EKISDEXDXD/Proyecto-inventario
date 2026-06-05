@@ -683,7 +683,7 @@
   background-color: var(--bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
+  max-width:450px;
   width: 100%;
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
@@ -710,14 +710,14 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
 }
 
 .modal-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-main);
   display: flex;
@@ -730,13 +730,14 @@
 }
 
 .modal-body {
-  padding: 1.5rem;
-  max-height: 60vh;
+  padding: 1rem;
+  padding-bottom: 1.5rem;
+  max-height: 70vh;
   overflow-y: auto;
 }
 
 .modal-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .modal-section h4 {
@@ -751,6 +752,7 @@
 .modal-description {
   margin: 0;
   font-size: 1rem;
+  
   line-height: 1.6;
   color: var(--text-main);
   word-break: break-word;
@@ -809,6 +811,163 @@
 
 .modal-footer .btn {
   flex: 0;
+}
+
+/* ============ MODAL DE EDICIÓN DE PRODUCTO ============ */
+.edit-product-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 25, 40, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1002; /* Mayor que el modal de descripción */
+  padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.edit-product-modal {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+  max-width: 550px;
+  width: 100%;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+.modal-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.edit-btn {
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+.edit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Formulario de edición */
+.edit-product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+:host-context(.dark) .form-group input,
+:host-context(.dark) .form-group textarea {
+  background-color: var(--bg-input);
+  border-color: var(--border-color);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.info-box {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.margin-display {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.margin-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.margin-section {
+  margin-top: 1.5rem;
+}
+
+/* Alertas */
+.alert {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.alert i {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--color-danger);
+}
+
+.alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--color-warning);
 }
 
 /* ============ FILA EXPANDIBLE DE ALERTAS ============ */
@@ -1150,7 +1309,7 @@
 }
 
 .btn-info {
-  background-color: #0ea5e9;
+  background-color: #00B8FF;
   color: white;
 }
 
@@ -2381,6 +2540,37 @@
 
 .hidden-input {
   display: none;
+}
+
+/* ============ ESTILOS PARA MODAL DE LOTES ============ */
+.lotes-header {
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.btn-create-lote {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-create-lote:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-create-lote:active {
+  transform: translateY(0);
 }
 
 /* ============ RESPONSIVE PARA PHOTO-ACTIONS ============ */

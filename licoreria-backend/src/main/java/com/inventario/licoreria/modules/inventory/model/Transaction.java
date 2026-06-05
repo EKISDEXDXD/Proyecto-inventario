@@ -16,7 +16,7 @@ public class Transaction {
     private Long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = true)
     private Product product;
 
     @Column(nullable = false)

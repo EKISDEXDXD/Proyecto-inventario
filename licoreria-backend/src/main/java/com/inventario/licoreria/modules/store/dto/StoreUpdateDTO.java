@@ -13,6 +13,8 @@ public class StoreUpdateDTO {
 
     private String description;
 
+    private String color;
+
     public StoreUpdateDTO() {}
 
     public StoreUpdateDTO(String name, String accessPassword) {
@@ -57,5 +59,13 @@ public class StoreUpdateDTO {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 }

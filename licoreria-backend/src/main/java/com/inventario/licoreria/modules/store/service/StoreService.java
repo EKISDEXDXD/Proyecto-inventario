@@ -127,6 +127,11 @@ public class StoreService {
                 store.setDescription(dto.getDescription().trim());
             }
             
+            // Actualizar color si se proporciona
+            if (dto.getColor() != null && !dto.getColor().trim().isEmpty()) {
+                store.setColor(dto.getColor().trim());
+            }
+            
             Store updated = storeRepository.save(store);
             log.info("Tienda {} actualizada exitosamente", id);
             return convertToResponseDTO(updated);
@@ -184,7 +189,9 @@ public class StoreService {
                 store.getDescription(),
                 store.getAddress(),
                 store.getManager().getId(),
-                store.getManager().getUsername()
+                store.getManager().getUsername(),
+                false,
+                store.getColor()
         );
     }
 }

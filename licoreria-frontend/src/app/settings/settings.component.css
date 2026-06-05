@@ -831,7 +831,7 @@
 }
 
 .info-text {
-  color: #0ea5e9;
+  color: #00B8FF;
   font-size: 0.85rem;
   margin-top: 0.5rem;
   display: flex;
@@ -840,7 +840,7 @@
 }
 
 :host-context(.dark) .info-text {
-  color: #0ea5e9;
+  color: #00B8FF;
 }
 
 .btn-sm {

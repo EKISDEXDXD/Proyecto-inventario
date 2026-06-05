@@ -46,18 +46,22 @@ public class SalesReportService {
             // Obtener todas las transacciones
             List<Transaction> allTransactions = transactionService.findAll();
             
-            // Filtrar por tienda y rango de fechas
+            // Filtrar por tienda y rango de fechas (INCLUYE productos desactivados para movimientos)
             List<Transaction> transactions = allTransactions.stream()
                 .filter(t -> {
                     try {
-                        // Usar la relación Product desde Transaction
                         Product product = t.getProduct();
                         if (product == null) {
                             return false;
                         }
-                        return product.getStore() != null && product.getStore().getId().equals(storeId) 
-                            && t.getDateTime().toLocalDate().isAfter(dateFrom.minusDays(1))
-                            && t.getDateTime().toLocalDate().isBefore(dateTo.plusDays(1));
+                        if (product.getStore() == null || !product.getStore().getId().equals(storeId)) {
+                            return false;
+                        }
+                        if (t.getDateTime() == null) {
+                            return false;
+                        }
+                        LocalDate txDate = t.getDateTime().toLocalDate();
+                        return txDate.isAfter(dateFrom.minusDays(1)) && txDate.isBefore(dateTo.plusDays(1));
                     } catch (Exception e) {
                         return false;
                     }
@@ -65,12 +69,12 @@ public class SalesReportService {
                 .collect(Collectors.toList());
 
             // Crear hojas según tipo de reporte
-            createExecutiveSummarySheet(workbook, transactions);
+            createExecutiveSummarySheet(workbook, transactions, storeId);
             createDetailedMovementsSheet(workbook, transactions);
             
             // Si es COMPLETE, agregar hojas adicionales en orden específico
             if ("COMPLETE".equalsIgnoreCase(reportType)) {
-                createDailyCashFlowSheet(workbook, transactions);
+                createDailyCashFlowSheet(workbook, transactions, storeId);
                 createProductAnalysisSheet(workbook, transactions, storeId, dateFrom, dateTo);
                 createStockRotationSheet(workbook, transactions, storeId, dateFrom, dateTo);
                 createAdministrativeCostsSheet(workbook, storeId, dateFrom, dateTo);
@@ -79,7 +83,6 @@ public class SalesReportService {
                 createChartsAndIndicatorsSheet(workbook, transactions, storeId);
                 createRecommendationsSheet(workbook, transactions, storeId);
             }
-            // Para DAILY, no hay hojas adicionales (similar a SIMPLE)
 
             // Escribir a bytes
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -96,8 +99,29 @@ public class SalesReportService {
         }
     }
 
-    private void createExecutiveSummarySheet(Workbook workbook, List<Transaction> transactions) {
+    /**
+     * Filtra transacciones de productos ACTIVOS para análisis y resúmenes
+     */
+    private List<Transaction> filterActiveProductTransactions(List<Transaction> transactions) {
+        return transactions.stream()
+            .filter(t -> {
+                try {
+                    Product product = t.getProduct();
+                    if (product == null) return false;
+                    // Solo incluir productos activos (isActive = true)
+                    return product.getIsActive() != null && product.getIsActive();
+                } catch (Exception e) {
+                    return false;
+                }
+            })
+            .collect(Collectors.toList());
+    }
+
+    private void createExecutiveSummarySheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
         Sheet sheet = workbook.createSheet("Resumen Ejecutivo");
+        
+        // Solo incluir productos ACTIVOS en resumen ejecutivo
+        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
         
         CellStyle titleStyle = createTitleStyle(workbook);
         CellStyle subtitleStyle = createSubtitleStyle(workbook);
@@ -128,11 +152,11 @@ public class SalesReportService {
         rowNum++; // Espacio
 
         // PERÍODO
-        if (!transactions.isEmpty()) {
-            LocalDate minDate = transactions.stream()
+        if (!activeTransactions.isEmpty()) {
+            LocalDate minDate = activeTransactions.stream()
                 .map(t -> t.getDateTime().toLocalDate())
                 .min(LocalDate::compareTo).orElse(LocalDate.now());
-            LocalDate maxDate = transactions.stream()
+            LocalDate maxDate = activeTransactions.stream()
                 .map(t -> t.getDateTime().toLocalDate())
                 .max(LocalDate::compareTo).orElse(LocalDate.now());
             
@@ -161,7 +185,7 @@ public class SalesReportService {
         BigDecimal totalSalidas = BigDecimal.ZERO;
         BigDecimal totalCostSold = BigDecimal.ZERO;
 
-        for (Transaction t : transactions) {
+        for (Transaction t : activeTransactions) {
             Product product = t.getProduct();
             if (product == null) continue;
 
@@ -253,7 +277,7 @@ public class SalesReportService {
         Map<String, Integer> productQuantity = new HashMap<>();
         Map<String, BigDecimal> productRevenue = new HashMap<>();
 
-        for (Transaction t : transactions) {
+        for (Transaction t : activeTransactions) {
             if ("SALIDA".equalsIgnoreCase(t.getType())) {
                 try {
                     Product product = t.getProduct();
@@ -620,7 +644,9 @@ public class SalesReportService {
         }
     }
 
-    private void createDailyCashFlowSheet(Workbook workbook, List<Transaction> transactions) {
+    private void createDailyCashFlowSheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
+        // Filtrar solo productos activos para este análisis
+        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
         Sheet sheet = workbook.createSheet("Flujo Caja Diario");
         
         CellStyle titleStyle = createTitleStyle(workbook);

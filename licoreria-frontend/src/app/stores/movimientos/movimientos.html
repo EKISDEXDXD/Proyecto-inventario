@@ -136,6 +136,27 @@
           </div>
           <input type="hidden" [(ngModel)]="movement.productId" name="productId">
         </div>
+
+        <!-- Selector de lotes (si hay lotes disponibles) -->
+        <div *ngIf="availableLotes.length > 0" class="form-group lotes-selector">
+          <label>Seleccionar Lote</label>
+          <div class="lotes-dropdown-container" appClickOutside (clickOutside)="showLotesDropdown = false">
+            <button type="button" class="form-control lotes-button" (click)="showLotesDropdown = !showLotesDropdown">
+              {{ selectedLoteId > 0 ? (availableLotes.find(l => l.id === selectedLoteId)?.name || 'Seleccionar...') : 'Seleccionar...' }}
+              <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
+            </button>
+            <div *ngIf="showLotesDropdown" class="lotes-dropdown">
+              <button *ngFor="let lote of availableLotes" type="button" class="lote-option" [ngClass]="{'active-for-sale': lote.isActiveForSale}" (click)="selectLote(lote)">
+                <div class="lote-info">
+                  <span class="lote-name">{{ lote.name }}</span>
+                  <span class="lote-stock">Stock: {{ lote.stock }}</span>
+                </div>
+                <span class="lote-badge" *ngIf="lote.isActiveForSale">✓ EN VENTA</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>Cantidad</label>
           <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>

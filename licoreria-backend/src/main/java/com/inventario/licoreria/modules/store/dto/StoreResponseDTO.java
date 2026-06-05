@@ -9,6 +9,7 @@ public class StoreResponseDTO {
     private Long managerId;
     private String managerUsername;
     private boolean isExternal;
+    private String color;
 
     public StoreResponseDTO(Long id, String name, String description, String address, Long managerId, String managerUsername) {
         this.id = id;
@@ -18,6 +19,7 @@ public class StoreResponseDTO {
         this.managerId = managerId;
         this.managerUsername = managerUsername;
         this.isExternal = false;
+        this.color = "#00B8FF";
     }
 
     public StoreResponseDTO(Long id, String name, String description, String address, Long managerId, String managerUsername, boolean isExternal) {
@@ -28,6 +30,18 @@ public class StoreResponseDTO {
         this.managerId = managerId;
         this.managerUsername = managerUsername;
         this.isExternal = isExternal;
+        this.color = "#00B8FF";
+    }
+
+    public StoreResponseDTO(Long id, String name, String description, String address, Long managerId, String managerUsername, boolean isExternal, String color) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.address = address;
+        this.managerId = managerId;
+        this.managerUsername = managerUsername;
+        this.isExternal = isExternal;
+        this.color = color;
     }
 
     public Long getId() {
@@ -84,5 +98,13 @@ public class StoreResponseDTO {
 
     public void setExternal(boolean external) {
         isExternal = external;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 }

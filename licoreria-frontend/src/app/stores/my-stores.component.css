@@ -196,6 +196,7 @@
 .store-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
+    border-top: 4px solid #E8E8E8;
     border-radius: 14px;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -484,29 +485,31 @@
 
 .primary-btn {
     width: 100%;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #00B8FF 0%, #0099DD 100%);
     color: white;
     border: none;
     padding: 0.875rem 1rem;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+    letter-spacing: 0.3px;
 }
 
 .primary-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.5);
+    filter: brightness(1.1);
 }
 
 :host-context(.dark) .primary-btn {
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
 }
 
 :host-context(.dark) .primary-btn:hover {
-    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.5);
+    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.5);
 }
 
 .primary-btn:active {

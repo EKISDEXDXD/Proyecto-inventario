@@ -6,13 +6,15 @@ import { FormsModule } from '@angular/forms';
 import { catchError, EMPTY } from 'rxjs';
 import { ApiConfigService } from '../../auth/api-config.service';
 import { ProductGalleryModalComponent } from './product-gallery-modal.component';
+import { LotesModalComponent } from './lotes-modal.component';
+import { LotesService } from '../../services/lotes.service';
 import { CurrencyService, Currency } from '../../services/currency.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductGalleryModalComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, ProductGalleryModalComponent, LotesModalComponent, CurrencyFormatPipe],
   templateUrl: './inventario.html',
   styleUrl: './inventario.css'
 })
@@ -55,6 +57,10 @@ export class InventarioComponent implements OnInit {
     isEnabled: true
   };
 
+  // Propiedades para el sistema de lotes
+  showLotesModal: boolean = false;
+  selectedProductForLotes: any = null;
+
   // Currency properties
   availableCurrencies: Currency[] = [];
   selectedCurrency: Currency | null = null;
@@ -62,6 +68,23 @@ export class InventarioComponent implements OnInit {
   // Description modal properties
   showDescriptionModal = false;
   selectedProductForDescription: any = null;
+
+  // Lotes Modal properties
+  lotesMap: Map<number, any[]> = new Map();
+  showLoteDetailModal: boolean = false;
+  selectedLoteForDetail: any = null;
+
+  // Edit Product Modal properties
+  showEditProductModal = false;
+  isEditingProduct = false;
+  canEditProduct = false;
+  editProductError: string = '';
+  editProductForm = {
+    name: '',
+    description: '',
+    cost: 0,
+    price: 0
+  };
 
   // Product Image properties
   productImage: any = null;
@@ -101,10 +124,20 @@ export class InventarioComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private apiConfig: ApiConfigService,
-    private currencyService: CurrencyService
+    private currencyService: CurrencyService,
+    private lotesService: LotesService
   ) {}
 
   ngOnInit() {
+    // Verificar si hay token válido
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('⚠️ No hay token válido. Redirigiendo al login...');
+      alert('⚠️ Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+      this.router.navigate(['/login']);
+      return;
+    }
+
     this.initializeApiUrls();
     this.tryLoadStoreData();
     this.watchStoreIdChanges();
@@ -165,7 +198,10 @@ export class InventarioComponent implements OnInit {
   loadStoreData() {
     const token = localStorage.getItem('token');
     console.log('loadStoreData - token:', !!token);
-    if (!token) return;
+    if (!token) {
+      console.warn('⚠️ No hay token en localStorage');
+      return;
+    }
 
     const headers = new HttpHeaders({
       'Authorization': `Bearer ${token}`
@@ -180,6 +216,14 @@ export class InventarioComponent implements OnInit {
       },
       error: (err) => {
         console.error('loadStoreData - ERROR:', err);
+        // Si recibe 401 o 403, redirige al login
+        if (err.status === 401 || err.status === 403) {
+          console.warn('🔐 Token inválido o expirado. Redirigiendo al login...');
+          localStorage.removeItem('token');
+          alert('⚠️ Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+          this.router.navigate(['/login']);
+          return;
+        }
         this.ngZone.run(() => this.cdr.detectChanges());
       }
     });
@@ -198,10 +242,28 @@ export class InventarioComponent implements OnInit {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: (data) => {
         console.log('loadStoreProducts - SUCCESS, cantidad de productos:', data?.length);
-        this.products = data;
-        this.filteredProducts = data;
-        this.loading = false;
-        this.ngZone.run(() => this.cdr.detectChanges());
+        // Filtrar solo productos principales (parent_id IS NULL)
+        this.products = data.filter(p => !p.parentId);
+        
+        // Cargar lotes para cada producto principal
+        let lotesLoaded = 0;
+        this.products.forEach(product => {
+          this.loadLotesForProduct(product.id, () => {
+            lotesLoaded++;
+            // Cuando se hayan cargado TODOS los lotes, recalcular la vista
+            if (lotesLoaded === this.products.length) {
+              this.updateFilteredProductsWithActiveLotes();
+              this.loading = false;
+              this.ngZone.run(() => this.cdr.detectChanges());
+            }
+          });
+        });
+        
+        // Si no hay productos, terminar loading
+        if (this.products.length === 0) {
+          this.loading = false;
+          this.ngZone.run(() => this.cdr.detectChanges());
+        }
       },
       error: (err) => {
         console.error('loadStoreProducts - ERROR:', err);
@@ -211,14 +273,95 @@ export class InventarioComponent implements OnInit {
     });
   }
 
+  /**
+   * Actualiza filteredProducts reemplazando el producto raíz con el lote activo para venta si existe
+   */
+  updateFilteredProductsWithActiveLotes() {
+    try {
+      this.filteredProducts = this.products.map(product => {
+        // Validación: si el producto no existe, retornar como está
+        if (!product) {
+          return product;
+        }
+
+        // Si el producto raíz está marcado como activo para venta, mostrar el padre
+        if (product.isActiveForSale) {
+          return product;
+        }
+        
+        // Si no, buscar un lote activo para venta
+        const activeLote = this.getActiveLoteForProduct(product.id);
+        if (activeLote) {
+          // Devolver el lote activo para mostrar en la lista
+          return activeLote;
+        }
+        
+        // Si no hay lote activo, devolver el producto raíz (por defecto)
+        return product;
+      });
+    } catch (error) {
+      console.error('Error en updateFilteredProductsWithActiveLotes:', error);
+      // Si hay error, mantener el estado actual de filteredProducts
+    }
+  }
+
   onSearch() {
-    if (this.searchTerm.trim() === '') {
-      this.filteredProducts = this.products;
-    } else {
-      this.filteredProducts = this.products.filter(product =>
-        product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(this.searchTerm.toLowerCase())
-      );
+    try {
+      // Validación: si no hay products, retornar vacío
+      if (!Array.isArray(this.products) || this.products.length === 0) {
+        this.filteredProducts = [];
+        return;
+      }
+
+      if (!this.searchTerm || this.searchTerm.trim() === '') {
+        // Mostrar todos los productos (raíz) pero reemplazando con lote activo si existe
+        const displayProducts = this.products.map(product => {
+          if (!product || !product.id) {
+            return product;
+          }
+          
+          // Si el padre está activo para venta, mostrar padre
+          if (product.isActiveForSale) {
+            return product;
+          }
+          
+          const activeLote = this.getActiveLoteForProduct(product.id);
+          return activeLote || product;
+        });
+        this.filteredProducts = displayProducts;
+      } else {
+        // Filtrar por búsqueda, considerando el lote activo si existe
+        const searchLower = this.searchTerm.toLowerCase().trim();
+        
+        const displayProducts = this.products.map(product => {
+          if (!product || !product.id) {
+            return product;
+          }
+          
+          // Si el padre está activo para venta, mostrar padre
+          if (product.isActiveForSale) {
+            return product;
+          }
+          
+          const activeLote = this.getActiveLoteForProduct(product.id);
+          return activeLote || product;
+        });
+        
+        this.filteredProducts = displayProducts.filter(displayProduct => {
+          if (!displayProduct) {
+            return false;
+          }
+
+          const productName = (displayProduct.name || '').toLowerCase();
+          const productDesc = (displayProduct.description || '').toLowerCase();
+          
+          return productName.includes(searchLower) || productDesc.includes(searchLower);
+        });
+      }
+    } catch (error) {
+      console.error('Error en onSearch:', error);
+      // Si hay error, mostrar todos los productos
+      this.updateFilteredProductsWithActiveLotes();
     }
   }
 
@@ -407,18 +550,18 @@ export class InventarioComponent implements OnInit {
   }
 
   getLowStockProducts() {
-    return this.products.filter(p => {
+    return this.getDisplayProductsForAlerts().filter(p => {
       const threshold = p.alert?.threshold ?? this.lowStockThreshold;
       return p.stock > 0 && p.stock <= threshold;
     });
   }
 
   getOutOfStockProducts() {
-    return this.products.filter(p => p.stock === 0);
+    return this.getDisplayProductsForAlerts().filter(p => p.stock === 0);
   }
 
   getNormalStockProducts() {
-    return this.products.filter(p => {
+    return this.getDisplayProductsForAlerts().filter(p => {
       const threshold = p.alert?.threshold ?? this.lowStockThreshold;
       return p.stock > threshold;
     });
@@ -455,9 +598,34 @@ export class InventarioComponent implements OnInit {
 
   // Métodos para el modal de descripción
   openDescriptionModal(product: any) {
-    this.selectedProductForDescription = { ...product };
-    this.showDescriptionModal = true;
-    this.loadProductImage(product.id);
+    try {
+      if (!product || !product.id) {
+        console.warn('Product inválido:', product);
+        return;
+      }
+
+      // Si es un lote (tiene parentId), abrir el modal del producto raíz
+      // Pero mostrar los DATOS del lote activo (precio, coste, stock)
+      let productToOpen = product;
+      if (product.parentId) {
+        const rootProduct = this.products.find(p => p && p.id === product.parentId);
+        if (rootProduct) {
+          productToOpen = rootProduct;
+          console.log('📋 Lote detectado. Abriendo descripción del RAÍZ:', rootProduct.name);
+          console.log('   Los datos económicos mostrarán del lote activo');
+        } else {
+          console.warn(`Producto raíz con ID ${product.parentId} no encontrado`);
+          productToOpen = product;
+        }
+      }
+
+      this.selectedProductForDescription = { ...productToOpen };
+      this.showDescriptionModal = true;
+      this.loadProductImage(productToOpen.id);
+      this.verifyCanEditProduct(productToOpen.id);
+    } catch (error) {
+      console.error('Error en openDescriptionModal:', error);
+    }
   }
 
   closeDescriptionModal() {
@@ -465,14 +633,171 @@ export class InventarioComponent implements OnInit {
     this.selectedProductForDescription = null;
     this.productImage = null;
     this.imageUploadMessage = '';
+    this.closeEditProductModal();
+  }
+
+  // Métodos para el modal de edición de productos
+  openEditProductModal() {
+    if (!this.selectedProductForDescription) return;
+
+    // Verificar si el producto puede editarse
+    this.verifyCanEditProduct(this.selectedProductForDescription.id);
+    
+    // Preparar el formulario de edición
+    this.editProductForm = {
+      name: this.selectedProductForDescription.name,
+      description: this.selectedProductForDescription.description,
+      cost: this.selectedProductForDescription.cost,
+      price: this.selectedProductForDescription.price
+    };
+    
+    this.editProductError = '';
+    this.showEditProductModal = true;
+  }
+
+  closeEditProductModal() {
+    this.showEditProductModal = false;
+    this.isEditingProduct = false;
+    this.canEditProduct = false;
+    this.editProductError = '';
+    this.editProductForm = {
+      name: '',
+      description: '',
+      cost: 0,
+      price: 0
+    };
+  }
+
+  verifyCanEditProduct(productId: number) {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    this.http.get<any>(`${this.apiProductsUrl}/${productId}/can-edit`, { headers })
+      .subscribe({
+        next: (response) => {
+          this.canEditProduct = response.canEdit;
+          if (!this.canEditProduct) {
+            this.editProductError = response.message;
+          }
+          this.cdr.markForCheck();
+        },
+        error: (error) => {
+          this.canEditProduct = false;
+          this.editProductError = error.error?.message || 'No se puede editar este producto';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  validateEditProductForm(): boolean {
+    if (!this.editProductForm.name || this.editProductForm.name.trim() === '') {
+      this.editProductError = 'El nombre del producto es requerido';
+      return false;
+    }
+
+    if (!this.editProductForm.description || this.editProductForm.description.trim() === '') {
+      this.editProductError = 'La descripción del producto es requerida';
+      return false;
+    }
+
+    if (this.editProductForm.cost <= 0) {
+      this.editProductError = 'El costo debe ser mayor a 0';
+      return false;
+    }
+
+    if (this.editProductForm.price <= 0) {
+      this.editProductError = 'El precio debe ser mayor a 0';
+      return false;
+    }
+
+    if (this.editProductForm.price <= this.editProductForm.cost) {
+      this.editProductError = 'El precio debe ser mayor al costo para obtener ganancia';
+      return false;
+    }
+
+    return true;
+  }
+
+  saveEditedProduct() {
+    if (!this.validateEditProductForm()) {
+      return;
+    }
+
+    if (!this.selectedProductForDescription?.id) {
+      this.editProductError = 'ID de producto no disponible';
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+
+    const productData = {
+      name: this.editProductForm.name.trim(),
+      description: this.editProductForm.description.trim(),
+      cost: this.editProductForm.cost,
+      price: this.editProductForm.price,
+      stock: this.selectedProductForDescription.stock,
+      storeId: this.storeId
+    };
+
+    this.isEditingProduct = true;
+    this.cdr.markForCheck();
+
+    this.http.put(`${this.apiProductsUrl}/${this.selectedProductForDescription.id}`, productData, { headers })
+      .subscribe({
+        next: (updatedProduct: any) => {
+          // Actualizar el producto en la lista
+          const index = this.products.findIndex(p => p.id === updatedProduct.id);
+          if (index !== -1) {
+            this.products[index] = updatedProduct;
+            this.filteredProducts = [...this.products];
+          }
+
+          // Actualizar la selección actual
+          this.selectedProductForDescription = updatedProduct;
+
+          this.isEditingProduct = false;
+          this.closeEditProductModal();
+          this.showDescriptionModal = true; // Mantener modal de descripción abierto
+          this.cdr.markForCheck();
+          
+          alert('Producto actualizado correctamente');
+        },
+        error: (err) => {
+          console.error('Error editando producto:', err);
+          this.editProductError = err.error?.message || 'Error al editar el producto. Inténtalo de nuevo.';
+          this.isEditingProduct = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   // Abrir descripción modal desde galería (mantiene galería abierta)
   openDescriptionModalFromGallery(product: any) {
+    // Si es un lote (tiene parentId), abrir el modal del producto raíz
+    // Pero mostrar los DATOS del lote activo
+    let productToOpen = product;
+    if (product.parentId) {
+      const rootProduct = this.products.find(p => p.id === product.parentId);
+      if (rootProduct) {
+        productToOpen = rootProduct;
+        console.log('🖼️ Lote desde galería. Abriendo RAÍZ:', rootProduct.name);
+      }
+    }
     // Abrir modal de descripción encima de la galería
-    this.selectedProductForDescription = { ...product };
+    this.selectedProductForDescription = { ...productToOpen };
     this.showDescriptionModal = true;
-    this.loadProductImage(product.id);
+    this.loadProductImage(productToOpen.id);
+    this.verifyCanEditProduct(productToOpen.id);
   }
 
   // Métodos para manejo de imágenes
@@ -675,15 +1000,54 @@ export class InventarioComponent implements OnInit {
 
   // Obtener todos los productos con alertas activas
   getActiveAlerts() {
-    return this.products.filter(p => p.alert?.isEnabled);
+    return this.getDisplayProductsForAlerts().filter(p => p.alert?.isEnabled);
   }
 
   // Obtener productos con alertas activas que están en estado bajo
   getAlertsWithStatus(status: 'low' | 'out') {
-    return this.products.filter(p => {
+    return this.getDisplayProductsForAlerts().filter(p => {
       if (!p.alert?.isEnabled) return false;
       return this.getStockStatus(p) === status;
     });
+  }
+
+  /**
+   * Retorna los productos/lotes a mostrar en alertas:
+   * - Si padre tiene isActiveForSale=true → padre
+   * - Si hay lote activo → lote activo
+   * - Si no → padre (por defecto)
+   */
+  private getDisplayProductsForAlerts(): any[] {
+    try {
+      // Validación: si products no es un array, retornar array vacío
+      if (!Array.isArray(this.products)) {
+        return [];
+      }
+
+      return this.products.map(product => {
+        // Validación: producto debe existir
+        if (!product || !product.id) {
+          return product;
+        }
+
+        // Si el padre está activo para venta, mostrar padre
+        if (product.isActiveForSale) {
+          return product;
+        }
+        
+        // Si hay un lote activo, mostrar lote
+        const activeLote = this.getActiveLoteForProduct(product.id);
+        if (activeLote) {
+          return activeLote;
+        }
+        
+        // Por defecto mostrar padre
+        return product;
+      }).filter(p => p); // Filtrar null/undefined
+    } catch (error) {
+      console.error('Error en getDisplayProductsForAlerts:', error);
+      return [];
+    }
   }
 
   // Administrative Costs Methods
@@ -852,4 +1216,212 @@ export class InventarioComponent implements OnInit {
   closeGalleryModal() {
     this.showGalleryModal = false;
   }
+
+  /**
+   * Lotes Modal methods
+   */
+  openLotesModal(product: any) {
+    try {
+      if (!product || !product.id) {
+        console.warn('Product inválido:', product);
+        return;
+      }
+
+      // Si es un lote (tiene parentId), abrir modal del raíz para ver todos los lotes
+      let productToOpen = product;
+      if (product.parentId) {
+        console.log('🔍 Detectado lote clickeado. Buscando producto raíz ID:', product.parentId);
+        const rootProduct = this.products.find(p => p && p.id === product.parentId);
+        if (rootProduct) {
+          productToOpen = rootProduct;
+          console.log('✅ Producto raíz encontrado:', rootProduct.name);
+        } else {
+          console.warn(`⚠️ Producto raíz con ID ${product.parentId} no encontrado. Usando lote original.`);
+          // Si no encontramos el raíz, usar el lote original
+          productToOpen = product;
+        }
+      }
+      
+      console.log('📋 Abriendo modal de lotes para:', productToOpen.name);
+      this.selectedProductForLotes = productToOpen;
+      this.showLotesModal = true;
+    } catch (error) {
+      console.error('Error en openLotesModal:', error);
+    }
+  }
+
+  closeLotesModal() {
+    this.showLotesModal = false;
+    this.selectedProductForLotes = null;
+  }
+
+  loadLotesForProduct(productId: number, onComplete?: () => void) {
+    this.lotesService.getLotesByProductId(productId).subscribe({
+      next: (lotes) => {
+        this.lotesMap.set(productId, lotes);
+        if (onComplete) {
+          onComplete();
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error cargando lotes:', err);
+        this.lotesMap.set(productId, []);
+        if (onComplete) {
+          onComplete();
+        }
+      }
+    });
+  }
+
+  onLotesUpdated() {
+    try {
+      // Cerrar modal primero
+      this.closeLotesModal();
+      // Luego recalcular la vista con el lote activo actualizado
+      this.updateFilteredProductsWithActiveLotes();
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error en onLotesUpdated:', error);
+      // Asegurar que al menos se cierre el modal
+      this.closeLotesModal();
+    }
+  }
+
+  getLotesForProduct(productId: number): any[] {
+    try {
+      // Validación: productId debe ser válido
+      if (!productId || productId <= 0) {
+        return [];
+      }
+
+      const lotes = this.lotesMap.get(productId);
+      
+      // Si lotes es null/undefined, retornar array vacío
+      if (!lotes) {
+        return [];
+      }
+
+      // Si lotes no es un array, retornar array vacío
+      if (!Array.isArray(lotes)) {
+        console.warn(`Lotes para productId ${productId} no es un array:`, lotes);
+        return [];
+      }
+
+      return lotes;
+    } catch (error) {
+      console.error(`Error en getLotesForProduct(${productId}):`, error);
+      return [];
+    }
+  }
+
+  getActiveLoteForProduct(productId: number): any | null {
+    try {
+      // Validación: productId debe ser válido
+      if (!productId || productId <= 0) {
+        return null;
+      }
+
+      const lotes = this.getLotesForProduct(productId);
+      
+      // Validación: si lotes es null o undefined
+      if (!Array.isArray(lotes) || lotes.length === 0) {
+        return null;
+      }
+
+      // Buscar primero el lote activo para venta (isActiveForSale = true)
+      const activeForSaleLote = lotes.find(l => 
+        l && l.isActive && l.isActiveForSale
+      );
+      if (activeForSaleLote) {
+        return activeForSaleLote;
+      }
+      
+      // Si no hay lote activo para venta, devolver el primer lote activo
+      const firstActiveLote = lotes.find(l => l && l.isActive);
+      return firstActiveLote || null;
+    } catch (error) {
+      console.error(`Error en getActiveLoteForProduct(${productId}):`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Retorna el lote ACTIVO PARA VENTA a mostrar en el modal de descripción
+   * SOLO si selectedProductForDescription es un RAÍZ
+   * 
+   * Uso en template:
+   * - Si this.getActiveLoteToDisplay() retorna algo → usar sus datos
+   * - Si retorna null → usar datos del raíz
+   */
+  getActiveLoteToDisplay(): any {
+    try {
+      if (!this.selectedProductForDescription) {
+        return null;
+      }
+
+      // Solo buscar lotes si selectedProductForDescription es un RAÍZ (parentId = null)
+      if (this.selectedProductForDescription.parentId) {
+        // Es un lote, no un raíz. No mostrar datos de otro lote.
+        return null;
+      }
+
+      // Es un RAÍZ → buscar si hay lote activo para venta
+      const activeLote = this.getActiveLoteForProduct(this.selectedProductForDescription.id);
+      
+      if (activeLote && activeLote.isActiveForSale) {
+        console.log(`📄 Lote activo detectado en modal del raíz:`, activeLote.name);
+        console.log(`   Mostrando: precio=${activeLote.price}, costo=${activeLote.cost}, stock=${activeLote.stock}`);
+        return activeLote;
+      }
+
+      // No hay lote activo
+      console.log(`📦 Raíz sin lote activo. Mostrando datos del raíz.`);
+      return null;
+    } catch (error) {
+      console.error('Error en getActiveLoteToDisplay():', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene los datos económicos correctos para mostrar en el modal
+   * Simplificado: solo retorna valores basado en getActiveLoteToDisplay()
+   */
+  getDisplayProductData(product: any, field: 'cost' | 'price' | 'stock'): any {
+    try {
+      if (!product) return null;
+
+      // Verificar si hay un lote activo para mostrar
+      const activeLoteToDisplay = this.getActiveLoteToDisplay();
+      if (activeLoteToDisplay) {
+        // Mostrar datos del lote activo
+        return activeLoteToDisplay[field];
+      }
+
+      // No hay lote activo, mostrar datos del producto (raíz)
+      return product[field];
+    } catch (error) {
+      console.error(`Error en getDisplayProductData(${field}):`, error);
+      return product?.[field] || null;
+    }
+  }
+
+  getTotalStockForProduct(productId: number): number {
+    const lotes = this.getLotesForProduct(productId);
+    // Si hay un lote activo para venta, mostrar solo su stock
+    const activeForSaleLote = lotes.find(l => l.isActive && l.isActiveForSale);
+    if (activeForSaleLote) {
+      return activeForSaleLote.stock || 0;
+    }
+    // Si no hay lote para venta, devolver el total de todos los lotes activos
+    return lotes.filter(l => l.isActive).reduce((total, lote) => total + (lote.stock || 0), 0);
+  }
+
+  calculateMargin(cost: number, price: number): number {
+    if (cost === 0) return 0;
+    return Math.round(((price - cost) / cost) * 100);
+  }
+
 }
+

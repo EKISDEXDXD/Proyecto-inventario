@@ -389,27 +389,47 @@
     <div class="description-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3 class="modal-title"><i class="bx bx-info-circle"></i> {{ selectedProductForDescription?.name }}</h3>
-        <button class="icon-btn small" type="button" (click)="closeDescriptionModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+        <div class="modal-header-actions">
+          <button class="icon-btn small edit-btn" 
+                  type="button" 
+                  (click)="openEditProductModal()"
+                  [title]="canEditProduct ? 'Editar producto' : 'No se puede editar (producto tiene movimientos)'"
+                  [disabled]="!canEditProduct"
+                  aria-label="Editar producto">
+            <i class="bx bx-pencil"></i>
+          </button>
+          <button class="icon-btn small" type="button" (click)="closeDescriptionModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+        </div>
       </div>
       
       <div class="modal-body">
+        <!-- Botón para crear lote (sutil, arriba de la descripción) -->
+        <div class="lotes-header" *ngIf="!selectedProductForDescription?.parentId">
+          <button class="btn-create-lote" (click)="openLotesModal(selectedProductForDescription)" type="button">
+             Gestionar Lotes
+          </button>
+        </div>
+
         <div class="modal-section">
           <h4>Descripción</h4>
           <p class="modal-description">{{ selectedProductForDescription?.description }}</p>
+          <div class="lotes-info" *ngIf="!selectedProductForDescription?.parentId">
+            <small class="text-muted">(Lotes disponibles)</small>
+          </div>
         </div>
 
         <div class="modal-info-grid">
           <div class="modal-info-item">
             <span class="modal-label">Stock Actual</span>
-            <span class="modal-value">{{ selectedProductForDescription?.stock }}</span>
+            <span class="modal-value">{{ getTotalStockForProduct(selectedProductForDescription?.id) }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Costo</span>
-            <span class="modal-value">{{ selectedProductForDescription?.cost | currencyFormat }}</span>
+            <span class="modal-value">{{ (getActiveLoteToDisplay()?.cost || selectedProductForDescription?.cost) | currencyFormat }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Precio de Venta</span>
-            <span class="modal-value">{{ selectedProductForDescription?.price | currencyFormat }}</span>
+            <span class="modal-value">{{ (getActiveLoteToDisplay()?.price || selectedProductForDescription?.price) | currencyFormat }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Estado</span>
@@ -423,6 +443,16 @@
                 {{ getStockStatus(selectedProductForDescription) === 'normal' ? 'Normal' : getStockStatus(selectedProductForDescription) === 'low' ? 'Bajo' : 'Sin Stock' }}
               </span>
             </span>
+          </div>
+        </div>
+
+        <!-- Margen de ganancia -->
+        <div class="margin-section" *ngIf="(getActiveLoteToDisplay()?.price || selectedProductForDescription?.price) > (getActiveLoteToDisplay()?.cost || selectedProductForDescription?.cost)">
+          <div class="form-group info-box">
+            <label>Margen de Ganancia</label>
+            <div class="margin-display">
+              <span class="margin-value">{{ calculateMargin(getActiveLoteToDisplay()?.cost || selectedProductForDescription?.cost, getActiveLoteToDisplay()?.price || selectedProductForDescription?.price) }}%</span>
+            </div>
           </div>
         </div>
 
@@ -483,6 +513,105 @@
     </div>
   </div>
 
+  <!-- MODAL DE EDICIÓN DE PRODUCTO (superpuesto en el modal de descripción) -->
+  <div *ngIf="showEditProductModal && showDescriptionModal" class="edit-product-modal-overlay" (click)="closeEditProductModal()">
+    <div class="edit-product-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="bx bx-pencil"></i> Editar Producto</h3>
+        <button class="icon-btn small" type="button" (click)="closeEditProductModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Mensaje de error -->
+        <div *ngIf="editProductError && !canEditProduct" class="alert alert-error">
+          <i class="bx bx-error-circle"></i>
+          <span>{{ editProductError }}</span>
+        </div>
+
+        <!-- Mensaje de validación -->
+        <div *ngIf="editProductError && canEditProduct" class="alert alert-warning">
+          <i class="bx bx-exclamation-circle"></i>
+          <span>{{ editProductError }}</span>
+        </div>
+
+        <!-- Formulario de edición -->
+        <form *ngIf="canEditProduct" (ngSubmit)="saveEditedProduct()" class="edit-product-form">
+          <div class="form-group">
+            <label for="edit-name">Nombre del Producto</label>
+            <input type="text" 
+                   id="edit-name"
+                   [(ngModel)]="editProductForm.name" 
+                   name="name"
+                   class="form-control"
+                   placeholder="Nombre del producto"
+                   required>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-description">Descripción</label>
+            <textarea id="edit-description"
+                      [(ngModel)]="editProductForm.description" 
+                      name="description"
+                      class="form-control"
+                      placeholder="Descripción del producto"
+                      rows="3"
+                      required></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-cost">Costo</label>
+              <input type="number" 
+                     id="edit-cost"
+                     [(ngModel)]="editProductForm.cost" 
+                     name="cost"
+                     class="form-control"
+                     step="0.01"
+                     min="0"
+                     placeholder="0.00"
+                     required>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-price">Precio de Venta</label>
+              <input type="number" 
+                     id="edit-price"
+                     [(ngModel)]="editProductForm.price" 
+                     name="price"
+                     class="form-control"
+                     step="0.01"
+                     min="0"
+                     placeholder="0.00"
+                     required>
+            </div>
+          </div>
+
+          <!-- Margen de ganancia (solo lectura) -->
+          <div class="form-group info-box" *ngIf="editProductForm.price > editProductForm.cost">
+            <label>Margen de Ganancia</label>
+            <div class="margin-display">
+              <span class="margin-value">{{ ((editProductForm.price - editProductForm.cost) / editProductForm.cost * 100).toFixed(2) }}%</span>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" 
+                (click)="closeEditProductModal()"
+                [disabled]="isEditingProduct">
+          Cancelar
+        </button>
+        <button class="btn btn-primary" 
+                (click)="saveEditedProduct()"
+                [disabled]="!canEditProduct || isEditingProduct">
+          <span *ngIf="!isEditingProduct"><i class="bx bx-check"></i> Guardar Cambios</span>
+          <span *ngIf="isEditingProduct"><i class="bx bx-loader-alt bx-spin"></i> Guardando...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Gallery Modal Component -->
   <app-product-gallery-modal 
     [isOpen]="showGalleryModal" 
@@ -490,4 +619,13 @@
     (onClose)="closeGalleryModal()"
     (onProductSelect)="openDescriptionModalFromGallery($event)">
   </app-product-gallery-modal>
+
+  <!-- Lotes Modal Component -->
+  <app-lotes-modal 
+    [isOpen]="showLotesModal" 
+    [mainProduct]="selectedProductForLotes"
+    [storeId]="storeId"
+    (close)="closeLotesModal()"
+    (lotesUpdated)="onLotesUpdated()">
+  </app-lotes-modal>
 </div>

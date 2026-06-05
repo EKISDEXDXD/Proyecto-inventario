@@ -8,21 +8,24 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 public class ProductDTO {
     
-    @NotBlank(message = "El nombre del producto es obligatorio")
+    @NotBlank(message = "El nombre del producto es requerido")
     private String name;
-    @NotBlank(message = "La descripción del producto es obligatoria")
     private String description;
-    @NotNull(message = "El costo es obligatorio")
-    @Positive(message = "El costo debe ser un valor positivo")
+    @NotNull(message = "El costo es requerido")
+    @PositiveOrZero(message = "El costo debe ser mayor o igual a cero")
     private BigDecimal cost;
-    @NotNull(message = "El precio es obligatorio")
-    @Positive(message = "El precio debe ser un valor positivo")
+    @NotNull(message = "El precio es requerido")
+    @PositiveOrZero(message = "El precio debe ser mayor o igual a cero")
     private BigDecimal price;
-    @NotNull(message = "El stock es obligatorio")
+    @NotNull(message = "El stock es requerido")
     @PositiveOrZero(message = "El stock debe ser mayor o igual a cero")
     private Integer stock;
-    @NotNull(message = "El ID de la tienda es obligatorio")
+    
+    // Campos opcionales para el sistema de lotes
     private Long storeId;
+    private Long parentProductId;  // ID del producto padre si es un lote
+    private Boolean isActive;       // Si el lote está activo
+    private Integer orderIndex;     // Orden del lote
 
     public ProductDTO() {
     }
@@ -73,5 +76,29 @@ public class ProductDTO {
 
     public void setStoreId(Long storeId) {
         this.storeId = storeId;
+    }
+
+    public Long getParentProductId() {
+        return parentProductId;
+    }
+
+    public void setParentProductId(Long parentProductId) {
+        this.parentProductId = parentProductId;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public Integer getOrderIndex() {
+        return orderIndex;
+    }
+
+    public void setOrderIndex(Integer orderIndex) {
+        this.orderIndex = orderIndex;
     }
 }
