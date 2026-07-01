@@ -64,21 +64,20 @@ services:
   # docker run -it --rm -e NGROK_AUTHTOKEN=3D53usTgGe45AJfpLOZGtMuo6Mt_7uXgiDM5v9rHd2uDzfiDg ngrok/ngrok http localhost:80
   #
   # O descarga un nuevo token de ngrok desde: https://dashboard.ngrok.com/auth/your-authtoken
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: licoreria-ngrok
-    environment:
-      NGROK_AUTHTOKEN: 3D53usTgGe45AJfpLOZGtMuo6Mt_7uXgiDM5v9rHd2uDzfiDg
-    command: 
-      - "http"
-      - "frontend:80"
-    ports:
-      - "4040:4040"
-    depends_on:
-      - frontend
-    networks:
-      - licoreria-network
-    restart: unless-stopped
+  ## image: ngrok/ngrok:latest
+    #container_name: licoreria-ngrok
+   # environment:
+      #NGROK_AUTHTOKEN: 3D53usTgGe45AJfpLOZGtMuo6Mt_7uXgiDM5v9rHd2uDzfiDg
+   # command: 
+      #- "http"
+      #- "frontend:80"
+    #ports:
+      #- "4040:4040"
+    #depends_on:
+      #- frontend
+    #networks:
+      #- licoreria-network
+    #restart: unless-stopped
 
 # ============ GESTIÓN DE BASE DE DATOS (pgAdmin) ============
   pgadmin:

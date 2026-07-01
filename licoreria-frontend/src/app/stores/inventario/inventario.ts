@@ -569,15 +569,48 @@ export class InventarioComponent implements OnInit {
 
   // Método para obtener el estado del stock de un producto
   getStockStatus(product: any): 'normal' | 'low' | 'out' {
-    const threshold = product.alert?.threshold ?? this.lowStockThreshold;
-    
-    if (product.stock === 0) {
+    const threshold = product?.alert?.threshold ?? this.lowStockThreshold;
+    const stock = this.getDisplayStockForProduct(product);
+
+    if (stock === 0) {
       return 'out';
     }
-    if (product.stock <= threshold) {
+    if (stock <= threshold) {
       return 'low';
     }
     return 'normal';
+  }
+
+  getDisplayStockForProduct(product: any): number {
+    try {
+      if (!product) {
+        return 0;
+      }
+
+      if (product.parentId) {
+        return Number(product.stock ?? 0);
+      }
+
+      const activeLote = this.getActiveLoteForProduct(product.id);
+      if (activeLote && activeLote.isActiveForSale) {
+        return Number(activeLote.stock ?? 0);
+      }
+
+      if (product.isActiveForSale) {
+        return Number(product.stock ?? 0);
+      }
+
+      const lotes = this.getLotesForProduct(product.id);
+      const activeLotes = (Array.isArray(lotes) ? lotes : []).filter(l => l && l.isActive);
+      if (activeLotes.length > 0) {
+        return activeLotes.reduce((total, lote) => total + Number(lote.stock || 0), 0);
+      }
+
+      return Number(product.stock ?? 0);
+    } catch (error) {
+      console.error('Error en getDisplayStockForProduct:', error);
+      return Number(product?.stock ?? 0);
+    }
   }
 
   // Métodos para gestionar alertas
@@ -1346,6 +1379,26 @@ export class InventarioComponent implements OnInit {
     }
   }
 
+  getDisplayProductName(product: any): string {
+    try {
+      if (!product) {
+        return '';
+      }
+
+      if (product.parentId) {
+        const rootProduct = this.products.find(p => p && p.id === product.parentId);
+        if (rootProduct?.name) {
+          return rootProduct.name;
+        }
+      }
+
+      return product.name || '';
+    } catch (error) {
+      console.error('Error en getDisplayProductName:', error);
+      return product?.name || '';
+    }
+  }
+
   /**
    * Retorna el lote ACTIVO PARA VENTA a mostrar en el modal de descripción
    * SOLO si selectedProductForDescription es un RAÍZ
@@ -1408,14 +1461,8 @@ export class InventarioComponent implements OnInit {
   }
 
   getTotalStockForProduct(productId: number): number {
-    const lotes = this.getLotesForProduct(productId);
-    // Si hay un lote activo para venta, mostrar solo su stock
-    const activeForSaleLote = lotes.find(l => l.isActive && l.isActiveForSale);
-    if (activeForSaleLote) {
-      return activeForSaleLote.stock || 0;
-    }
-    // Si no hay lote para venta, devolver el total de todos los lotes activos
-    return lotes.filter(l => l.isActive).reduce((total, lote) => total + (lote.stock || 0), 0);
+    const product = this.products.find(p => p && p.id === productId);
+    return this.getDisplayStockForProduct(product);
   }
 
   calculateMargin(cost: number, price: number): number {

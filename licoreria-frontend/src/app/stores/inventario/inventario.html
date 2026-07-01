@@ -171,7 +171,7 @@
                   <tbody>
                     <ng-container *ngFor="let product of filteredProducts">
                       <tr class="product-row" (click)="openDescriptionModal(product)" [class.mobile-clickable]="true">
-                        <td><strong>{{ product.name }}</strong></td>
+                        <td><strong>{{ getDisplayProductName(product) }}</strong></td>
                         
                         <td>
                           <span class="stock-badge" 
