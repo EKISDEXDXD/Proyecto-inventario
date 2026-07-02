@@ -33,6 +33,11 @@ public class ExportedReportService {
      */
     public ExportedReport saveReportFile(Long storeId, byte[] fileContent, String reportType, 
                                          String dateFrom, String dateTo) throws IOException {
+        return saveReportFile(storeId, fileContent, reportType, dateFrom, dateTo, "default");
+    }
+
+    public ExportedReport saveReportFile(Long storeId, byte[] fileContent, String reportType, 
+                                         String dateFrom, String dateTo, String periodMode) throws IOException {
         logger.info("Iniciando guardado de reporte: storeId={}, type={}, size={} bytes", storeId, reportType, fileContent.length);
         
         // Usar ruta absoluta en temp directory si no está configurada
@@ -92,7 +97,7 @@ public class ExportedReportService {
         }
 
         // Generar nombre único del archivo
-        String fileName = generateFileName(reportType, dateFrom, dateTo);
+        String fileName = generateFileName(reportType, dateFrom, dateTo, periodMode);
         String filePath = storePath + File.separator + fileName;
         logger.info("Guardando archivo en: {}", filePath);
 
@@ -184,19 +189,26 @@ public class ExportedReportService {
      * Genera nombre descriptivo del archivo
      */
     private String generateFileName(String reportType, String dateFrom, String dateTo) {
+        return generateFileName(reportType, dateFrom, dateTo, "default");
+    }
+
+    private String generateFileName(String reportType, String dateFrom, String dateTo, String periodMode) {
         String type;
         String period;
         
         if ("DAILY".equals(reportType)) {
             type = "diario";
-            period = dateFrom; // Ej: 2026-04-16
+            period = dateFrom != null ? dateFrom : "hoy";
         } else {
-            type = "COMPLETE".equals(reportType) ? "completo" : "resumido";
-            period = formatFilePeriod(dateFrom, dateTo);
+            type = "COMPLETE".equals(reportType) ? "completo" : ("REPORTS_RANGE".equals(reportType) ? "info-rango" : "resumido");
+            period = isCustomPeriod(periodMode) ? "periodo-personalizado" : formatFilePeriod(dateFrom, dateTo);
+            if (isCustomPeriod(periodMode) && dateFrom != null && dateTo != null) {
+                period = String.format("periodo-personalizado-%s-a-%s", dateFrom, dateTo);
+            }
         }
         
         String timestamp = String.valueOf(System.currentTimeMillis());
-        return String.format("reporte-%s-%s-%s.xlsx", type, period, timestamp);
+        return String.format("reporte-%s-%s-%s.xlsx", type, sanitizeFileSegment(period), timestamp);
     }
 
     /**
@@ -215,6 +227,14 @@ public class ExportedReportService {
         } catch (Exception e) {
             return "periodo-desconocido";
         }
+    }
+
+    private boolean isCustomPeriod(String periodMode) {
+        return "custom".equalsIgnoreCase(periodMode) || "personalizado".equalsIgnoreCase(periodMode) || "custom-period".equalsIgnoreCase(periodMode);
+    }
+
+    private String sanitizeFileSegment(String value) {
+        return value == null ? "sin-periodo" : value.replaceAll("[^a-zA-Z0-9._-]+", "-");
     }
 
     /**

@@ -33,7 +33,8 @@ public class ReportExportController {
     public ResponseEntity<byte[]> exportReportsToExcel(
             @PathVariable Long storeId,
             @RequestParam String startDate,
-            @RequestParam String endDate) throws IOException {
+            @RequestParam String endDate,
+            @RequestParam(required = false, defaultValue = "default") String periodMode) throws IOException {
 
         LocalDate start = LocalDate.parse(startDate);
         LocalDate end = LocalDate.parse(endDate);
@@ -42,7 +43,7 @@ public class ReportExportController {
 
         // Guardar en ExportedReport (historial de exportaciones)
         var exportedReport = exportedReportService.saveReportFile(
-                storeId, excelFile, "REPORTS_RANGE", start.toString(), end.toString()
+                storeId, excelFile, "REPORTS_RANGE", start.toString(), end.toString(), periodMode
         );
 
         HttpHeaders headers = new HttpHeaders();

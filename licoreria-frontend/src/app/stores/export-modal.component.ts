@@ -1150,13 +1150,31 @@ export class ExportModalComponent implements OnInit, OnDestroy {
   }
 
   onPeriodChange(reportType: string): void {
-    if (reportType === 'complete' && this.completeReportPeriod === '30days') {
-      this.initializeDates();
-    } else if (reportType === 'simple' && this.simpleReportPeriod === '30days') {
-      this.initializeDates();
-    } else if (reportType === 'info' && this.infoReportPeriod === '30days') {
-      this.initializeDates();
+    if (reportType === 'complete') {
+      if (this.completeReportPeriod === '30days') {
+        this.initializeDates();
+      } else if (!this.completeFromDate || !this.completeToDate) {
+        this.initializeDates();
+      }
+    } else if (reportType === 'simple') {
+      if (this.simpleReportPeriod === '30days') {
+        this.initializeDates();
+      } else if (!this.simpleFromDate || !this.simpleToDate) {
+        this.initializeDates();
+      }
+    } else if (reportType === 'info') {
+      if (this.infoReportPeriod === '30days') {
+        this.initializeDates();
+      } else if (!this.infoFromDate || !this.infoToDate) {
+        this.initializeDates();
+      }
     }
+  }
+
+  private getPeriodMode(reportType: 'COMPLETE' | 'SIMPLE'): 'custom' | 'default' {
+    return reportType === 'COMPLETE'
+      ? (this.completeReportPeriod === 'custom' ? 'custom' : 'default')
+      : (this.simpleReportPeriod === 'custom' ? 'custom' : 'default');
   }
 
   downloadReport(reportType: 'COMPLETE' | 'SIMPLE'): void {
@@ -1188,7 +1206,8 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       storeId: this.storeId.toString(),
       dateFrom: fromDate,
       dateTo: toDate,
-      reportType: reportType
+      reportType: reportType,
+      periodMode: this.getPeriodMode(reportType)
     };
 
     const baseUrl = this.apiConfig.getBaseUrl();
@@ -1205,7 +1224,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (blob) => {
         this.ngZone.run(() => {
-          this.handleDownload(blob, reportType, fromDate, toDate);
+          this.handleDownload(blob, reportType, fromDate, toDate, this.getPeriodMode(reportType));
           this.isLoading = false;
           this.successMessage = '✅ Reporte descargado exitosamente';
           this.cdr.detectChanges();
@@ -1253,7 +1272,8 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       storeId: this.storeId.toString(),
       dateFrom: this.dailyFromDate,
       dateTo: this.dailyToDate,
-      reportType: 'DAILY'
+      reportType: 'DAILY',
+      periodMode: 'default'
     };
 
     const baseUrl = this.apiConfig.getBaseUrl();
@@ -1271,7 +1291,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (blob) => {
         this.ngZone.run(() => {
-          this.handleDownload(blob, 'DAILY', this.dailyFromDate, this.dailyToDate);
+          this.handleDownload(blob, 'DAILY', this.dailyFromDate, this.dailyToDate, 'default');
           this.isLoading = false;
           this.successMessage = '✅ Reporte diario descargado exitosamente';
           this.cdr.detectChanges();
@@ -1325,8 +1345,9 @@ export class ExportModalComponent implements OnInit, OnDestroy {
 
     let endpoint: string;
     const baseUrl = this.apiConfig.getBaseUrl();
+    const periodMode = periodType === 'range' && this.infoReportPeriod === 'custom' ? 'custom' : 'default';
     if (periodType === 'range') {
-      endpoint = `${baseUrl}/api/reports/export/excel/${this.storeId}?startDate=${fromDate}&endDate=${toDate}`;
+      endpoint = `${baseUrl}/api/reports/export/excel/${this.storeId}?startDate=${fromDate}&endDate=${toDate}&periodMode=${periodMode}`;
     } else {
       endpoint = `${baseUrl}/api/reports/export/excel/${this.storeId}/all`;
     }
@@ -1344,7 +1365,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       next: (blob: any) => {
         this.ngZone.run(() => {
           const reportType = periodType === 'range' ? 'INFO_RANGE' : 'INFO_ALL';
-          this.handleDownload(blob, reportType, fromDate, toDate);
+          this.handleDownload(blob, reportType, fromDate, toDate, periodMode);
           this.isLoading = false;
           this.successMessage = '✅ Reportes de información descargados exitosamente';
           this.cdr.detectChanges();
@@ -1371,11 +1392,19 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     });
   }
 
-  handleDownload(blob: Blob, reportType: string, dateFrom: string, dateTo: string): void {
+  handleDownload(blob: Blob, reportType: string, dateFrom: string, dateTo: string, periodMode: 'custom' | 'default' = 'default'): void {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `reporte-ventas-${reportType}-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    const reportKey = reportType.toLowerCase().replace(/_/g, '-');
+    const periodLabel = periodMode === 'custom' ? 'periodo-personalizado' : 'periodo';
+    const dateSuffix = [dateFrom, dateTo].filter(Boolean).join('_a_');
+    const fileName = dateSuffix
+      ? `reporte-${reportKey}-${periodLabel}-${dateSuffix}.xlsx`
+      : `reporte-${reportKey}-${periodLabel}.xlsx`;
+
+    link.download = fileName;
     link.click();
     window.URL.revokeObjectURL(url);
   }

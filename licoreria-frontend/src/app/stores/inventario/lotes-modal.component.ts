@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { LotesService } from '../../services/lotes.service';
 import { LoteDetailModalComponent } from './lote-detail-modal.component';
+import { ModalStackService } from './modal-stack.service';
 
 @Component({
   selector: 'app-lotes-modal',
@@ -19,12 +20,14 @@ export class LotesModalComponent implements OnInit, OnChanges {
   @Input() storeId: number | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() lotesUpdated = new EventEmitter<void>();
+  @Output() editLote = new EventEmitter<any>();
 
   lotes: any[] = [];
   loading: boolean = false;
   showCreateForm: boolean = false;
   showLoteDetailModal: boolean = false;
   selectedLoteForDetail: any = null;
+  overlayZIndex = 2000;
   private previousMainProductId: any = null;
 
   newLoteForm = {
@@ -37,7 +40,8 @@ export class LotesModalComponent implements OnInit, OnChanges {
 
   constructor(
     private lotesService: LotesService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private modalStackService: ModalStackService
   ) {}
 
   ngOnInit() {}
@@ -45,6 +49,7 @@ export class LotesModalComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     // Detectar cambios en isOpen o mainProduct
     if (changes['isOpen'] && this.isOpen && this.mainProduct) {
+      this.bringToFront();
       this.loadLotes();
     } else if (changes['mainProduct'] && this.mainProduct && this.mainProduct.id !== this.previousMainProductId) {
       this.previousMainProductId = this.mainProduct.id;
@@ -52,6 +57,10 @@ export class LotesModalComponent implements OnInit, OnChanges {
         this.loadLotes();
       }
     }
+  }
+
+  bringToFront() {
+    this.overlayZIndex = this.modalStackService.bringToFront();
   }
 
   loadLotes() {
@@ -91,6 +100,15 @@ export class LotesModalComponent implements OnInit, OnChanges {
   viewLoteDetails(lote: any) {
     this.selectedLoteForDetail = lote;
     this.showLoteDetailModal = true;
+    this.cdr.markForCheck();
+  }
+
+  handleEditLote(lote: any) {
+    if (!lote) {
+      return;
+    }
+    this.showLoteDetailModal = false;
+    this.editLote.emit(lote);
     this.cdr.markForCheck();
   }
 
@@ -279,12 +297,13 @@ export class LotesModalComponent implements OnInit, OnChanges {
     }
 
     this.loading = true;
+    const loteName = this.newLoteForm.name.trim();
     const loteData = {
-      name: this.newLoteForm.name,
+      name: loteName,
       description: this.newLoteForm.description,
       cost: this.newLoteForm.cost,
       price: this.newLoteForm.price,
-      stock: this.newLoteForm.stock
+      stock: 0
     };
 
     console.log('📤 Enviando lote con datos:', loteData);
@@ -294,7 +313,12 @@ export class LotesModalComponent implements OnInit, OnChanges {
     this.lotesService.createLote(this.mainProduct.id, loteData).subscribe({
       next: (newLote) => {
         console.log('✅ Lote creado:', newLote);
-        this.lotes.push(newLote);
+        const loteParaMostrar = {
+          ...newLote,
+          name: newLote?.name?.trim() || loteName,
+          displayName: newLote?.name?.trim() || loteName
+        };
+        this.lotes.push(loteParaMostrar);
         this.resetCreateForm();
         this.loading = false;
         this.lotesUpdated.emit();
@@ -332,6 +356,23 @@ export class LotesModalComponent implements OnInit, OnChanges {
   calculateMargin(cost: number, price: number): number {
     if (cost === 0) return 0;
     return Math.round(((price - cost) / cost) * 100);
+  }
+
+  getLoteDisplayName(lote: any): string {
+    if (!lote) {
+      return 'Sin nombre';
+    }
+
+    const candidateName = lote.name || lote.displayName || '';
+    if (candidateName && candidateName.trim()) {
+      return candidateName.trim();
+    }
+
+    if (lote.parentId) {
+      return 'Lote sin nombre';
+    }
+
+    return this.mainProduct?.name || 'Producto sin nombre';
   }
 
   onClose() {

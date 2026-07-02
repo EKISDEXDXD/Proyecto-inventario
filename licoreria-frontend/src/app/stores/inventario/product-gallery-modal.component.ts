@@ -50,6 +50,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
   // UI
   isScrolling: boolean = false;
+  overlayZIndex = 900;
 
   // Drag & Drop
   draggedTag: any = null;
@@ -96,9 +97,11 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     // Cuando el modal se abre, cargar datos
     if (changes['isOpen']) {
       console.log('[Gallery Modal] isOpen cambió. Actual:', this.isOpen, 'storeId:', this.storeId);
-      if (this.isOpen && this.storeId > 0) {
-        this.loadTags();
-        this.loadProducts();
+      if (this.isOpen) {
+        if (this.storeId > 0) {
+          this.loadTags();
+          this.loadProducts();
+        }
       }
     }
   }

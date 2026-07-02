@@ -17,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -40,13 +41,17 @@ public class SalesReportService {
     }
 
     public byte[] generateSalesReport(Long storeId, LocalDate dateFrom, LocalDate dateTo, String reportType) throws IOException {
+        return generateSalesReport(storeId, dateFrom, dateTo, reportType, "default");
+    }
+
+    public byte[] generateSalesReport(Long storeId, LocalDate dateFrom, LocalDate dateTo, String reportType, String periodMode) throws IOException {
         try {
             Workbook workbook = new XSSFWorkbook();
 
             // Obtener todas las transacciones
             List<Transaction> allTransactions = transactionService.findAll();
             
-            // Filtrar por tienda y rango de fechas (INCLUYE productos desactivados para movimientos)
+            // Filtrar por tienda, rango de fechas y excluir productos desactivados o eliminados
             List<Transaction> transactions = allTransactions.stream()
                 .filter(t -> {
                     try {
@@ -55,6 +60,9 @@ public class SalesReportService {
                             return false;
                         }
                         if (product.getStore() == null || !product.getStore().getId().equals(storeId)) {
+                            return false;
+                        }
+                        if (product.getIsActive() == null || !product.getIsActive()) {
                             return false;
                         }
                         if (t.getDateTime() == null) {
@@ -68,8 +76,13 @@ public class SalesReportService {
                 })
                 .collect(Collectors.toList());
 
+            boolean isCustomPeriod = "custom".equalsIgnoreCase(periodMode) || "personalizado".equalsIgnoreCase(periodMode);
+            if (isCustomPeriod) {
+                createFileMetadataSheet(workbook, storeId, dateFrom, dateTo, reportType, true);
+            }
+
             // Crear hojas según tipo de reporte
-            createExecutiveSummarySheet(workbook, transactions, storeId);
+            createExecutiveSummarySheet(workbook, transactions, storeId, isCustomPeriod, dateFrom, dateTo, reportType);
             createDetailedMovementsSheet(workbook, transactions);
             
             // Si es COMPLETE, agregar hojas adicionales en orden específico
@@ -117,7 +130,8 @@ public class SalesReportService {
             .collect(Collectors.toList());
     }
 
-    private void createExecutiveSummarySheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
+    private void createExecutiveSummarySheet(Workbook workbook, List<Transaction> transactions, Long storeId,
+                                             boolean customPeriod, LocalDate dateFrom, LocalDate dateTo, String reportType) {
         Sheet sheet = workbook.createSheet("Resumen Ejecutivo");
         
         // Solo incluir productos ACTIVOS en resumen ejecutivo
@@ -318,6 +332,66 @@ public class SalesReportService {
         sheet.autoSizeColumn(0);
         sheet.autoSizeColumn(1);
         sheet.autoSizeColumn(2);
+    }
+
+    private void createFileMetadataSheet(Workbook workbook, Long storeId, LocalDate dateFrom, LocalDate dateTo, String reportType, boolean customPeriod) {
+        Sheet sheet = workbook.createSheet("Información del Archivo");
+
+        CellStyle titleStyle = createTitleStyle(workbook);
+        CellStyle headerStyle = createHeaderStyle(workbook);
+        CellStyle dataCellStyle = createDataCellStyle(workbook);
+        CellStyle labelStyle = createLabelStyle(workbook);
+
+        int rowNum = 0;
+        sheet.setColumnWidth(0, 28);
+        sheet.setColumnWidth(1, 45);
+
+        Row titleRow = sheet.createRow(rowNum++);
+        titleRow.setHeightInPoints(24);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("INFORMACIÓN DEL ARCHIVO");
+        titleCell.setCellStyle(titleStyle);
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum - 1, rowNum - 1, 0, 1));
+
+        Row typeRow = sheet.createRow(rowNum++);
+        typeRow.createCell(0).setCellValue("Tipo de período:");
+        typeRow.createCell(1).setCellValue(customPeriod ? "Personalizado" : "Predeterminado");
+        typeRow.getCell(0).setCellStyle(labelStyle);
+        typeRow.getCell(1).setCellStyle(dataCellStyle);
+
+        Row rangeRow = sheet.createRow(rowNum++);
+        rangeRow.createCell(0).setCellValue("Rango:");
+        rangeRow.createCell(1).setCellValue(dateFrom + " a " + dateTo);
+        rangeRow.getCell(0).setCellStyle(labelStyle);
+        rangeRow.getCell(1).setCellStyle(dataCellStyle);
+
+        Row reportTypeRow = sheet.createRow(rowNum++);
+        reportTypeRow.createCell(0).setCellValue("Tipo de reporte:");
+        reportTypeRow.createCell(1).setCellValue("COMPLETE".equalsIgnoreCase(reportType) ? "Completo" : "Resumido");
+        reportTypeRow.getCell(0).setCellStyle(labelStyle);
+        reportTypeRow.getCell(1).setCellStyle(dataCellStyle);
+
+        Row storeRow = sheet.createRow(rowNum++);
+        storeRow.createCell(0).setCellValue("Tienda:");
+        storeRow.createCell(1).setCellValue(storeId != null ? storeId.toString() : "N/A");
+        storeRow.getCell(0).setCellStyle(labelStyle);
+        storeRow.getCell(1).setCellStyle(dataCellStyle);
+
+        Row generatedRow = sheet.createRow(rowNum++);
+        generatedRow.createCell(0).setCellValue("Generado el:");
+        generatedRow.createCell(1).setCellValue(LocalDateTime.now().toString());
+        generatedRow.getCell(0).setCellStyle(labelStyle);
+        generatedRow.getCell(1).setCellStyle(dataCellStyle);
+
+        Row noteRow = sheet.createRow(rowNum++);
+        noteRow.createCell(0).setCellValue("Nota:");
+        noteRow.createCell(1).setCellValue("Este archivo corresponde a un período personalizado de exportación.");
+        noteRow.getCell(0).setCellStyle(labelStyle);
+        noteRow.getCell(1).setCellStyle(dataCellStyle);
+
+        for (int i = 0; i < 2; i++) {
+            sheet.autoSizeColumn(i);
+        }
     }
 
     private void createDetailedMovementsSheet(Workbook workbook, List<Transaction> transactions) {
@@ -652,15 +726,18 @@ public class SalesReportService {
         CellStyle titleStyle = createTitleStyle(workbook);
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle currencyStyle = createCurrencyStyle(workbook);
+        CellStyle numberStyle = createNumberStyle(workbook);
         CellStyle dateStyle = createDateStyle(workbook);
 
         int rowNum = 0;
 
         // Configurar ancho de columnas
         sheet.setColumnWidth(0, 18);  // Fecha
-        sheet.setColumnWidth(1, 18);  // Entradas
-        sheet.setColumnWidth(2, 18);  // Salidas
-        sheet.setColumnWidth(3, 18);  // Ganancia Neta
+        sheet.setColumnWidth(1, 16);  // Cant. Salidas
+        sheet.setColumnWidth(2, 16);  // Cant. Entradas
+        sheet.setColumnWidth(3, 18);  // Ventas
+        sheet.setColumnWidth(4, 20);  // Gasto Entradas
+        sheet.setColumnWidth(5, 20);  // Ganancia Neta
 
         // TÍTULO
         Row titleRow = sheet.createRow(rowNum++);
@@ -668,14 +745,14 @@ public class SalesReportService {
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("FLUJO CAJA DIARIO");
         titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 3));
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 5));
 
         rowNum++; // Espacio
 
         // Encabezados
         Row headerRow = sheet.createRow(rowNum++);
         headerRow.setHeightInPoints(18);
-        String[] headers = {"Día", "Entradas", "Salidas", "Ganancia Neta"};
+        String[] headers = {"Día", "Cant. Salidas", "Cant. Entradas", "Ventas", "Gasto Entradas", "Ganancia Neta"};
         
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
@@ -684,7 +761,7 @@ public class SalesReportService {
         }
 
         // Agrupar por día (filtrar transacciones sin dateTime válido)
-        Map<LocalDate, List<Transaction>> transactionsByDay = transactions.stream()
+        Map<LocalDate, List<Transaction>> transactionsByDay = activeTransactions.stream()
             .filter(t -> t.getDateTime() != null)
             .collect(Collectors.groupingBy(
                 t -> t.getDateTime().toLocalDate(),
@@ -696,8 +773,11 @@ public class SalesReportService {
             LocalDate day = entry.getKey();
             List<Transaction> dayTransactions = entry.getValue();
 
-            BigDecimal entradas = BigDecimal.ZERO;
-            BigDecimal salidas = BigDecimal.ZERO;
+            int cantSalidas = 0;
+            int cantEntradas = 0;
+            BigDecimal ventas = BigDecimal.ZERO;
+            BigDecimal costoVenta = BigDecimal.ZERO;
+            BigDecimal gastoEntradas = BigDecimal.ZERO;
 
             for (Transaction t : dayTransactions) {
                 Product product;
@@ -708,14 +788,21 @@ public class SalesReportService {
                 }
                 if (product == null) continue;
 
+                BigDecimal unitPrice = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
+                BigDecimal unitCost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
+                BigDecimal quantity = BigDecimal.valueOf(t.getQuantity() != null ? t.getQuantity() : 0);
+
                 if ("ENTRADA".equalsIgnoreCase(t.getType())) {
-                    entradas = entradas.add(product.getCost().multiply(new BigDecimal(t.getQuantity())));
+                    cantEntradas++;
+                    gastoEntradas = gastoEntradas.add(unitCost.multiply(quantity));
                 } else if ("SALIDA".equalsIgnoreCase(t.getType())) {
-                    salidas = salidas.add(product.getPrice().multiply(new BigDecimal(t.getQuantity())));
+                    cantSalidas++;
+                    ventas = ventas.add(unitPrice.multiply(quantity));
+                    costoVenta = costoVenta.add(unitCost.multiply(quantity));
                 }
             }
 
-            BigDecimal ganancia = salidas.subtract(entradas);
+            BigDecimal gananciaNeta = ventas.subtract(costoVenta);
 
             Row row = sheet.createRow(rowNum++);
             row.setHeightInPoints(14);
@@ -725,17 +812,30 @@ public class SalesReportService {
             dayCell.setCellStyle(dateStyle);
             addBorders(dayCell);
             
-            row.createCell(1).setCellValue(entradas.doubleValue());
-            row.getCell(1).setCellStyle(currencyStyle);
-            addBorders(row.getCell(1));
+            Cell cantSalidasCell = row.createCell(1);
+            cantSalidasCell.setCellValue(cantSalidas);
+            cantSalidasCell.setCellStyle(numberStyle);
+            addBorders(cantSalidasCell);
 
-            row.createCell(2).setCellValue(salidas.doubleValue());
-            row.getCell(2).setCellStyle(currencyStyle);
-            addBorders(row.getCell(2));
+            Cell cantEntradasCell = row.createCell(2);
+            cantEntradasCell.setCellValue(cantEntradas);
+            cantEntradasCell.setCellStyle(numberStyle);
+            addBorders(cantEntradasCell);
 
-            row.createCell(3).setCellValue(ganancia.doubleValue());
-            row.getCell(3).setCellStyle(currencyStyle);
-            addBorders(row.getCell(3));
+            Cell ventasCell = row.createCell(3);
+            ventasCell.setCellValue(ventas.doubleValue());
+            ventasCell.setCellStyle(currencyStyle);
+            addBorders(ventasCell);
+
+            Cell gastoEntradasCell = row.createCell(4);
+            gastoEntradasCell.setCellValue(gastoEntradas.doubleValue());
+            gastoEntradasCell.setCellStyle(currencyStyle);
+            addBorders(gastoEntradasCell);
+
+            Cell gananciaNetaCell = row.createCell(5);
+            gananciaNetaCell.setCellValue(gananciaNeta.doubleValue());
+            gananciaNetaCell.setCellStyle(currencyStyle);
+            addBorders(gananciaNetaCell);
         }
 
         // Auto-ajustar columnas

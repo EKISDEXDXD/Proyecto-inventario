@@ -1,6 +1,6 @@
 <!-- Modal Principal de Gestión de Lotes -->
-<div *ngIf="isOpen" class="lotes-modal-overlay" (click)="onClose()">
-  <div class="lotes-modal-content" (click)="$event.stopPropagation()">
+<div *ngIf="isOpen" class="lotes-modal-overlay" (click)="onClose()" [style.z-index]="overlayZIndex" (mousedown)="bringToFront()">
+  <div class="lotes-modal-content" (click)="$event.stopPropagation(); bringToFront()" (mousedown)="bringToFront()">
     <div class="modal-header">
       <h2 class="modal-title">
         <i class="bx bx-list"></i> Gestionar Lotes - {{ mainProduct?.name }}
@@ -20,7 +20,7 @@
           <div *ngFor="let lote of lotes; let i = index" class="lote-card" [ngClass]="{'active-for-sale': lote.isActiveForSale}">
             <div class="lote-card-header">
               <div class="lote-info-primary">
-                <span class="lote-name">{{ lote.parentId ? 'Lote ' + lote.orderIndex : '📦 Producto Raíz' }}</span>
+                <span class="lote-name">{{ getLoteDisplayName(lote) }}</span>
                 <span *ngIf="lote.isActiveForSale" class="active-for-sale-badge" title="Activo para venta">
                   <i class="bx bx-check-circle"></i> Activo para Venta
                 </span>
@@ -214,5 +214,6 @@
 <app-lote-detail-modal
   [isOpen]="showLoteDetailModal"
   [lote]="selectedLoteForDetail"
-  (close)="showLoteDetailModal = false">
+  (close)="showLoteDetailModal = false"
+  (editLote)="handleEditLote($event)">
 </app-lote-detail-modal>
