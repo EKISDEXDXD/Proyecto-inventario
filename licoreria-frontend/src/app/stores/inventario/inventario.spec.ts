@@ -252,6 +252,15 @@ describe('Inventario - Lotes Management', () => {
       expect(component.showDescriptionModal).toBe(true);
     });
 
+    it('should render the description overlay above the gallery overlay', () => {
+      component.openDescriptionModal(mockRootProduct);
+      fixture.detectChanges();
+
+      const overlay = fixture.nativeElement.querySelector('.description-modal-overlay') as HTMLElement;
+      expect(overlay).toBeTruthy();
+      expect(parseInt(getComputedStyle(overlay).zIndex || '0', 10)).toBeGreaterThan(1000);
+    });
+
     it('should open root product modal when clicking on lote, showing lote data (price, cost, stock)', () => {
       component.products = [mockRootProduct];
       

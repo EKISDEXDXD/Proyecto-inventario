@@ -385,8 +385,8 @@
   </div>
 
   <!-- MODAL FLOTANTE DE DESCRIPCIÓN -->
-  <div *ngIf="showDescriptionModal" class="description-modal-overlay" (click)="closeDescriptionModal()">
-    <div class="description-modal" (click)="$event.stopPropagation()">
+  <div *ngIf="showDescriptionModal" class="description-modal-overlay" (click)="closeDescriptionModal()" [style.z-index]="descriptionModalZIndex" (mousedown)="bringDescriptionModalToFront()">
+    <div class="description-modal" (click)="$event.stopPropagation(); bringDescriptionModalToFront()" (mousedown)="bringDescriptionModalToFront()">
       <div class="modal-header">
         <h3 class="modal-title"><i class="bx bx-info-circle"></i> {{ selectedProductForDescription?.name }}</h3>
         <div class="modal-header-actions">
@@ -514,8 +514,8 @@
   </div>
 
   <!-- MODAL DE EDICIÓN DE PRODUCTO (superpuesto en el modal de descripción) -->
-  <div *ngIf="showEditProductModal && showDescriptionModal" class="edit-product-modal-overlay" (click)="closeEditProductModal()">
-    <div class="edit-product-modal" (click)="$event.stopPropagation()">
+  <div *ngIf="showEditProductModal && showDescriptionModal" class="edit-product-modal-overlay" (click)="closeEditProductModal()" [style.z-index]="editProductModalZIndex" (mousedown)="bringEditProductModalToFront()">
+    <div class="edit-product-modal" (click)="$event.stopPropagation(); bringEditProductModalToFront()" (mousedown)="bringEditProductModalToFront()">
       <div class="modal-header">
         <h3 class="modal-title"><i class="bx bx-pencil"></i> Editar Producto</h3>
         <button class="icon-btn small" type="button" (click)="closeEditProductModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
@@ -626,6 +626,7 @@
     [mainProduct]="selectedProductForLotes"
     [storeId]="storeId"
     (close)="closeLotesModal()"
-    (lotesUpdated)="onLotesUpdated()">
+    (lotesUpdated)="onLotesUpdated()"
+    (editLote)="openLoteEditModal($event)">
   </app-lotes-modal>
 </div>

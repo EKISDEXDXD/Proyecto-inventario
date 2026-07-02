@@ -109,6 +109,24 @@
                 </button>
               </div>
 
+              <!-- Productos del inventario -->
+              <div *ngIf="productSearchTerm === '' && filteredProductsForAutocomplete.length > 0" class="dropdown-section">
+                <div class="section-label">📦 Inventario</div>
+                <button
+                  *ngFor="let product of filteredProductsForAutocomplete"
+                  type="button"
+                  class="dropdown-item"
+                  (click)="selectProductFromAutocomplete(product)">
+                  <span class="product-name">{{ product.name }}</span>
+                  <span class="product-meta">
+                    <span class="stock-indicator" [ngClass]="{'low': product.stock < 10, 'out': product.stock === 0, 'normal': product.stock >= 10}">
+                      Stock: {{ product.stock }}
+                    </span>
+                    <span class="product-price">${{ product.price }}</span>
+                  </span>
+                </button>
+              </div>
+
               <!-- Resultados de búsqueda -->
               <div *ngIf="productSearchTerm !== ''" class="dropdown-section">
                 <button
@@ -137,21 +155,30 @@
           <input type="hidden" [(ngModel)]="movement.productId" name="productId">
         </div>
 
-        <!-- Selector de lotes (si hay lotes disponibles) -->
-        <div *ngIf="availableLotes.length > 0" class="form-group lotes-selector">
-          <label>Seleccionar Lote</label>
+        <!-- Selector de lotes -->
+        <div *ngIf="selectedProductId > 0 && availableLotes.length > 0" class="form-group lotes-selector">
+          <label>Seleccionar lote</label>
           <div class="lotes-dropdown-container" appClickOutside (clickOutside)="showLotesDropdown = false">
             <button type="button" class="form-control lotes-button" (click)="showLotesDropdown = !showLotesDropdown">
-              {{ selectedLoteId > 0 ? (availableLotes.find(l => l.id === selectedLoteId)?.name || 'Seleccionar...') : 'Seleccionar...' }}
+              {{ getSelectedLoteLabel() }}
               <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
             </button>
             <div *ngIf="showLotesDropdown" class="lotes-dropdown">
               <button *ngFor="let lote of availableLotes" type="button" class="lote-option" [ngClass]="{'active-for-sale': lote.isActiveForSale}" (click)="selectLote(lote)">
                 <div class="lote-info">
-                  <span class="lote-name">{{ lote.name }}</span>
-                  <span class="lote-stock">Stock: {{ lote.stock }}</span>
+                  <div class="lote-main-row">
+                    <span class="lote-name">{{ lote.name }}</span>
+                    <div class="lote-badges">
+                      <span class="lote-badge lote-badge-root" *ngIf="lote.isRootOption">Raíz</span>
+                      <span class="lote-badge" *ngIf="lote.isActiveForSale">Activo</span>
+                    </div>
+                  </div>
+                  <div class="lote-meta-row">
+                    <span class="lote-type">{{ getLoteTypeLabel(lote) }}</span>
+                    <span class="lote-stock-pill">Stock: {{ lote.stock }}</span>
+                    <span class="lote-price-pill">Precio: ${{ lote.price }}</span>
+                  </div>
                 </div>
-                <span class="lote-badge" *ngIf="lote.isActiveForSale">✓ EN VENTA</span>
               </button>
             </div>
           </div>

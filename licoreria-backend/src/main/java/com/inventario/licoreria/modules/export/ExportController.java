@@ -109,6 +109,7 @@ public class ExportController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dateTo,
             @RequestParam(defaultValue = "COMPLETE") String reportType,
+            @RequestParam(required = false, defaultValue = "default") String periodMode,
             Authentication authentication) {
 
         try {
@@ -139,8 +140,8 @@ public class ExportController {
             LocalDate to = dateTo != null ? dateTo : LocalDate.now();
             LocalDate from = dateFrom != null ? dateFrom : to.minusDays(30);
             
-            logger.info("Exportar reporte: storeId={}, dateFrom={}, dateTo={}, reportType={}", 
-                storeId, from, to, reportType);
+            logger.info("Exportar reporte: storeId={}, dateFrom={}, dateTo={}, reportType={}, periodMode={}", 
+                storeId, from, to, reportType, periodMode);
             
             // Validate date range
             if (from.isAfter(to)) {
@@ -150,7 +151,7 @@ public class ExportController {
 
             // Generate the Excel file bytes
             logger.info("Iniciando generación de reporte...");
-            byte[] reportBytes = salesReportService.generateSalesReport(storeId, from, to, reportType);
+            byte[] reportBytes = salesReportService.generateSalesReport(storeId, from, to, reportType, periodMode);
 
             if (reportBytes == null || reportBytes.length == 0) {
                 logger.info("El reporte no tiene datos");
@@ -161,7 +162,7 @@ public class ExportController {
             // Save the report to filesystem and database using ExportedReportService
             logger.info("Guardando reporte generado: {} bytes", reportBytes.length);
             ExportedReport exportedReport = exportedReportService.saveReportFile(
-                    storeId, reportBytes, reportType, from.toString(), to.toString());
+                    storeId, reportBytes, reportType, from.toString(), to.toString(), periodMode);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);

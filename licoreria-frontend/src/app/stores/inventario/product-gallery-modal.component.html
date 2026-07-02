@@ -1,4 +1,4 @@
-<div class="gallery-modal-overlay" *ngIf="isOpen" (click)="close()" role="presentation">
+<div class="gallery-modal-overlay" *ngIf="isOpen" (click)="close()" role="presentation" [style.z-index]="overlayZIndex">
   <div class="gallery-modal-content" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
     <!-- Header -->
     <div class="gallery-modal-header">

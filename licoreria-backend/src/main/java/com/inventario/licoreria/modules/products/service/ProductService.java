@@ -91,7 +91,8 @@ public class ProductService {
         product.setDescription(dto.getDescription());
         product.setCost(dto.getCost());
         product.setPrice(dto.getPrice());
-        product.setStock(dto.getStock());
+        product.setStock(0);
+        product.setInitialStock(0);
         return productRepository.save(product);
     }
 
@@ -367,18 +368,22 @@ public class ProductService {
         
         // Crear el nuevo lote
         final Product lote = new Product();
-        lote.setName(dto.getName());
+        List<Product> existingLotes = getLotesByProduct(parentId);
+        String loteName = dto.getName() != null ? dto.getName().trim() : "";
+        if (loteName.isBlank()) {
+            loteName = parentProduct.getName() + " - Lote " + (existingLotes.size() + 1);
+        }
+        lote.setName(loteName);
         lote.setDescription(dto.getDescription());
         lote.setCost(dto.getCost());
         lote.setPrice(dto.getPrice());
-        lote.setStock(dto.getStock());
-        lote.setInitialStock(dto.getStock());
+        lote.setStock(0);
+        lote.setInitialStock(0);
         lote.setStore(parentProduct.getStore());
         lote.setParentId(parentId);
         lote.setIsActive(true);  // Nuevo lote activo y visible inmediatamente
         
         // Calcular el order_index
-        List<Product> existingLotes = getLotesByProduct(parentId);
         Integer maxOrderIndex = existingLotes.stream()
                 .map(Product::getOrderIndex)
                 .max(Integer::compareTo)

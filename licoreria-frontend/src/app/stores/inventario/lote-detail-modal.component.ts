@@ -1,19 +1,23 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
+import { ModalStackService } from './modal-stack.service';
 
 @Component({
   selector: 'app-lote-detail-modal',
   standalone: true,
   imports: [CommonModule, CurrencyFormatPipe],
   template: `
-    <div *ngIf="isOpen" class="lote-detail-modal-overlay" (click)="onClose()">
-      <div class="lote-detail-modal" (click)="$event.stopPropagation()">
+    <div *ngIf="isOpen" class="lote-detail-modal-overlay" (click)="onClose()" [style.z-index]="overlayZIndex" (mousedown)="bringToFront()">
+      <div class="lote-detail-modal" (click)="$event.stopPropagation(); bringToFront()" (mousedown)="bringToFront()">
         <div class="modal-header">
           <h3 class="modal-title">
             <i class="bx bx-detail"></i> Detalles del Lote
           </h3>
           <div class="modal-header-actions">
+            <button class="icon-btn small" type="button" (click)="onEdit()" aria-label="Editar lote" title="Editar lote">
+              <i class="bx bx-edit"></i>
+            </button>
             <button class="icon-btn small" type="button" (click)="onClose()" aria-label="Cerrar">
               <i class="bx bx-x"></i>
             </button>
@@ -125,7 +129,7 @@ import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1004;
+      z-index: 1020;
       padding: 1rem;
       animation: fadeIn 0.2s ease-out;
     }
@@ -324,6 +328,21 @@ export class LoteDetailModalComponent {
   @Input() isOpen: boolean = false;
   @Input() lote: any = null;
   @Output() close = new EventEmitter<void>();
+  @Output() editLote = new EventEmitter<any>();
+
+  overlayZIndex = 2000;
+
+  constructor(private modalStackService: ModalStackService) {}
+
+  ngOnChanges() {
+    if (this.isOpen) {
+      this.bringToFront();
+    }
+  }
+
+  bringToFront() {
+    this.overlayZIndex = this.modalStackService.bringToFront();
+  }
 
   calculateMargin(cost: number, price: number): number {
     if (cost === 0) return 0;
@@ -332,5 +351,11 @@ export class LoteDetailModalComponent {
 
   onClose() {
     this.close.emit();
+  }
+
+  onEdit() {
+    if (this.lote) {
+      this.editLote.emit(this.lote);
+    }
   }
 }

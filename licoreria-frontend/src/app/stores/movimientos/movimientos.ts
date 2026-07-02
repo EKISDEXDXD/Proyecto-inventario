@@ -164,7 +164,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   private initializeProductSearchDebounce() {
     this.productSearchSubject.pipe(
-      debounceTime(300),
+      debounceTime(150),
       distinctUntilChanged()
     ).subscribe(() => {
       this.filterProductsForAutocomplete();
@@ -176,7 +176,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     if (stored) {
       try {
         const recentIds = JSON.parse(stored) as number[];
-        this.recentProducts = this.products.filter(p => recentIds.includes(p.id)).slice(0, this.MAX_RECENT_PRODUCTS);
+        const inventoryProducts = this.getInventoryDisplayProducts();
+        this.recentProducts = inventoryProducts.filter(p => recentIds.includes(p.id)).slice(0, this.MAX_RECENT_PRODUCTS);
       } catch (e) {
         console.error('Error loading recent products:', e);
       }
@@ -212,18 +213,19 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private filterProductsForAutocomplete() {
-    if (this.productSearchTerm.trim() === '') {
-      this.filteredProductsForAutocomplete = [];
+    const inventoryProducts = this.getInventoryDisplayProducts();
+    const searchLower = this.productSearchTerm.trim().toLowerCase();
+
+    if (searchLower === '') {
+      this.filteredProductsForAutocomplete = inventoryProducts;
     } else {
-      const searchLower = this.productSearchTerm.toLowerCase();
-      // Filtrar solo productos principales (sin lotes) - parent_id debe ser null
-      this.filteredProductsForAutocomplete = this.products.filter(product =>
-        !product.parentId && (
-          product.name.toLowerCase().includes(searchLower) ||
-          (product.description && product.description.toLowerCase().includes(searchLower))
-        )
-      );
+      this.filteredProductsForAutocomplete = inventoryProducts.filter(product => {
+        const name = (product?.name || '').toLowerCase();
+        const description = (product?.description || '').toLowerCase();
+        return name.includes(searchLower) || description.includes(searchLower);
+      });
     }
+
     this.cdr.detectChanges();
   }
 
@@ -243,42 +245,83 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.productSearchTerm = product.name;
     this.showProductDropdown = false;
     this.saveRecentProduct(product.id);
-    
-    // Limpiar lotes previos
-    this.availableLotes = [];
-    this.selectedLoteId = 0;
+
+    this.availableLotes = this.buildProductSelectionOptions(product);
+    this.selectedLoteId = this.getDefaultSelectedLoteId(this.availableLotes);
     this.showLotesDropdown = false;
-    
-    // Si el producto tiene lotes (parent_id es null), cargar los lotes disponibles
-    if (!product.parentId) {
-      this.lotesService.getLotesByProductId(product.id).subscribe({
-        next: (lotes) => {
-          // Solo mostrar lotes activos para venta (isActive = true AND isActiveForSale = true)
-          this.availableLotes = (lotes || []).filter(l => l.isActive && l.isActiveForSale);
-          // Auto-seleccionar el lote activo para venta
-          const activeForSaleLote = this.availableLotes.find(l => l.isActiveForSale);
-          if (activeForSaleLote) {
-            this.selectedLoteId = activeForSaleLote.id;
-            this.movement.productId = activeForSaleLote.id;
-          }
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          console.error('Error cargando lotes:', err);
-          this.availableLotes = [];
-        }
-      });
+
+    if (this.selectedLoteId > 0) {
+      this.movement.productId = this.selectedLoteId;
+    } else {
+      this.movement.productId = product.id;
     }
-    
-    // Mover el foco a cantidad automáticamente
+
     setTimeout(() => {
       const quantityInput = document.querySelector('input[name="quantity"]') as HTMLInputElement;
       if (quantityInput) {
         quantityInput.focus();
       }
     }, 100);
-    
+
     this.cdr.detectChanges();
+  }
+
+  private buildProductSelectionOptions(product: any): any[] {
+    const inventoryProducts = Array.isArray(this.products) ? this.products : [];
+    if (!product?.id) {
+      return [];
+    }
+
+    const selectedProduct = inventoryProducts.find(item => item && item.id === product.id) || product;
+    const rootProduct = selectedProduct.parentId == null
+      ? selectedProduct
+      : inventoryProducts.find(item => item && item.id === selectedProduct.parentId) || selectedProduct;
+
+    const rootId = rootProduct?.id ?? selectedProduct.id;
+    const relatedProducts = inventoryProducts.filter(item =>
+      item && item.id && (item.id === rootId || item.parentId === rootId)
+    );
+
+    const options = relatedProducts.map(item => ({
+      ...item,
+      isRootOption: item.id === rootId,
+      isActiveForSale: item.isActiveForSale === true,
+      isActive: item.isActive !== false
+    }));
+
+    return options.filter((option, index, array) => array.findIndex(item => item.id === option.id) === index);
+  }
+
+  private getDefaultSelectedLoteId(options: any[]): number {
+    const activeForSaleOption = options.find(option => option.isActiveForSale === true);
+    if (activeForSaleOption) {
+      return activeForSaleOption.id;
+    }
+
+    const activeOption = options.find(option => option.isActive !== false);
+    return activeOption?.id ?? 0;
+  }
+
+  getSelectedLoteLabel(): string {
+    const selected = this.availableLotes.find(lote => lote.id === this.selectedLoteId);
+    if (!selected) {
+      return 'Seleccionar lote...';
+    }
+
+    const parts = [selected.name];
+    if (selected.isRootOption) {
+      parts.push('Raíz');
+    } else if (selected.isActiveForSale) {
+      parts.push('Activo');
+    }
+
+    parts.push(`Stock: ${Number(selected.stock || 0)}`);
+    parts.push(`Precio: $${Number(selected.price || 0)}`);
+    return parts.join(' • ');
+  }
+
+  getLoteTypeLabel(lote: any): string {
+    return lote?.isRootOption ? 'Producto raíz' : 'Lote';
   }
 
   selectLote(lote: any) {
@@ -455,6 +498,55 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     });
   }
 
+  private getInventoryDisplayProducts(): any[] {
+    const inventoryProducts = Array.isArray(this.products) ? this.products : [];
+    const visibleRootProducts = inventoryProducts.filter(product => {
+      if (!product || !product.id) {
+        return false;
+      }
+      return product.parentId == null && (product.isActive === true || product.isActive === null || product.isActive === undefined);
+    });
+
+    return visibleRootProducts.map(rootProduct => {
+      if (!rootProduct) {
+        return rootProduct;
+      }
+
+      let displayProduct = rootProduct;
+      if (!rootProduct.isActiveForSale) {
+        const activeLote = inventoryProducts.find(product =>
+          product &&
+          product.parentId === rootProduct.id &&
+          product.isActive !== false &&
+          product.isActiveForSale === true
+        );
+
+        if (activeLote) {
+          displayProduct = activeLote;
+        } else {
+          const firstActiveLote = inventoryProducts.find(product =>
+            product &&
+            product.parentId === rootProduct.id &&
+            product.isActive !== false
+          );
+
+          displayProduct = firstActiveLote || rootProduct;
+        }
+      }
+
+      const relatedProducts = inventoryProducts.filter(product =>
+        product && product.id && (product.id === rootProduct.id || product.parentId === rootProduct.id)
+      );
+      const totalStock = relatedProducts.reduce((sum, product) => sum + (Number(product?.stock) || 0), 0);
+
+      return {
+        ...displayProduct,
+        stock: totalStock,
+        displayStock: totalStock
+      };
+    });
+  }
+
   loadStoreProducts() {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -467,13 +559,18 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: (data) => {
         console.log('Productos cargados, total:', data?.length);
-        this.products = data;
-        this.filteredProducts = data;
+        this.products = data || [];
+        this.filteredProducts = this.getInventoryDisplayProducts();
+        this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
+        this.loadRecentProducts();
         this.cdr.detectChanges();
         this.loadTransactions();
       },
       error: (err) => {
         console.error('Error cargando productos:', err);
+        this.products = [];
+        this.filteredProducts = [];
+        this.filteredProductsForAutocomplete = [];
         this.cdr.detectChanges();
       }
     });
