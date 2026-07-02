@@ -58,9 +58,9 @@
       </div>
     </div>
 
-    <form (ngSubmit)="registerMovement()" class="movement-form">
+    <form (ngSubmit)="registerMovement()" class="movement-form" autocomplete="off">
       <div class="movement-grid">
-        <div class="form-group">
+        <div class="form-group type-group">
           <label>Tipo</label>
           <select [(ngModel)]="movement.type" (change)="onMovementTypeChange()" name="type" class="form-control" required>
             <option value="ENTRADA">Entrada</option>
@@ -77,6 +77,7 @@
                 name="productSearch"
                 class="form-control autocomplete-input"
                 placeholder="Buscar producto..."
+                autocomplete="off"
                 (input)="onProductSearch()"
                 (focus)="openProductDropdown()"
                 (keydown)="onProductSearchKeydown($event)"
@@ -156,14 +157,20 @@
         </div>
 
         <!-- Selector de lotes -->
-        <div *ngIf="selectedProductId > 0 && availableLotes.length > 0" class="form-group lotes-selector">
+        <div class="form-group lotes-selector">
           <label>Seleccionar lote</label>
           <div class="lotes-dropdown-container" appClickOutside (clickOutside)="showLotesDropdown = false">
-            <button type="button" class="form-control lotes-button" (click)="showLotesDropdown = !showLotesDropdown">
+            <button
+              type="button"
+              class="form-control lotes-button"
+              (click)="showLotesDropdown = !showLotesDropdown">
               {{ getSelectedLoteLabel() }}
               <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
             </button>
             <div *ngIf="showLotesDropdown" class="lotes-dropdown">
+              <div *ngIf="availableLotes.length === 0" class="state-message">
+                <i class="bx bx-info-circle"></i> Selecciona un producto para ver lotes disponibles
+              </div>
               <button *ngFor="let lote of availableLotes" type="button" class="lote-option" [ngClass]="{'active-for-sale': lote.isActiveForSale}" (click)="selectLote(lote)">
                 <div class="lote-info">
                   <div class="lote-main-row">
@@ -184,11 +191,11 @@
           </div>
         </div>
 
-        <div class="form-group">
+        <div class="form-group cantidad-group">
           <label>Cantidad</label>
           <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>
         </div>
-        <div class="form-group">
+        <div class="form-group motivo-group">
           <label>Motivo</label>
           <select [(ngModel)]="movement.reason" name="reason" class="form-control" required>
             <option value="">Seleccionar motivo...</option>
@@ -274,12 +281,12 @@
   <!-- Historial y Lista de Productos -->
   <div class="two-column-layout">
     <div class="card history-card">
-      <div class="flex-between history-header" (click)="toggleHistoryList()"
-        style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h2 style="margin: 0; font-size: 1.25rem;">Historial de Movimientos</h2>
-        <p>Consulta el historial completo de entradas y salidas de productos en esta tienda.</p>
-        <i class="bx" [ngClass]="showHistoryList ? 'bx-chevron-down' : 'bx-chevron-right'"
-          style="font-size: 1.8rem; color: #666;"></i>
+      <div class="history-header" (click)="toggleHistoryList()">
+        <div class="history-header-content">
+          <h2>Historial de Movimientos</h2>
+          <p>Consulta el historial completo de entradas y salidas de productos en esta tienda.</p>
+        </div>
+        <i class="bx" [ngClass]="showHistoryList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
       </div>
 
       <div *ngIf="showHistoryList" class="history-list-container">
@@ -336,12 +343,10 @@
                 <th>Tipo</th>
                 <th>Producto</th>
                 <th>Cantidad</th>
-                <th>Motivo</th>
-                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let transaction of filteredMovimientos">
+              <tr *ngFor="let transaction of filteredMovimientos" class="clickable-row" (click)="openTransactionDetail(transaction)">
                 <td>{{ transaction.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
                 <td>
                   <span class="type-badge"
@@ -351,16 +356,60 @@
                 </td>
                 <td>{{ getProductName(transaction.productId) }}</td>
                 <td>{{ transaction.quantity }}</td>
-                <td>{{ transaction.reason || '-' }}</td>
-                <td>
-                  <button class="delete-btn" *ngIf="!isExternalMode" (click)="deleteTransaction(transaction.id)"
-                    title="Eliminar movimiento">
-                    <i class="bx bx-trash"></i>
-                  </button>
-                </td>
               </tr>
             </tbody>
           </table>
+
+          <div *ngIf="showTransactionDetailModal" class="transaction-detail-modal-overlay" (click)="closeTransactionDetail()">
+            <div class="transaction-detail-modal" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <div>
+                  <h3>Detalle del movimiento</h3>
+                  <p>{{ selectedTransaction?.dateTime | date:'dd/MM/yyyy HH:mm' }}</p>
+                </div>
+                <button class="icon-btn modal-close-btn" type="button" (click)="closeTransactionDetail()"><i class="bx bx-x"></i></button>
+              </div>
+
+              <div class="modal-body">
+                <div class="modal-detail-grid">
+                  <div class="modal-section">
+                    <div class="modal-label">Producto</div>
+                    <div class="modal-value">{{ getProductName(selectedTransaction?.productId) }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Cantidad</div>
+                    <div class="modal-value">{{ selectedTransaction?.quantity }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Tipo</div>
+                    <div class="modal-value">
+                      <span class="type-badge" [ngClass]="{'entrada': selectedTransaction?.type === 'ENTRADA', 'salida': selectedTransaction?.type === 'SALIDA'}">
+                        {{ selectedTransaction?.type }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Motivo</div>
+                    <div class="modal-value">{{ selectedTransaction?.reason || '-' }}</div>
+                  </div>
+                  <div class="modal-section full-width">
+                    <div class="modal-label">ID del movimiento</div>
+                    <div class="modal-value">{{ selectedTransaction?.id || '-' }}</div>
+                  </div>
+                </div>
+                <div class="modal-section full-width">
+                  <div class="modal-label">Comentario</div>
+                  <textarea class="comment-input" rows="4" [(ngModel)]="transactionComment" placeholder="Agrega un comentario..."></textarea>
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn btn-danger" type="button" (click)="deleteTransaction(selectedTransaction?.id)">Eliminar movimiento</button>
+                <button class="btn btn-primary" type="button" (click)="saveTransactionComment()">Guardar comentario</button>
+                <button class="btn btn-secondary" type="button" (click)="closeTransactionDetail()">Cerrar</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

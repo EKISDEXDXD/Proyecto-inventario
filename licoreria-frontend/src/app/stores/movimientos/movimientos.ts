@@ -54,6 +54,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   showProductsList: boolean = false;
   showHistoryList: boolean = false;
   showAdminMovementsList: boolean = false;
+  showTransactionDetailModal: boolean = false;
+  selectedTransaction: any = null;
+  transactionComment: string = '';
 
   // Shopping Cart State
   showCart: boolean = false;
@@ -83,7 +86,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   movement = {
     type: 'ENTRADA',
     productId: 0,
-    quantity: 0,
+    quantity: 1,
     reason: 'VENTA'
   };
 
@@ -210,6 +213,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   onProductSearch() {
     this.productSearchSubject.next(this.productSearchTerm);
+    this.openProductDropdown();
   }
 
   private filterProductsForAutocomplete() {
@@ -226,10 +230,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       });
     }
 
+    this.showProductDropdown = true;
     this.cdr.detectChanges();
   }
 
   openProductDropdown() {
+    this.productSearchTerm = this.productSearchTerm || '';
+    this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
     this.showProductDropdown = true;
     this.cdr.detectChanges();
   }
@@ -299,7 +306,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     }
 
     const activeOption = options.find(option => option.isActive !== false);
-    return activeOption?.id ?? 0;
+    return activeOption?.id ?? options[0]?.id ?? 0;
   }
 
   getSelectedLoteLabel(): string {
@@ -335,6 +342,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.productSearchTerm = '';
     this.selectedProductId = 0;
     this.movement.productId = 0;
+    this.movement.quantity = 1;
     this.filteredProductsForAutocomplete = [];
     this.showProductDropdown = false;
     this.availableLotes = [];
@@ -718,7 +726,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.movement = { 
       type: this.movement.type, 
       productId: 0, 
-      quantity: 0, 
+      quantity: 1, 
       reason: this.movement.reason 
     };
 
@@ -907,6 +915,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         console.log('Transacción eliminada:', transactionId);
         // Recargar productos para actualizar stock después de eliminar
         this.loadStoreProducts();
+        this.closeTransactionDetail();
         alert('Movimiento eliminado correctamente');
       },
       error: (err) => {
@@ -951,6 +960,78 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   goBack() {
     this.router.navigate(['../'], { relativeTo: this.route });
+  }
+
+  openTransactionDetail(transaction: any) {
+    this.selectedTransaction = transaction;
+    this.transactionComment = '';
+    this.showTransactionDetailModal = true;
+    this.cdr.detectChanges();
+    this.loadTransactionComment(transaction.id);
+  }
+
+  closeTransactionDetail() {
+    this.showTransactionDetailModal = false;
+    this.selectedTransaction = null;
+    this.transactionComment = '';
+    this.cdr.detectChanges();
+  }
+
+  private loadTransactionComment(transactionId: number) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    this.http.get<any>(`${this.apiTransactionsUrl}/${transactionId}/comments`, { headers }).subscribe({
+      next: (response) => {
+        this.transactionComment = response?.comment || '';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error cargando comentario de movimiento:', err);
+        this.transactionComment = '';
+      }
+    });
+  }
+
+  saveTransactionComment() {
+    if (!this.selectedTransaction) {
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('No se pudo identificar al usuario para guardar el comentario.');
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+
+    const body = { comment: this.transactionComment };
+    this.http.post<any>(`${this.apiTransactionsUrl}/${this.selectedTransaction.id}/comments`, body, { headers }).subscribe({
+      next: (response) => {
+        this.transactionComment = response?.comment || '';
+        const index = this.transactions.findIndex(t => t.id === this.selectedTransaction.id);
+        if (index !== -1) {
+          this.transactions[index] = { ...this.transactions[index], comment: this.transactionComment };
+        }
+        alert('Comentario guardado correctamente.');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error guardando comentario:', err);
+        const message = err?.error?.message || 'Error al guardar el comentario. Inténtalo de nuevo.';
+        alert(message);
+      }
+    });
   }
 
   getProductName(productId: number): string {
