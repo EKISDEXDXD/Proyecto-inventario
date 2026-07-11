@@ -55,21 +55,17 @@ public class SalesReportService {
             List<Transaction> transactions = allTransactions.stream()
                 .filter(t -> {
                     try {
+                        if (t == null || t.getDateTime() == null) {
+                            return false;
+                        }
+
                         Product product = t.getProduct();
-                        if (product == null) {
+                        if (!isProductEligibleForExport(product, storeId)) {
                             return false;
                         }
-                        if (product.getStore() == null || !product.getStore().getId().equals(storeId)) {
-                            return false;
-                        }
-                        if (product.getIsActive() == null || !product.getIsActive()) {
-                            return false;
-                        }
-                        if (t.getDateTime() == null) {
-                            return false;
-                        }
+
                         LocalDate txDate = t.getDateTime().toLocalDate();
-                        return txDate.isAfter(dateFrom.minusDays(1)) && txDate.isBefore(dateTo.plusDays(1));
+                        return !txDate.isBefore(dateFrom) && !txDate.isAfter(dateTo);
                     } catch (Exception e) {
                         return false;
                     }
@@ -93,8 +89,8 @@ public class SalesReportService {
                 createAdministrativeCostsSheet(workbook, storeId, dateFrom, dateTo);
                 createAnalysisByLabelsSheet(workbook, transactions, storeId);
                 createProductSalesAnalysisSheet(workbook, transactions, storeId);
-                createChartsAndIndicatorsSheet(workbook, transactions, storeId);
-                createRecommendationsSheet(workbook, transactions, storeId);
+                // Se eliminaron las hojas de 'Gráficos y indicaciones' y 'Recomendaciones'
+                // por solicitud: ya no se generan estas hojas en los reportes.
             }
 
             // Escribir a bytes
@@ -120,9 +116,7 @@ public class SalesReportService {
             .filter(t -> {
                 try {
                     Product product = t.getProduct();
-                    if (product == null) return false;
-                    // Solo incluir productos activos (isActive = true)
-                    return product.getIsActive() != null && product.getIsActive();
+                    return isProductEligibleForExport(product);
                 } catch (Exception e) {
                     return false;
                 }
@@ -130,11 +124,35 @@ public class SalesReportService {
             .collect(Collectors.toList());
     }
 
+    static boolean isProductEligibleForExport(Product product) {
+        return isProductEligibleForExport(product, null);
+    }
+
+    static boolean isProductEligibleForExport(Product product, Long storeId) {
+        if (product == null) {
+            return false;
+        }
+
+        if (Boolean.FALSE.equals(product.getIsActive())) {
+            return false;
+        }
+
+        if (product.getStore() == null) {
+            return false;
+        }
+
+        if (storeId != null && !storeId.equals(product.getStore().getId())) {
+            return false;
+        }
+
+        return true;
+    }
+
     private void createExecutiveSummarySheet(Workbook workbook, List<Transaction> transactions, Long storeId,
                                              boolean customPeriod, LocalDate dateFrom, LocalDate dateTo, String reportType) {
         Sheet sheet = workbook.createSheet("Resumen Ejecutivo");
         
-        // Solo incluir productos ACTIVOS en resumen ejecutivo
+        // Solo incluir productos activos y de la tienda correcta en resumen ejecutivo
         List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
         
         CellStyle titleStyle = createTitleStyle(workbook);
@@ -202,6 +220,11 @@ public class SalesReportService {
         for (Transaction t : activeTransactions) {
             Product product = t.getProduct();
             if (product == null) continue;
+
+            boolean isAdjustmentReason = "AJUSTE".equalsIgnoreCase(t.getReason());
+            if (isAdjustmentReason) {
+                continue;
+            }
 
             if ("ENTRADA".equalsIgnoreCase(t.getType())) {
                 BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
@@ -292,7 +315,7 @@ public class SalesReportService {
         Map<String, BigDecimal> productRevenue = new HashMap<>();
 
         for (Transaction t : activeTransactions) {
-            if ("SALIDA".equalsIgnoreCase(t.getType())) {
+            if ("SALIDA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason())) {
                 try {
                     Product product = t.getProduct();
                     if (product != null) {
@@ -326,6 +349,40 @@ public class SalesReportService {
             Cell revCell = dataRow.createCell(2);
             revCell.setCellValue(productRevenue.getOrDefault(entry.getKey(), BigDecimal.ZERO).doubleValue());
             revCell.setCellStyle(currencyStyle);
+        }
+
+        rowNum++; // Espacio
+
+        // CUADRO INFORMATIVO DE DEFINICIONES DEBAJO DE TOP 5 PRODUCTOS
+        Row definitionsHeaderRow = sheet.createRow(rowNum++);
+        definitionsHeaderRow.setHeightInPoints(18);
+        Cell definitionsHeaderCell = definitionsHeaderRow.createCell(0);
+        definitionsHeaderCell.setCellValue("¿Qué significa cada indicador?");
+        definitionsHeaderCell.setCellStyle(subtitleStyle);
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
+
+        Row definitionsIntroRow = sheet.createRow(rowNum++);
+        definitionsIntroRow.createCell(0).setCellValue("Este cuadro resume, de forma objetiva, qué representa cada valor del reporte.");
+        definitionsIntroRow.getCell(0).setCellStyle(dataCellStyle);
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
+
+        String[][] definitions = {
+            {"Total Invertido", "Es el valor total destinado a entradas de inventario durante el período."},
+            {"Total Ingreso", "Es el valor total generado por las ventas registradas en el período."},
+            {"Costo de Venta", "Es el costo asociado a los productos que se vendieron."},
+            {"Ganancia Bruta", "Es la diferencia entre ingresos y costo de venta."},
+            {"Margen de Ganancia", "Es el porcentaje de utilidad que representa la ganancia sobre las ventas."}
+        };
+
+        for (String[] definition : definitions) {
+            Row definitionRow = sheet.createRow(rowNum++);
+            Cell metricLabelCell = definitionRow.createCell(0);
+            metricLabelCell.setCellValue(definition[0]);
+            metricLabelCell.setCellStyle(labelStyle);
+
+            Cell metricValueCell = definitionRow.createCell(1);
+            metricValueCell.setCellValue(definition[1]);
+            metricValueCell.setCellStyle(dataCellStyle);
         }
 
         // Auto-ajustar columnas
@@ -519,10 +576,15 @@ public class SalesReportService {
                 BigDecimal priceUnit = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
                 BigDecimal costTotal = costUnit.multiply(new BigDecimal(t.getQuantity()));
                 BigDecimal priceTotal = priceUnit.multiply(new BigDecimal(t.getQuantity()));
-                BigDecimal gainUnit = priceUnit.subtract(costUnit);
-                BigDecimal gainTotal = "SALIDA".equalsIgnoreCase(t.getType()) 
-                    ? gainUnit.multiply(new BigDecimal(t.getQuantity())) 
-                    : BigDecimal.ZERO;
+
+                boolean isAdjustmentReason = "AJUSTE".equalsIgnoreCase(t.getReason());
+                BigDecimal gainUnit = BigDecimal.ZERO;
+                BigDecimal gainTotal = BigDecimal.ZERO;
+
+                if ("SALIDA".equalsIgnoreCase(t.getType()) && !isAdjustmentReason) {
+                    gainUnit = priceUnit.subtract(costUnit);
+                    gainTotal = gainUnit.multiply(new BigDecimal(t.getQuantity()));
+                }
 
                 row.createCell(6).setCellValue(costUnit.doubleValue());
                 row.getCell(6).setCellStyle(currencyStyle);
@@ -555,6 +617,9 @@ public class SalesReportService {
     }
 
     private void createProductAnalysisSheet(Workbook workbook, List<Transaction> transactions, Long storeId, LocalDate dateFrom, LocalDate dateTo) {
+        // Filtrar solo productos activos y elegibles
+        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
+        
         Sheet sheet = workbook.createSheet("Análisis por Producto");
         
         CellStyle titleStyle = createTitleStyle(workbook);
@@ -566,20 +631,22 @@ public class SalesReportService {
 
         int rowNum = 0;
 
-        // Configurar ancho de columnas (13 columnas)
+        // Configurar ancho de columnas (15 columnas)
         sheet.setColumnWidth(0, 25);  // Producto
         sheet.setColumnWidth(1, 16);  // Cantidad Entrada
-        sheet.setColumnWidth(2, 16);  // Cantidad Salida
-        sheet.setColumnWidth(3, 14);  // Stock Actual
-        sheet.setColumnWidth(4, 14);  // Costo Unit
-        sheet.setColumnWidth(5, 14);  // Precio Unit
-        sheet.setColumnWidth(6, 16);  // Costo Invertido
-        sheet.setColumnWidth(7, 14);  // Precio total
-        sheet.setColumnWidth(8, 14);  // Costo total
-        sheet.setColumnWidth(9, 16);  // Ingreso Total
-        sheet.setColumnWidth(10, 16); // Ganancia Total
-        sheet.setColumnWidth(11, 14); // Ganancia %
-        sheet.setColumnWidth(12, 22); // Velocidad Rotación Diaria
+        sheet.setColumnWidth(2, 18);  // Veces Entrada
+        sheet.setColumnWidth(3, 16);  // Cantidad Salida
+        sheet.setColumnWidth(4, 18);  // Veces Salida
+        sheet.setColumnWidth(5, 14);  // Stock Actual
+        sheet.setColumnWidth(6, 14);  // Costo Unit
+        sheet.setColumnWidth(7, 14);  // Precio Unit
+        sheet.setColumnWidth(8, 16);  // Costo Invertido
+        sheet.setColumnWidth(9, 14);  // Precio total
+        sheet.setColumnWidth(10, 14); // Costo total
+        sheet.setColumnWidth(11, 16); // Ingreso Total
+        sheet.setColumnWidth(12, 16); // Ganancia Total
+        sheet.setColumnWidth(13, 14); // Ganancia %
+        sheet.setColumnWidth(14, 22); // Velocidad Rotación Diaria
 
         // TÍTULO
         Row titleRow = sheet.createRow(rowNum++);
@@ -587,14 +654,14 @@ public class SalesReportService {
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("ANÁLISIS POR PRODUCTO");
         titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 12));
+        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 14));
 
         rowNum++; // Espacio
 
         // Encabezados
         Row headerRow = sheet.createRow(rowNum++);
         headerRow.setHeightInPoints(18);
-        String[] headers = {"Producto", "Cantidad Entrada", "Cantidad Salida", "Stock Actual", 
+        String[] headers = {"Producto", "Cantidad Entrada", "Veces Entrada", "Cantidad Salida", "Veces Salida", "Stock Actual", 
                           "Costo Unit", "Precio Unit", "Costo Invertido", "Precio total",
                           "Costo total", "Ingreso Total", "Ganancia Total", "Ganancia %", "Velocidad Rotación Diaria"};
         
@@ -607,9 +674,9 @@ public class SalesReportService {
         // Calcular días del período
         long periodDays = java.time.temporal.ChronoUnit.DAYS.between(dateFrom, dateTo) + 1;
 
-        // Agrupar por producto
-        Map<Long, List<Transaction>> transactionsByProductId = transactions.stream()
-            .filter(t -> t.getProduct() != null && t.getDateTime() != null)
+        // Agrupar por producto (solo transacciones activas)
+        Map<Long, List<Transaction>> transactionsByProductId = activeTransactions.stream()
+            .filter(t -> t.getDateTime() != null)
             .filter(t -> {
                 try {
                     LocalDate transDate = t.getDateTime().toLocalDate();
@@ -628,27 +695,41 @@ public class SalesReportService {
             
             if (productTransactions.isEmpty()) continue;
             Product product = productTransactions.get(0).getProduct();
-            if (product == null || product.getStore() == null || !product.getStore().getId().equals(storeId)) continue;
+            if (product == null) continue;
 
-            int cantEntrada = productTransactions.stream()
-                .filter(t -> "ENTRADA".equalsIgnoreCase(t.getType()))
-                .mapToInt(Transaction::getQuantity)
-                .sum();
-
-            int cantSalida = productTransactions.stream()
-                .filter(t -> "SALIDA".equalsIgnoreCase(t.getType()))
-                .mapToInt(Transaction::getQuantity)
-                .sum();
+            // Contar ENTRADA y SALIDA excluyendo AJUSTE
+            List<Transaction> entradas = productTransactions.stream()
+                .filter(t -> "ENTRADA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason()))
+                .collect(Collectors.toList());
+            
+            List<Transaction> salidas = productTransactions.stream()
+                .filter(t -> "SALIDA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason()))
+                .collect(Collectors.toList());
+            
+            int cantEntrada = entradas.stream().mapToInt(Transaction::getQuantity).sum();
+            int cantSalida = salidas.stream().mapToInt(Transaction::getQuantity).sum();
+            int vecesEntrada = entradas.size();
+            int vecesSalida = salidas.size();
 
             // Calcular costos e ingresos
             BigDecimal costUnit = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
             BigDecimal priceUnit = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
 
+            // Costo Invertido = Costo Unit * Cantidad Entrada (solo ENTRADA sin AJUSTE)
             BigDecimal costInvested = costUnit.multiply(new BigDecimal(cantEntrada));
-            BigDecimal precioTotal = priceUnit.multiply(new BigDecimal(cantEntrada));
+            
+            // Precio Total = Precio Unit * Cantidad Salida (solo SALIDA sin AJUSTE, no ENTRADA)
+            BigDecimal precioTotal = priceUnit.multiply(new BigDecimal(cantSalida));
+            
+            // Costo Total = Costo Unit * Cantidad Salida (lo que se vendió)
             BigDecimal costSold = costUnit.multiply(new BigDecimal(cantSalida));
+            
+            // Ingreso Total = Precio Unit * Cantidad Salida (solo venta genera ingreso)
             BigDecimal ingresoTotal = priceUnit.multiply(new BigDecimal(cantSalida));
+            
+            // Ganancia Total = Ingreso - Costo de lo vendido (solo SALIDA genera ganancia)
             BigDecimal gananciaTotal = ingresoTotal.subtract(costSold);
+            
             BigDecimal gananciaPercent = ingresoTotal.compareTo(BigDecimal.ZERO) > 0 
                 ? gananciaTotal.divide(ingresoTotal, 4, java.math.RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
@@ -667,53 +748,61 @@ public class SalesReportService {
             entCell.setCellValue(cantEntrada);
             entCell.setCellStyle(numberStyle);
 
-            Cell salCell = row.createCell(2);
+            Cell vecesEntCell = row.createCell(2);
+            vecesEntCell.setCellValue(vecesEntrada);
+            vecesEntCell.setCellStyle(numberStyle);
+
+            Cell salCell = row.createCell(3);
             salCell.setCellValue(cantSalida);
             salCell.setCellStyle(numberStyle);
 
-            Cell stockCell = row.createCell(3);
+            Cell vecesSalCell = row.createCell(4);
+            vecesSalCell.setCellValue(vecesSalida);
+            vecesSalCell.setCellStyle(numberStyle);
+
+            Cell stockCell = row.createCell(5);
             stockCell.setCellValue(product.getStock());
             stockCell.setCellStyle(numberStyle);
             
-            Cell costUnitCell = row.createCell(4);
+            Cell costUnitCell = row.createCell(6);
             costUnitCell.setCellValue(costUnit.doubleValue());
             costUnitCell.setCellStyle(currencyStyle);
 
-            Cell priceUnitCell = row.createCell(5);
+            Cell priceUnitCell = row.createCell(7);
             priceUnitCell.setCellValue(priceUnit.doubleValue());
             priceUnitCell.setCellStyle(currencyStyle);
 
-            Cell costInvCell = row.createCell(6);
+            Cell costInvCell = row.createCell(8);
             costInvCell.setCellValue(costInvested.doubleValue());
             costInvCell.setCellStyle(currencyStyle);
 
-            Cell precioTotalCell = row.createCell(7);
+            Cell precioTotalCell = row.createCell(9);
             precioTotalCell.setCellValue(precioTotal.doubleValue());
             precioTotalCell.setCellStyle(currencyStyle);
 
-            Cell costSoldCell = row.createCell(8);
+            Cell costSoldCell = row.createCell(10);
             costSoldCell.setCellValue(costSold.doubleValue());
             costSoldCell.setCellStyle(currencyStyle);
 
-            Cell ingresoCell = row.createCell(9);
+            Cell ingresoCell = row.createCell(11);
             ingresoCell.setCellValue(ingresoTotal.doubleValue());
             ingresoCell.setCellStyle(currencyStyle);
 
-            Cell gananciaCell = row.createCell(10);
+            Cell gananciaCell = row.createCell(12);
             gananciaCell.setCellValue(gananciaTotal.doubleValue());
             gananciaCell.setCellStyle(currencyStyle);
 
-            Cell gananciaPercentCell = row.createCell(11);
+            Cell gananciaPercentCell = row.createCell(13);
             gananciaPercentCell.setCellValue(gananciaPercent.doubleValue());
             gananciaPercentCell.setCellStyle(percentStyle);
 
-            Cell velocidadCell = row.createCell(12);
+            Cell velocidadCell = row.createCell(14);
             velocidadCell.setCellValue(velocidadRotacion);
             velocidadCell.setCellStyle(numberStyle);
         }
 
         // Auto-ajustar columnas
-        for (int i = 0; i < 13; i++) {
+        for (int i = 0; i < 15; i++) {
             sheet.autoSizeColumn(i);
         }
     }
@@ -780,22 +869,30 @@ public class SalesReportService {
             BigDecimal gastoEntradas = BigDecimal.ZERO;
 
             for (Transaction t : dayTransactions) {
-                Product product;
-                try {
-                    product = productService.findById(t.getProductId());
-                } catch (Exception e) {
+                // Obtener producto de la transacción
+                Product product = t.getProduct();
+                
+                // Verificar que el producto sea elegible (activo, no eliminado, tienda correcta)
+                if (!isProductEligibleForExport(product)) {
                     continue;
                 }
-                if (product == null) continue;
+
+                // Excluir movimientos de ajuste (no generan ganancias ni pérdidas)
+                if ("AJUSTE".equalsIgnoreCase(t.getReason())) {
+                    continue;
+                }
 
                 BigDecimal unitPrice = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
                 BigDecimal unitCost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
                 BigDecimal quantity = BigDecimal.valueOf(t.getQuantity() != null ? t.getQuantity() : 0);
 
+                // ENTRADA: Solo registrar costo, no genera ganancia
                 if ("ENTRADA".equalsIgnoreCase(t.getType())) {
                     cantEntradas++;
                     gastoEntradas = gastoEntradas.add(unitCost.multiply(quantity));
-                } else if ("SALIDA".equalsIgnoreCase(t.getType())) {
+                } 
+                // SALIDA: Registrar ventas y calcular ganancia bruta
+                else if ("SALIDA".equalsIgnoreCase(t.getType())) {
                     cantSalidas++;
                     ventas = ventas.add(unitPrice.multiply(quantity));
                     costoVenta = costoVenta.add(unitCost.multiply(quantity));
@@ -1006,153 +1103,7 @@ public class SalesReportService {
         }
     }
 
-    private void createChartsAndIndicatorsSheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
-        Sheet sheet = workbook.createSheet("Gráficos e Indicadores");
-        
-        CellStyle titleStyle = createTitleStyle(workbook);
-        CellStyle headerStyle = createHeaderStyle(workbook);
-        CellStyle currencyStyle = createCurrencyStyle(workbook);
-        CellStyle percentStyle = createPercentageStyle(workbook);
-        CellStyle labelStyle = createLabelStyle(workbook);
-
-        int rowNum = 0;
-
-        // Configurar ancho de columnas
-        sheet.setColumnWidth(0, 25);
-        sheet.setColumnWidth(1, 18);
-        sheet.setColumnWidth(2, 18);
-
-        // TÍTULO
-        Row titleRow = sheet.createRow(rowNum++);
-        titleRow.setHeightInPoints(26);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("GRÁFICOS E INDICADORES");
-        titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 2));
-
-        rowNum++; // Espacio
-
-        // CÁLCULOS PRINCIPALES
-        BigDecimal totalEntradas = BigDecimal.ZERO;
-        BigDecimal totalSalidas = BigDecimal.ZERO;
-        BigDecimal totalCostSold = BigDecimal.ZERO;
-        int totalProductsSold = 0;
-        int totalProductsBought = 0;
-
-        for (Transaction t : transactions) {
-            Product product = t.getProduct();
-            if (product == null) continue;
-
-            if ("ENTRADA".equalsIgnoreCase(t.getType())) {
-                BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
-                totalEntradas = totalEntradas.add(cost.multiply(new BigDecimal(t.getQuantity())));
-                totalProductsBought += t.getQuantity();
-            } else if ("SALIDA".equalsIgnoreCase(t.getType())) {
-                BigDecimal price = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
-                BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
-                totalSalidas = totalSalidas.add(price.multiply(new BigDecimal(t.getQuantity())));
-                totalCostSold = totalCostSold.add(cost.multiply(new BigDecimal(t.getQuantity())));
-                totalProductsSold += t.getQuantity();
-            }
-        }
-
-        BigDecimal gananciaTotal = totalSalidas.subtract(totalCostSold);
-        BigDecimal margenPromedio = totalSalidas.compareTo(BigDecimal.ZERO) > 0 
-            ? gananciaTotal.divide(totalSalidas, 4, java.math.RoundingMode.HALF_UP)
-            : BigDecimal.ZERO;
-
-        // Sección de Indicadores Clave
-        Row indicatorsHeaderRow = sheet.createRow(rowNum++);
-        indicatorsHeaderRow.setHeightInPoints(18);
-        Cell indicatorsHeaderCell = indicatorsHeaderRow.createCell(0);
-        indicatorsHeaderCell.setCellValue("INDICADORES CLAVE");
-        indicatorsHeaderCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 2));
-
-        rowNum++; // Espacio
-
-        // Encabezados de tabla
-        Row headerRow = sheet.createRow(rowNum++);
-        headerRow.setHeightInPoints(18);
-        String[] headers = {"Indicador", "Valor", "Porcentaje"};
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
-            cell.setCellStyle(headerStyle);
-        }
-
-        // Filas de datos
-        Row row = sheet.createRow(rowNum++);
-        Cell labelCell = row.createCell(0);
-        labelCell.setCellValue("Ingresos Totales");
-        labelCell.setCellStyle(labelStyle);
-        Cell valueCell = row.createCell(1);
-        valueCell.setCellValue(totalSalidas.doubleValue());
-        valueCell.setCellStyle(currencyStyle);
-        Cell percentCell = row.createCell(2);
-        percentCell.setCellValue(1.0);
-        percentCell.setCellStyle(percentStyle);
-
-        row = sheet.createRow(rowNum++);
-        labelCell = row.createCell(0);
-        labelCell.setCellValue("Costo de Venta");
-        labelCell.setCellStyle(labelStyle);
-        valueCell = row.createCell(1);
-        valueCell.setCellValue(totalCostSold.doubleValue());
-        valueCell.setCellStyle(currencyStyle);
-        percentCell = row.createCell(2);
-        if (totalSalidas.compareTo(BigDecimal.ZERO) > 0) {
-            percentCell.setCellValue(totalCostSold.divide(totalSalidas, 4, java.math.RoundingMode.HALF_UP).doubleValue());
-        } else {
-            percentCell.setCellValue(0.0);
-        }
-        percentCell.setCellStyle(percentStyle);
-
-        row = sheet.createRow(rowNum++);
-        labelCell = row.createCell(0);
-        labelCell.setCellValue("Ganancia Bruta");
-        labelCell.setCellStyle(labelStyle);
-        valueCell = row.createCell(1);
-        valueCell.setCellValue(gananciaTotal.doubleValue());
-        valueCell.setCellStyle(currencyStyle);
-        percentCell = row.createCell(2);
-        percentCell.setCellValue(margenPromedio.doubleValue());
-        percentCell.setCellStyle(percentStyle);
-
-        row = sheet.createRow(rowNum++);
-        labelCell = row.createCell(0);
-        labelCell.setCellValue("Margen de Ganancia");
-        labelCell.setCellStyle(labelStyle);
-        valueCell = row.createCell(1);
-        valueCell.setCellValue(margenPromedio.doubleValue());
-        valueCell.setCellStyle(percentStyle);
-        percentCell = row.createCell(2);
-        percentCell.setCellValue(margenPromedio.doubleValue());
-        percentCell.setCellStyle(percentStyle);
-
-        row = sheet.createRow(rowNum++);
-        labelCell = row.createCell(0);
-        labelCell.setCellValue("Unidades Vendidas");
-        labelCell.setCellStyle(labelStyle);
-        valueCell = row.createCell(1);
-        valueCell.setCellValue(totalProductsSold);
-        percentCell = row.createCell(2);
-        percentCell.setCellValue("-");
-
-        row = sheet.createRow(rowNum++);
-        labelCell = row.createCell(0);
-        labelCell.setCellValue("Unidades Compradas");
-        labelCell.setCellStyle(labelStyle);
-        valueCell = row.createCell(1);
-        valueCell.setCellValue(totalProductsBought);
-        percentCell = row.createCell(2);
-        percentCell.setCellValue("-");
-
-        // Auto-ajustar columnas
-        for (int i = 0; i < 3; i++) {
-            sheet.autoSizeColumn(i);
-        }
-    }
+    // Método `createChartsAndIndicatorsSheet` eliminado durante limpieza del código.
 
     private void createProductSalesAnalysisSheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
         Sheet sheet = workbook.createSheet("Análisis Ventas Productos");
@@ -1193,7 +1144,7 @@ public class SalesReportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // Recopilar datos de productos
+        // Recopilar datos de productos (solo SALIDA que no sean AJUSTE, y productos activos)
         Map<String, Integer> productQuantity = new TreeMap<>();
         Map<String, BigDecimal> productRevenue = new HashMap<>();
         Map<String, BigDecimal> productCost = new HashMap<>();
@@ -1202,8 +1153,15 @@ public class SalesReportService {
         for (Transaction t : transactions) {
             if ("SALIDA".equalsIgnoreCase(t.getType())) {
                 try {
+                    // Excluir movimientos AJUSTE
+                    boolean isAdjustmentReason = "AJUSTE".equalsIgnoreCase(t.getReason());
+                    if (isAdjustmentReason) {
+                        continue;
+                    }
+
                     Product product = t.getProduct();
-                    if (product != null) {
+                    // Validar que el producto sea elegible (activo y de la tienda correcta)
+                    if (product != null && isProductEligibleForExport(product, storeId)) {
                         String productKey = product.getName();
                         productQuantity.put(productKey, productQuantity.getOrDefault(productKey, 0) + t.getQuantity());
                         
@@ -1276,7 +1234,8 @@ public class SalesReportService {
             List<Product> productsWithoutSales = new ArrayList<>();
             
             for (Product p : allProducts) {
-                if (p.getStore() != null && p.getStore().getId().equals(storeId)) {
+                // Solo mostrar productos activos, sin desactivados ni eliminados
+                if (isProductEligibleForExport(p, storeId)) {
                     if (!productQuantity.containsKey(p.getName())) {
                         productsWithoutSales.add(p);
                     }
@@ -1361,7 +1320,7 @@ public class SalesReportService {
 
         rowNum++; // Espacio después del título
 
-        // Obtener todos los productos y agrupar por etiqueta
+        // Obtener todos los productos y agrupar por etiqueta (solo productos activos)
         try {
             List<Product> allProducts = productService.findAll();
             
@@ -1369,7 +1328,8 @@ public class SalesReportService {
             Map<String, List<Product>> productsByLabel = new HashMap<>();
             
             for (Product product : allProducts) {
-                if (product.getStore() != null && !product.getStore().getId().equals(storeId)) continue;
+                // Solo incluir productos activos y de la tienda correcta
+                if (!isProductEligibleForExport(product, storeId)) continue;
                 
                 // Si el producto no tiene etiquetas o está vacío, lo agrupamos bajo "Sin Etiqueta"
                 if (product.getTags() == null || product.getTags().isEmpty()) {
@@ -1439,16 +1399,18 @@ public class SalesReportService {
 
         // Datos de productos
         for (Product product : products) {
-            // Calcular cantidades
+            // Calcular cantidades (excluir transacciones AJUSTE)
             int cantEntrada = transactions.stream()
                 .filter(t -> t.getProduct() != null && t.getProduct().getId().equals(product.getId()))
                 .filter(t -> "ENTRADA".equalsIgnoreCase(t.getType()))
+                .filter(t -> !"AJUSTE".equalsIgnoreCase(t.getReason()))
                 .mapToInt(Transaction::getQuantity)
                 .sum();
 
             int cantSalida = transactions.stream()
                 .filter(t -> t.getProduct() != null && t.getProduct().getId().equals(product.getId()))
                 .filter(t -> "SALIDA".equalsIgnoreCase(t.getType()))
+                .filter(t -> !"AJUSTE".equalsIgnoreCase(t.getReason()))
                 .mapToInt(Transaction::getQuantity)
                 .sum();
 
@@ -1486,184 +1448,7 @@ public class SalesReportService {
         return rowNum;
     }
 
-    private void createRecommendationsSheet(Workbook workbook, List<Transaction> transactions, Long storeId) {
-        Sheet sheet = workbook.createSheet("Recomendaciones");
-        
-        CellStyle titleStyle = createTitleStyle(workbook);
-        CellStyle subtitleStyle = createSubtitleStyle(workbook);
-        CellStyle headerStyle = createHeaderStyle(workbook);
-        CellStyle dataCellStyle = createDataCellStyle(workbook);
-        CellStyle currencyStyle = createCurrencyStyle(workbook);
-
-        int rowNum = 0;
-
-        // Configurar ancho de columnas
-        sheet.setColumnWidth(0, 35);
-        sheet.setColumnWidth(1, 25);
-
-        // TÍTULO
-        Row titleRow = sheet.createRow(rowNum++);
-        titleRow.setHeightInPoints(26);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("ANÁLISIS Y RECOMENDACIONES");
-        titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 1));
-
-        rowNum++; // Espacio
-
-        // SECCIÓN 1: Productos Más Rentables
-        Row section1Header = sheet.createRow(rowNum++);
-        section1Header.setHeightInPoints(18);
-        Cell section1Cell = section1Header.createCell(0);
-        section1Cell.setCellValue("TOP PRODUCTOS MÁS RENTABLES");
-        section1Cell.setCellStyle(subtitleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 1));
-
-        Map<String, BigDecimal> productMargin = new HashMap<>();
-        Map<String, Integer> productQuantity = new HashMap<>();
-        Map<String, BigDecimal> productGain = new HashMap<>();
-
-        for (Transaction t : transactions) {
-            if ("SALIDA".equalsIgnoreCase(t.getType())) {
-                try {
-                    Product product = t.getProduct();
-                    if (product != null) {
-                        String productKey = product.getName();
-                        BigDecimal price = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
-                        BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
-                        
-                        if (price.compareTo(BigDecimal.ZERO) > 0) {
-                            BigDecimal margin = price.subtract(cost).divide(price, 4, java.math.RoundingMode.HALF_UP);
-                            productMargin.put(productKey, margin);
-                        }
-                        
-                        productQuantity.put(productKey, productQuantity.getOrDefault(productKey, 0) + t.getQuantity());
-                        BigDecimal gain = price.subtract(cost).multiply(new BigDecimal(t.getQuantity()));
-                        productGain.put(productKey, productGain.getOrDefault(productKey, BigDecimal.ZERO).add(gain));
-                    }
-                } catch (Exception e) {
-                    // Skip
-                }
-            }
-        }
-
-        List<Map.Entry<String, BigDecimal>> topProfitable = productGain.entrySet().stream()
-            .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-            .limit(5)
-            .collect(Collectors.toList());
-
-        Row headerRow1 = sheet.createRow(rowNum++);
-        headerRow1.setHeightInPoints(16);
-        Cell hCell1 = headerRow1.createCell(0);
-        hCell1.setCellValue("Producto");
-        hCell1.setCellStyle(headerStyle);
-        Cell hCell2 = headerRow1.createCell(1);
-        hCell2.setCellValue("Ganancia Total");
-        hCell2.setCellStyle(headerStyle);
-
-        for (Map.Entry<String, BigDecimal> entry : topProfitable) {
-            Row row = sheet.createRow(rowNum++);
-            Cell nameCell = row.createCell(0);
-            nameCell.setCellValue(entry.getKey());
-            nameCell.setCellStyle(dataCellStyle);
-            Cell gainCell = row.createCell(1);
-            gainCell.setCellValue(entry.getValue().doubleValue());
-            gainCell.setCellStyle(currencyStyle);
-        }
-
-        rowNum += 2; // Espacio
-
-        // SECCIÓN 2: Productos con Bajo Desempeño
-        Row section2Header = sheet.createRow(rowNum++);
-        section2Header.setHeightInPoints(18);
-        Cell section2Cell = section2Header.createCell(0);
-        section2Cell.setCellValue("PRODUCTOS CON BAJO MOVIMIENTO");
-        section2Cell.setCellStyle(subtitleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 1));
-
-        try {
-            List<Map.Entry<String, Integer>> lowMovement = productQuantity.entrySet().stream()
-                .filter(e -> e.getValue() < 5)
-                .sorted((a, b) -> Integer.compare(a.getValue(), b.getValue()))
-                .limit(5)
-                .collect(Collectors.toList());
-
-            if (lowMovement.isEmpty()) {
-                Row noDataRow = sheet.createRow(rowNum++);
-                Cell noDataCell = noDataRow.createCell(0);
-                noDataCell.setCellValue("Todos los productos tienen buen movimiento");
-                noDataCell.setCellStyle(dataCellStyle);
-            } else {
-                Row headerRow2 = sheet.createRow(rowNum++);
-                headerRow2.setHeightInPoints(16);
-                Cell hCell3 = headerRow2.createCell(0);
-                hCell3.setCellValue("Producto");
-                hCell3.setCellStyle(headerStyle);
-                Cell hCell4 = headerRow2.createCell(1);
-                hCell4.setCellValue("Cantidad Vendida");
-                hCell4.setCellStyle(headerStyle);
-
-                for (Map.Entry<String, Integer> entry : lowMovement) {
-                    Row row = sheet.createRow(rowNum++);
-                    Cell nameCell = row.createCell(0);
-                    nameCell.setCellValue(entry.getKey());
-                    nameCell.setCellStyle(dataCellStyle);
-                    Cell qtyCell = row.createCell(1);
-                    qtyCell.setCellValue(entry.getValue());
-                    qtyCell.setCellStyle(createNumberStyle(workbook));
-                }
-            }
-        } catch (Exception e) {
-            Row errorRow = sheet.createRow(rowNum);
-            Cell errorCell = errorRow.createCell(0);
-            errorCell.setCellValue("Error al calcular movimiento: " + e.getMessage());
-        }
-
-        rowNum += 2; // Espacio
-
-        // SECCIÓN 3: Recomendaciones Generales
-        Row section3Header = sheet.createRow(rowNum++);
-        section3Header.setHeightInPoints(18);
-        Cell section3Cell = section3Header.createCell(0);
-        section3Cell.setCellValue("RECOMENDACIONES");
-        section3Cell.setCellStyle(subtitleStyle);
-        sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(rowNum-1, rowNum-1, 0, 1));
-
-        Row rec1 = sheet.createRow(rowNum++);
-        Cell recCell1 = rec1.createCell(0);
-        recCell1.setCellValue("1. Enfocarse en productos de alto margen de ganancia");
-        recCell1.setCellStyle(dataCellStyle);
-
-        Row rec2 = sheet.createRow(rowNum++);
-        Cell recCell2 = rec2.createCell(0);
-        recCell2.setCellValue("2. Revisar precios de productos con bajo movimiento");
-        recCell2.setCellStyle(dataCellStyle);
-
-        Row rec3 = sheet.createRow(rowNum++);
-        Cell recCell3 = rec3.createCell(0);
-        recCell3.setCellValue("3. Considerar promociones en productos lentos");
-        recCell3.setCellStyle(dataCellStyle);
-
-        Row rec4 = sheet.createRow(rowNum++);
-        Cell recCell4 = rec4.createCell(0);
-        recCell4.setCellValue("4. Aumentar stock de productos más vendidos");
-        recCell4.setCellStyle(dataCellStyle);
-
-        Row rec5 = sheet.createRow(rowNum++);
-        Cell recCell5 = rec5.createCell(0);
-        recCell5.setCellValue("5. Analizar tendencias de venta mensualmente");
-        recCell5.setCellStyle(dataCellStyle);
-
-        Row rec6 = sheet.createRow(rowNum++);
-        Cell recCell6 = rec6.createCell(0);
-        recCell6.setCellValue("6. Mantener control de costos administrativos");
-        recCell6.setCellStyle(dataCellStyle);
-
-        // Auto-ajustar columnas
-        for (int i = 0; i < 2; i++) {
-            sheet.autoSizeColumn(i);
-        }
-    }
+    // Método `createRecommendationsSheet` eliminado durante limpieza del código.
 
     private void createStockRotationSheet(Workbook workbook, List<Transaction> transactions, Long storeId, LocalDate dateFrom, LocalDate dateTo) {
         Sheet sheet = workbook.createSheet("Rotación de Stock");
@@ -1787,8 +1572,8 @@ public class SalesReportService {
             costoInvCell.setCellValue(costoInvertido.doubleValue());
             costoInvCell.setCellStyle(currencyStyle);
             
-            // Precio total (Precio Unit × Cantidad Entrada)
-            BigDecimal precioTotal = data.priceUnit.multiply(new BigDecimal(data.entradas));
+            // Precio total (Precio Unit × Cantidad Salida, no Entrada)
+            BigDecimal precioTotal = data.priceUnit.multiply(new BigDecimal(data.salidas));
             Cell precioTotalCell = dataRow.createCell(col++);
             precioTotalCell.setCellValue(precioTotal.doubleValue());
             precioTotalCell.setCellStyle(currencyStyle);
@@ -1890,39 +1675,45 @@ public class SalesReportService {
         Map<Long, RotationAnalysisData> data = new HashMap<>();
         
         try {
-            List<Product> allProducts = productService.findAll();
+            // Filtrar solo productos activos y elegibles
+            List<Product> eligibleProducts = new ArrayList<>();
+            List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
             
-            for (Product product : allProducts) {
-                if (product.getStore() == null || !product.getStore().getId().equals(storeId)) {
-                    continue;
+            for (Transaction t : activeTransactions) {
+                Product product = t.getProduct();
+                if (product != null && isProductEligibleForExport(product) && 
+                    !eligibleProducts.stream().anyMatch(p -> p.getId().equals(product.getId()))) {
+                    eligibleProducts.add(product);
                 }
-                
+            }
+            
+            for (Product product : eligibleProducts) {
                 RotationAnalysisData rotData = new RotationAnalysisData();
                 rotData.productName = product.getName();
                 rotData.currentStock = product.getStock();
                 rotData.costUnit = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
                 rotData.priceUnit = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
                 
-                // Filtrar transacciones del producto en el período
-                List<Transaction> productTransactions = transactions.stream()
+                // Filtrar transacciones del producto en el período (solo activas)
+                List<Transaction> productTransactions = activeTransactions.stream()
                     .filter(t -> t.getProduct() != null && t.getProduct().getId().equals(product.getId()))
                     .filter(t -> t.getDateTime() != null)
                     .filter(t -> !t.getDateTime().toLocalDate().isBefore(dateFrom) && 
                                  !t.getDateTime().toLocalDate().isAfter(dateTo))
                     .collect(Collectors.toList());
                 
-                // 2️⃣ MOVIMIENTOS PERÍODO
+                // Contar ENTRADA y SALIDA excluyendo AJUSTE
                 rotData.entradas = productTransactions.stream()
-                    .filter(t -> "ENTRADA".equalsIgnoreCase(t.getType()))
+                    .filter(t -> "ENTRADA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason()))
                     .mapToInt(Transaction::getQuantity)
                     .sum();
                 
                 rotData.salidas = productTransactions.stream()
-                    .filter(t -> "SALIDA".equalsIgnoreCase(t.getType()))
+                    .filter(t -> "SALIDA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason()))
                     .mapToInt(Transaction::getQuantity)
                     .sum();
                 
-                // 4️⃣ MÉTRICAS DE ROTACIÓN
+                // MÉTRICAS DE ROTACIÓN
                 rotData.velocidadDiaria = periodDays > 0 ? (double) rotData.salidas / periodDays : 0;
                 
                 // Calcular Stock Inicial: Stock Final - (Salidas - Entradas)
@@ -1942,13 +1733,14 @@ public class SalesReportService {
                 
                 rotData.diasCobertura = rotData.velocidadDiaria > 0 ? rotData.currentStock / rotData.velocidadDiaria : 0;
                 
-                // 5️⃣ FINANCIERO & ANÁLISIS
+                // FINANCIERO & ANÁLISIS
+                // Ganancia solo en SALIDA (no en ENTRADA)
                 rotData.margenAbsoluto = rotData.priceUnit.subtract(rotData.costUnit);
                 rotData.margenPorcentaje = rotData.priceUnit.compareTo(BigDecimal.ZERO) > 0 
                     ? rotData.margenAbsoluto.divide(rotData.priceUnit, 4, java.math.RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
                 
-                // 3️⃣ STOCK & PRIORIDAD
+                // STOCK & PRIORIDAD
                 if (rotData.currentStock < 3) {
                     rotData.prioridad = "🔴 URGENTE";
                 } else if (rotData.currentStock < 5) {

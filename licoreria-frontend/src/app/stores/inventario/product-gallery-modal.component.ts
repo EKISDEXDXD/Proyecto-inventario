@@ -5,8 +5,9 @@ import { TagService } from '../../core/tag.service';
 import { ApiConfigService } from '../../auth/api-config.service';
 import { CurrencyService } from '../../services/currency.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
-import { Subject } from 'rxjs';
-import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { LotesService } from '../../services/lotes.service';
+import { Subject, of, firstValueFrom } from 'rxjs';
+import { takeUntil, debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-gallery-modal',
@@ -65,7 +66,8 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     private tagService: TagService,
     private cdr: ChangeDetectorRef,
     private apiConfig: ApiConfigService,
-    private currencyService: CurrencyService
+    private currencyService: CurrencyService,
+    private lotesService: LotesService
   ) {}
 
   ngOnInit() {
@@ -151,26 +153,26 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
       this.currentPage,
       this.pageSize
     ).subscribe({
-      next: (response: any) => {
+      next: async (response: any) => {
         console.log('[Gallery Modal] Respuesta recibida - estructura completa:', response);
         console.log('[Gallery Modal] response.content:', response.content);
         console.log('[Gallery Modal] response.totalElements:', response.totalElements);
         console.log('[Gallery Modal] response.last:', response.last);
-        
-        // Manejar respuesta de Page de Spring
+
         const products = response.content || response;
-        
+        const rawProducts = Array.isArray(products) ? products : [];
+        const displayProducts = await this.buildGalleryDisplayProducts(rawProducts);
+
         if (this.currentPage === 0) {
-          this.displayedProducts = Array.isArray(products) ? products : [];
+          this.displayedProducts = displayProducts;
         } else {
-          const newProducts = Array.isArray(products) ? products : [];
-          this.displayedProducts = [...this.displayedProducts, ...newProducts];
+          this.displayedProducts = [...this.displayedProducts, ...displayProducts];
         }
-        
-        this.totalElements = response.totalElements || (Array.isArray(products) ? products.length : 0);
+
+        this.totalElements = response.totalElements || displayProducts.length;
         this.hasMorePages = response.last !== undefined ? !response.last : false;
         this.loading = false;
-        
+
         console.log('[Gallery Modal] Productos mostrados:', this.displayedProducts.length, 'Total:', this.totalElements);
         this.cdr.markForCheck();
       },
@@ -184,6 +186,84 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
         this.cdr.markForCheck();
       }
     });
+  }
+
+  async buildGalleryDisplayProducts(rawProducts: any[]): Promise<any[]> {
+    const visibleRoots = (rawProducts || []).filter(product => this.isVisibleRootProduct(product));
+
+    const displayProducts: any[] = [];
+    for (const product of visibleRoots) {
+      const lotes = await firstValueFrom(
+        this.lotesService.getLotesByProductId(product.id).pipe(
+          catchError(() => of([]))
+        )
+      );
+
+      const displayLote = this.getGalleryDisplayLote(product, lotes);
+      const displayStock = this.getGalleryDisplayStock(product, lotes);
+      const displayCost = displayLote ? (displayLote.cost ?? product.cost) : product.cost;
+      const displayPrice = displayLote ? (displayLote.price ?? product.price) : product.price;
+      const displayProduct = {
+        ...product,
+        cost: displayCost,
+        price: displayPrice,
+        stock: displayStock,
+        displayCost,
+        displayPrice,
+        displayStock,
+        activeLote: displayLote
+      };
+
+      displayProducts.push(displayProduct);
+    }
+
+    return displayProducts;
+  }
+
+  private isVisibleRootProduct(product: any): boolean {
+    if (!product || !product.id || product.parentId) {
+      return false;
+    }
+
+    const isActive = product.isActive ?? true;
+    const isDeleted = product.isDeleted ?? false;
+    return isActive && !isDeleted;
+  }
+
+  private isVisibleLote(lote: any): boolean {
+    if (!lote || !lote.id) {
+      return false;
+    }
+
+    const isActive = lote.isActive ?? true;
+    const isDeleted = lote.isDeleted ?? false;
+    return isActive && !isDeleted;
+  }
+
+  private getGalleryDisplayLote(product: any, lotes: any[]): any {
+    const visibleLotes = (lotes || []).filter(lote => this.isVisibleLote(lote));
+
+    if (product?.isActiveForSale) {
+      return null;
+    }
+
+    const activeForSaleLote = visibleLotes.find(lote => Boolean(lote.isActiveForSale));
+    if (activeForSaleLote) {
+      return activeForSaleLote;
+    }
+
+    return null;
+  }
+
+  private getGalleryDisplayStock(product: any, lotes: any[]): number {
+    const rootStock = Number(product.stock ?? 0);
+    const lotesStock = (lotes || []).reduce((total, lote) => {
+      if (!this.isVisibleLote(lote)) {
+        return total;
+      }
+      return total + Number(lote.stock ?? 0);
+    }, 0);
+    return rootStock + lotesStock;
   }
 
   /**

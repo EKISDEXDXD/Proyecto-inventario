@@ -92,29 +92,35 @@
     
 
     <div class="alert-details">
-      <div *ngIf="getAlertsWithStatus('low').length > 0" class="alert-group">
-        <h4>🟡 Stock Bajo</h4>
-        <ul class="alert-list">
-          <li *ngFor="let product of getAlertsWithStatus('low')">
-            <span class="product-name">{{ product.name }}</span>
-            <span class="product-info">(Stock: {{ product.stock }}, Umbral: {{ product.alert.threshold }})</span>
-          </li>
-        </ul>
+      <div *ngIf="loading" class="no-alerts">
+        ⏳ Cargando productos y alertas...
       </div>
 
-      <div *ngIf="getAlertsWithStatus('out').length > 0" class="alert-group">
-        <h4>🔴 Sin Stock</h4>
-        <ul class="alert-list">
-          <li *ngFor="let product of getAlertsWithStatus('out')">
-            <span class="product-name">{{ product.name }}</span>
-            <span class="product-info">(Umbral: {{ product.alert.threshold }})</span>
-          </li>
-        </ul>
-      </div>
+      <ng-container *ngIf="!loading">
+        <div *ngIf="getAlertsWithStatus('low').length > 0" class="alert-group">
+          <h4>🟡 Stock Bajo</h4>
+          <ul class="alert-list">
+            <li *ngFor="let product of getAlertsWithStatus('low')">
+              <span class="product-name">{{ product.name }}</span>
+              <span class="product-info">(Stock: {{ product.stock }}, Umbral: {{ product.alert.threshold }})</span>
+            </li>
+          </ul>
+        </div>
 
-      <div *ngIf="getActiveAlerts().length === 0" class="no-alerts">
-        ✅ No hay alertas activas
-      </div>
+        <div *ngIf="getAlertsWithStatus('out').length > 0" class="alert-group">
+          <h4>🔴 Sin Stock</h4>
+          <ul class="alert-list">
+            <li *ngFor="let product of getAlertsWithStatus('out')">
+              <span class="product-name">{{ product.name }}</span>
+              <span class="product-info">(Umbral: {{ product.alert.threshold }})</span>
+            </li>
+          </ul>
+        </div>
+
+        <div *ngIf="getActiveAlerts().length === 0" class="no-alerts">
+          ✅ No hay alertas activas
+        </div>
+      </ng-container>
     </div>
   </div>
 
@@ -180,7 +186,7 @@
                                   'stock-out': getStockStatus(product) === 'out',
                                   'stock-normal': getStockStatus(product) === 'normal'
                                 }">
-                            {{ product.stock }}
+                            {{ getDisplayStockForProduct(product) }}
                           </span>
                         </td>
                         <td>{{ product.cost | currencyFormat }}</td>
@@ -198,7 +204,7 @@
                           <div class="product-alert-popup">
                             <div class="popup-header">
                               <span class="popup-title"><i class="bx bx-bell"></i> Configurar Alerta: {{ product.name }}</span>
-                              <span class="popup-info">Stock actual: {{ product.stock }}</span>
+                              <span class="popup-info">Stock actual: {{ getDisplayStockForProduct(product) }}</span>
                               
                             </div>
 
@@ -390,14 +396,6 @@
       <div class="modal-header">
         <h3 class="modal-title"><i class="bx bx-info-circle"></i> {{ selectedProductForDescription?.name }}</h3>
         <div class="modal-header-actions">
-          <button class="icon-btn small edit-btn" 
-                  type="button" 
-                  (click)="openEditProductModal()"
-                  [title]="canEditProduct ? 'Editar producto' : 'No se puede editar (producto tiene movimientos)'"
-                  [disabled]="!canEditProduct"
-                  aria-label="Editar producto">
-            <i class="bx bx-pencil"></i>
-          </button>
           <button class="icon-btn small" type="button" (click)="closeDescriptionModal()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
         </div>
       </div>

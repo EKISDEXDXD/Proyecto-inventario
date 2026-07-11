@@ -1049,6 +1049,29 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     return String(value).padStart(2, '0');
   }
 
+  private normalizeReason(reason: any): string {
+    return String(reason ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private isCountableStatsMovement(transaction: any): boolean {
+    const type = String(transaction?.type ?? '').trim().toUpperCase();
+    const reason = this.normalizeReason(transaction?.reason);
+
+    if (type === 'ENTRADA') {
+      return reason === 'COMPRA';
+    }
+
+    if (type === 'SALIDA') {
+      return reason === 'VENTA';
+    }
+
+    return false;
+  }
+
   get todayTransactions(): any[] {
     return this.transactions.filter(t => {
       const date = new Date(t.dateTime);
@@ -1061,11 +1084,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   get entradasCount(): number {
-    return this.todayTransactions.filter(t => t.type === 'ENTRADA').length;
+    return this.todayTransactions.filter(t => t.type === 'ENTRADA' && this.isCountableStatsMovement(t)).length;
   }
 
   get salidasCount(): number {
-    return this.todayTransactions.filter(t => t.type === 'SALIDA').length;
+    return this.todayTransactions.filter(t => t.type === 'SALIDA' && this.isCountableStatsMovement(t)).length;
   }
 
   get todayLabel(): string {

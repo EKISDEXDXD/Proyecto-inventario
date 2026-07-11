@@ -121,6 +121,16 @@ export class InventarioComponent implements OnInit {
     this.apiProductImagesUrl = this.apiConfig.getApiUrl('/api/product-images');
   }
 
+  private isVisibleRootProduct(product: any): boolean {
+    if (!product || !product.id || product.parentId) {
+      return false;
+    }
+
+    const isActive = product.isActive ?? true;
+    const isDeleted = product.isDeleted ?? false;
+    return isActive && !isDeleted;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -247,8 +257,10 @@ export class InventarioComponent implements OnInit {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: (data) => {
         console.log('loadStoreProducts - SUCCESS, cantidad de productos:', data?.length);
-        // Filtrar solo productos principales (parent_id IS NULL)
-        this.products = data.filter(p => !p.parentId);
+        // Filtrar solo productos principales visibles y activos
+        this.products = Array.isArray(data)
+          ? data.filter(p => this.isVisibleRootProduct(p))
+          : [];
         
         // Cargar lotes para cada producto principal
         let lotesLoaded = 0;
@@ -279,34 +291,15 @@ export class InventarioComponent implements OnInit {
   }
 
   /**
-   * Actualiza filteredProducts reemplazando el producto raíz con el lote activo para venta si existe
+   * Actualiza filteredProducts mostrando solo productos raíz visibles.
+   * Los lotes no deben aparecer como elementos principales en el buscador.
    */
   updateFilteredProductsWithActiveLotes() {
     try {
-      this.filteredProducts = this.products.map(product => {
-        // Validación: si el producto no existe, retornar como está
-        if (!product) {
-          return product;
-        }
-
-        // Si el producto raíz está marcado como activo para venta, mostrar el padre
-        if (product.isActiveForSale) {
-          return product;
-        }
-        
-        // Si no, buscar un lote activo para venta
-        const activeLote = this.getActiveLoteForProduct(product.id);
-        if (activeLote) {
-          // Devolver el lote activo para mostrar en la lista
-          return activeLote;
-        }
-        
-        // Si no hay lote activo, devolver el producto raíz (por defecto)
-        return product;
-      });
+      this.filteredProducts = this.products.filter(product => this.isVisibleRootProduct(product));
     } catch (error) {
       console.error('Error en updateFilteredProductsWithActiveLotes:', error);
-      // Si hay error, mantener el estado actual de filteredProducts
+      this.filteredProducts = [];
     }
   }
 
@@ -318,48 +311,21 @@ export class InventarioComponent implements OnInit {
         return;
       }
 
+      const visibleProducts = this.products.filter(product => this.isVisibleRootProduct(product));
+
       if (!this.searchTerm || this.searchTerm.trim() === '') {
-        // Mostrar todos los productos (raíz) pero reemplazando con lote activo si existe
-        const displayProducts = this.products.map(product => {
-          if (!product || !product.id) {
-            return product;
-          }
-          
-          // Si el padre está activo para venta, mostrar padre
-          if (product.isActiveForSale) {
-            return product;
-          }
-          
-          const activeLote = this.getActiveLoteForProduct(product.id);
-          return activeLote || product;
-        });
-        this.filteredProducts = displayProducts;
+        this.filteredProducts = visibleProducts;
       } else {
-        // Filtrar por búsqueda, considerando el lote activo si existe
         const searchLower = this.searchTerm.toLowerCase().trim();
-        
-        const displayProducts = this.products.map(product => {
-          if (!product || !product.id) {
-            return product;
-          }
-          
-          // Si el padre está activo para venta, mostrar padre
-          if (product.isActiveForSale) {
-            return product;
-          }
-          
-          const activeLote = this.getActiveLoteForProduct(product.id);
-          return activeLote || product;
-        });
-        
-        this.filteredProducts = displayProducts.filter(displayProduct => {
+
+        this.filteredProducts = visibleProducts.filter(displayProduct => {
           if (!displayProduct) {
             return false;
           }
 
           const productName = (displayProduct.name || '').toLowerCase();
           const productDesc = (displayProduct.description || '').toLowerCase();
-          
+
           return productName.includes(searchLower) || productDesc.includes(searchLower);
         });
       }
@@ -551,7 +517,7 @@ export class InventarioComponent implements OnInit {
   }
 
   get totalProducts() {
-    return this.products.length;
+    return this.products.filter(product => this.isVisibleRootProduct(product)).length;
   }
 
   getLowStockProducts() {
@@ -596,22 +562,28 @@ export class InventarioComponent implements OnInit {
         return Number(product.stock ?? 0);
       }
 
-      const activeLote = this.getActiveLoteForProduct(product.id);
-      if (activeLote && activeLote.isActiveForSale) {
-        return Number(activeLote.stock ?? 0);
-      }
-
-      if (product.isActiveForSale) {
-        return Number(product.stock ?? 0);
-      }
-
+      const rootStock = this.isVisibleRootProduct(product) ? Number(product.stock ?? 0) : 0;
       const lotes = this.getLotesForProduct(product.id);
-      const activeLotes = (Array.isArray(lotes) ? lotes : []).filter(l => l && l.isActive);
-      if (activeLotes.length > 0) {
-        return activeLotes.reduce((total, lote) => total + Number(lote.stock || 0), 0);
+
+      if (!Array.isArray(lotes) || lotes.length === 0) {
+        return rootStock;
       }
 
-      return Number(product.stock ?? 0);
+      const lotesStock = lotes.reduce((total, lote) => {
+        if (!lote) {
+          return total;
+        }
+
+        const isVisibleLote = (lote.isActive ?? true) && !(lote.isDeleted ?? false);
+        if (!isVisibleLote) {
+          return total;
+        }
+
+        const loteStock = Number(lote.stock ?? 0);
+        return total + loteStock;
+      }, 0);
+
+      return rootStock + lotesStock;
     } catch (error) {
       console.error('Error en getDisplayStockForProduct:', error);
       return Number(product?.stock ?? 0);
@@ -643,6 +615,26 @@ export class InventarioComponent implements OnInit {
   }
 
   // Métodos para el modal de descripción
+  private resolveProductForDescription(product: any): any {
+    if (!product || !product.id) {
+      return product;
+    }
+
+    const matchingRootProduct = this.products.find(p => p && p.id === product.id && !p.parentId);
+    if (matchingRootProduct) {
+      return { ...matchingRootProduct };
+    }
+
+    if (product.parentId) {
+      const rootProduct = this.products.find(p => p && p.id === product.parentId);
+      if (rootProduct) {
+        return { ...rootProduct };
+      }
+    }
+
+    return { ...product };
+  }
+
   openDescriptionModal(product: any) {
     try {
       if (!product || !product.id) {
@@ -650,20 +642,9 @@ export class InventarioComponent implements OnInit {
         return;
       }
 
-      // Si es un lote (tiene parentId), abrir el modal del producto raíz
-      // Pero mostrar los DATOS del lote activo (precio, coste, stock)
-      let productToOpen = product;
-      if (product.parentId) {
-        const rootProduct = this.products.find(p => p && p.id === product.parentId);
-        if (rootProduct) {
-          productToOpen = rootProduct;
-        } else {
-          console.warn(`Producto raíz con ID ${product.parentId} no encontrado`);
-          productToOpen = product;
-        }
-      }
+      const productToOpen = this.resolveProductForDescription(product);
 
-      this.selectedProductForDescription = { ...productToOpen };
+      this.selectedProductForDescription = productToOpen;
       this.showDescriptionModal = true;
       this.descriptionModalZIndex = this.modalStackService.bringToFront();
       this.refreshDescriptionModalDisplayState();
@@ -844,17 +825,9 @@ export class InventarioComponent implements OnInit {
 
   // Abrir descripción modal desde galería (mantiene galería abierta)
   openDescriptionModalFromGallery(product: any) {
-    // Si es un lote (tiene parentId), abrir el modal del producto raíz
-    // Pero mostrar los DATOS del lote activo
-    let productToOpen = product;
-    if (product.parentId) {
-      const rootProduct = this.products.find(p => p.id === product.parentId);
-      if (rootProduct) {
-        productToOpen = rootProduct;
-      }
-    }
-    // Abrir modal de descripción encima de la galería
-    this.selectedProductForDescription = { ...productToOpen };
+    const productToOpen = this.resolveProductForDescription(product);
+
+    this.selectedProductForDescription = productToOpen;
     this.showDescriptionModal = true;
     this.descriptionModalZIndex = this.modalStackService.bringToFront();
     this.refreshDescriptionModalDisplayState();
@@ -1074,38 +1047,16 @@ export class InventarioComponent implements OnInit {
   }
 
   /**
-   * Retorna los productos/lotes a mostrar en alertas:
-   * - Si padre tiene isActiveForSale=true → padre
-   * - Si hay lote activo → lote activo
-   * - Si no → padre (por defecto)
+   * Retorna únicamente los productos raíz para la sección de estadísticas y alertas.
+   * Los lotes/variantes no deben aparecer como elementos principales en esta vista.
    */
   private getDisplayProductsForAlerts(): any[] {
     try {
-      // Validación: si products no es un array, retornar array vacío
       if (!Array.isArray(this.products)) {
         return [];
       }
 
-      return this.products.map(product => {
-        // Validación: producto debe existir
-        if (!product || !product.id) {
-          return product;
-        }
-
-        // Si el padre está activo para venta, mostrar padre
-        if (product.isActiveForSale) {
-          return product;
-        }
-        
-        // Si hay un lote activo, mostrar lote
-        const activeLote = this.getActiveLoteForProduct(product.id);
-        if (activeLote) {
-          return activeLote;
-        }
-        
-        // Por defecto mostrar padre
-        return product;
-      }).filter(p => p); // Filtrar null/undefined
+      return this.products.filter(product => this.isVisibleRootProduct(product));
     } catch (error) {
       console.error('Error en getDisplayProductsForAlerts:', error);
       return [];

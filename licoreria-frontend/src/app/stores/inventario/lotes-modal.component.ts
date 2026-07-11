@@ -77,12 +77,14 @@ export class LotesModalComponent implements OnInit, OnChanges {
         console.log('✅ Lotes cargados del servidor:', lotes?.length || 0);
         console.log('   Contenido:', lotes);
         
-        // Agregar el lote raíz (mainProduct) + todos los lotes derivados
-        const allLotes = [this.mainProduct, ...(lotes || [])];
-        console.log('📦 Lote raíz incluido. Total:', allLotes.length);
-        
-        // SOLO mostrar lotes ACTIVOS (isActive = true) - IGUAL a movimientos
-        this.lotes = allLotes.filter(lote => lote.isActive === true);
+        const serverLotes = Array.isArray(lotes) ? lotes : [];
+        const allLotes = [
+          ...(this.mainProduct && this.mainProduct.id ? [{ ...this.mainProduct, parentId: null }] : []),
+          ...serverLotes.map(lote => ({ ...lote, parentId: lote.parentId ?? this.mainProduct?.id }))
+        ];
+        console.log('📦 Lista de lotes preparada. Total:', allLotes.length);
+
+        this.lotes = allLotes.filter(lote => lote && lote.isActive === true);
         console.log('✅ Lotes activos mostrados:', this.lotes.length);
         
         this.loading = false;
@@ -126,13 +128,12 @@ export class LotesModalComponent implements OnInit, OnChanges {
     this.lotesService.activateLote(loteId).subscribe({
       next: (updatedLote) => {
         console.log('✅ Lote activado:', updatedLote);
-        
-        // Actualizar inmediatamente en la UI el lote activado
+
         const index = this.lotes.findIndex(l => l.id === loteId);
         if (index !== -1) {
           this.lotes[index] = { ...this.lotes[index], ...updatedLote };
         }
-        
+
         this.loading = false;
         this.lotesUpdated.emit();
         this.cdr.markForCheck();
