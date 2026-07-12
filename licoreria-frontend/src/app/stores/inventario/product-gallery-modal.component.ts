@@ -6,13 +6,14 @@ import { ApiConfigService } from '../../auth/api-config.service';
 import { CurrencyService } from '../../services/currency.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { LotesService } from '../../services/lotes.service';
+import { PromotionDesignModalComponent } from './promotion-design-modal.component';
 import { Subject, of, firstValueFrom } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-gallery-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe, PromotionDesignModalComponent],
   templateUrl: './product-gallery-modal.component.html',
   styleUrl: './product-gallery-modal.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -57,7 +58,12 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   draggedTag: any = null;
   dragOverProductId: number | null = null;
   assigningTag: boolean = false;
-  
+  draggedProduct: any = null;
+  promoMode: boolean = false;
+  promoProducts: any[] = [];
+  promoConfigOpen: boolean = false;
+  promoDropActive: boolean = false;
+
   // Touch support for mobile
   touchDraggedTag: any = null;
   isMobile: boolean = false;
@@ -399,6 +405,75 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     this.onProductSelect.emit(product);
   }
 
+  onProductClick(product: any) {
+    // If touch assigning tags, delegate
+    if (this.touchDraggedTag) {
+      this.onProductTouchAssign(product);
+      return;
+    }
+
+    if (this.promoMode) {
+      if (!this.promoProducts.some((p: any) => p.id === product.id)) {
+        this.promoProducts.push(product);
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+
+    // Default behavior: open/select product
+    this.selectProduct(product);
+  }
+
+  togglePromoMode() {
+    if (this.promoMode) {
+      this.cancelPromo();
+      return;
+    }
+
+    this.startPromoMode();
+  }
+
+  startPromoMode() {
+    this.promoMode = true;
+    this.promoProducts = [];
+    this.promoConfigOpen = false;
+    this.promoDropActive = false;
+    this.cdr.markForCheck();
+  }
+
+  cancelPromo() {
+    this.promoMode = false;
+    this.promoProducts = [];
+    this.promoConfigOpen = false;
+    this.promoDropActive = false;
+    this.cdr.markForCheck();
+  }
+
+  removePromoProduct(product: any) {
+    this.promoProducts = this.promoProducts.filter((p: any) => p.id !== product.id);
+    this.cdr.markForCheck();
+  }
+
+  openPromotionConfig() {
+    if (this.promoProducts.length === 0) {
+      return;
+    }
+    this.promoConfigOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  onPromotionConfirmed(result: any) {
+    console.log('[Gallery Modal] Promotion configured', result);
+    this.promoConfigOpen = false;
+    this.promoMode = false;
+    this.cdr.markForCheck();
+  }
+
+  onPromotionClosed() {
+    this.promoConfigOpen = false;
+    this.cdr.markForCheck();
+  }
+
   /**
    * Get image path or placeholder
    */
@@ -677,5 +752,48 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
         this.cdr.markForCheck();
       }
     });
+
   }
+
+  onProductDragStart(event: DragEvent, product: any) {
+    // If user is dragging a tag (text/json set elsewhere) we don't override
+    if (this.draggedTag || !this.promoMode) return;
+
+    this.draggedProduct = product;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/json', JSON.stringify({ productId: product.id, name: product.name }));
+    }
+  }
+
+  onPromoDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (this.promoMode && event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+      this.promoDropActive = true;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onPromoDragLeave(event: DragEvent) {
+    event.preventDefault();
+    this.promoDropActive = false;
+    this.cdr.markForCheck();
+  }
+
+  onPromoDrop(event: DragEvent) {
+    event.preventDefault();
+    this.promoDropActive = false;
+    if (!this.draggedProduct) {
+      return;
+    }
+
+    if (!this.promoProducts.some((p: any) => p.id === this.draggedProduct.id)) {
+      this.promoProducts.push(this.draggedProduct);
+      this.cdr.markForCheck();
+    }
+
+    this.draggedProduct = null;
+  }
+
 }

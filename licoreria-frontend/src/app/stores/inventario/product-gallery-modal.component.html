@@ -98,11 +98,69 @@
               <i class="bx bx-reset"></i> Limpiar filtros
             </button>
           </div>
+
+          <div class="promo-builder" role="region" aria-label="Selector de productos para promoción">
+            <div class="promo-builder-header">
+              <div class="promo-builder-title-group">
+                <span class="promo-builder-title"></span>
+                <small class="promo-builder-subtitle"></small>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-accent promo-toggle-btn"
+                [class.active]="promoMode"
+                [class.drag-over]="promoDropActive"
+                (click)="togglePromoMode()"
+                (dragover)="onPromoDragOver($event)"
+                (dragleave)="onPromoDragLeave($event)"
+                (drop)="onPromoDrop($event)"
+              >
+                <i class="bx" [ngClass]="promoMode ? 'bx-x-circle' : 'bx-gift'"></i>
+                <span>{{ promoMode ? 'Crear promo activa' : 'Crear promo' }}</span>
+              </button>
+            </div>
+
+            <div class="promo-builder-body" [class.active]="promoMode">
+              <div class="promo-builder-instructions">
+                
+                <span *ngIf="!promoMode"></span>
+                <span *ngIf="promoMode"></span>
+              </div>
+
+              <div class="promo-drop-zone" [class.drag-over]="promoDropActive" (dragover)="onPromoDragOver($event)" (dragleave)="onPromoDragLeave($event)" (drop)="onPromoDrop($event)">
+                <div class="promo-drop-label">
+                  <i class="bx bx-drag-handle"></i>
+                  <div>
+                  </div>
+                </div>
+
+                <div class="promo-products-list">
+                  <div *ngIf="promoProducts.length === 0" class="promo-empty">
+                  </div>
+                  <div *ngFor="let product of promoProducts" class="promo-product-item">
+                    <span>{{ product.name }}</span>
+                    <button type="button" class="btn btn-xs btn-danger" (click)="removePromoProduct(product)">
+                      <i class="bx bx-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="promo-builder-actions" *ngIf="promoMode">
+                <button type="button" class="btn btn-sm btn-success" (click)="openPromotionConfig()" [disabled]="promoProducts.length === 0">
+                  Ajustar venta
+                </button>
+              </div>
+            </div>
+          </div>
+          
         </div>
       </nav>
 
       <!-- Main Content - Gallery -->
       <main class="gallery-main">
+          
+
         <!-- Search Bar -->
         <div class="gallery-search" role="search">
           <div class="search-header">
@@ -159,11 +217,12 @@
 
           <!-- Products Grid -->
           <div *ngIf="displayedProducts.length > 0" class="products-grid" role="list">
-            <article *ngFor="let product of displayedProducts" class="product-card" role="listitem"
+            <article *ngFor="let product of displayedProducts" class="product-card" role="listitem" draggable="true"
+              (dragstart)="onProductDragStart($event, product)"
               (dragover)="onProductDragOver($event, product.id)"
               (dragleave)="onProductDragLeave($event, product.id)"
               (drop)="onProductDrop($event, product)"
-              (click)="touchDraggedTag ? onProductTouchAssign(product) : selectProduct(product)"
+              (click)="onProductClick(product)"
               [class.drag-over]="dragOverProductId === product.id"
               [class.touch-target]="touchDraggedTag !== null"
               [class.assigning]="assigningTag"
@@ -218,10 +277,19 @@
             </article>
           </div>
 
+          
+
           <!-- Loading More -->
           <div *ngIf="loading && displayedProducts.length > 0" class="gallery-loading-more" role="status" aria-label="Cargando más productos">
             <i class="bx bx-loader bx-spin"></i>
           </div>
+
+          <app-promotion-design-modal *ngIf="promoConfigOpen"
+            [isOpen]="promoConfigOpen"
+            [products]="promoProducts"
+            (onConfirm)="onPromotionConfirmed($event)"
+            (onClose)="onPromotionClosed()">
+          </app-promotion-design-modal>
         </div>
       </main>
     </div>

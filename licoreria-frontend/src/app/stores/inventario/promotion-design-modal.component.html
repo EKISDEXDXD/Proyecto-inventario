@@ -1,0 +1,113 @@
+<div class="promo-config-overlay" *ngIf="isOpen" (click)="close()" role="presentation">
+  <div class="promo-config-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Configurar promoción">
+    <div class="promo-config-header">
+      <div>
+        <h3>Configurar venta</h3>
+        <p>Define el nombre del nuevo producto y ajusta su precio final a partir de los productos seleccionados.</p>
+      </div>
+      <button type="button" class="btn-close" (click)="close()" aria-label="Cerrar modal">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+
+    <div class="promo-config-body">
+      <div class="promo-section-card">
+        <div class="promo-section-title">
+          <h4>Datos del nuevo producto</h4>
+          <span>El costo se mantiene fijo y el precio se ajusta desde los productos base</span>
+        </div>
+        <div class="promo-field-grid">
+          <div class="promo-full-width">
+            <label class="field-label">Nombre del producto</label>
+            <input type="text" class="form-control" [(ngModel)]="promotionName" placeholder="Ej. Combo mixto" />
+          </div>
+          <div class="promo-full-width">
+            <label class="field-label">Descripción de la promoción</label>
+            <textarea
+              class="form-control"
+              rows="3"
+              [(ngModel)]="promotionDescription"
+              placeholder="Ej. Incluye 2 bebidas + 1 snack con precio especial para esta semana"
+            ></textarea>
+          </div>
+          <div>
+            <label class="field-label">Costo total</label>
+            <input type="text" class="form-control" [value]="'S/ ' + (totalCost | number:'1.2-2')" readonly />
+          </div>
+          <div>
+            <label class="field-label">Precio final</label>
+            <input
+              type="number"
+              class="form-control"
+              [(ngModel)]="customFinalPrice"
+              min="0"
+              step="0.01"
+              (ngModelChange)="updateFinalPrice()"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="promo-section-card">
+        <div class="promo-section-title">
+          <h4>Productos seleccionados</h4>
+          <span>{{ promoProducts.length }} producto(s)</span>
+        </div>
+        <div *ngIf="promoProducts.length === 0" class="promo-empty">No hay productos agregados todavía.</div>
+        <div *ngIf="promoProducts.length > 0" class="promo-products-list">
+          <div *ngFor="let product of promoProducts" class="promo-product-card">
+            <div class="promo-product-header">
+              <div>
+                <div class="promo-product-name">{{ product.name }}</div>
+                <div class="promo-product-meta">Costo base: S/ {{ product.cost | number:'1.2-2' }}</div>
+              </div>
+              <div class="promo-product-badge">{{ product.quantity }} und.</div>
+            </div>
+            <div class="promo-product-controls">
+              <div>
+                <label class="field-label">Precio base</label>
+                <input type="number" class="form-control" [(ngModel)]="product.price" min="0" step="0.01" (ngModelChange)="updateProduct(product)" />
+              </div>
+              <div>
+                <label class="field-label">Cantidad</label>
+                <div class="promo-quantity-control">
+                  <button type="button" class="promo-quantity-btn" (click)="adjustQuantity(product, -1)">−</button>
+                  <input type="number" class="form-control promo-quantity-input" [(ngModel)]="product.quantity" min="1" step="1" (ngModelChange)="updateProduct(product)" />
+                  <button type="button" class="promo-quantity-btn" (click)="adjustQuantity(product, 1)">+</button>
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Costo fijo</label>
+                <input type="text" class="form-control" [value]="'S/ ' + (product.costTotal | number:'1.2-2')" readonly />
+              </div>
+              <div>
+                <label class="field-label">Precio total</label>
+                <input type="text" class="form-control" [value]="'S/ ' + (product.originalTotal | number:'1.2-2')" readonly />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="promo-summary-bar">
+        <div>
+          <span>Precio original</span>
+          <strong>S/ {{ totalOriginal | number:'1.2-2' }}</strong>
+        </div>
+        <div>
+          <span>Precio final</span>
+          <strong>S/ {{ totalFinal | number:'1.2-2' }}</strong>
+        </div>
+        <div>
+          <span>Costo total</span>
+          <strong>S/ {{ totalCost | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="promo-config-actions">
+      <button type="button" class="btn btn-sm btn-outline" (click)="close()">Cerrar</button>
+      <button type="button" class="btn btn-sm btn-success" (click)="confirm()">Guardar promoción</button>
+    </div>
+  </div>
+</div>
