@@ -25,7 +25,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-    
+
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
@@ -37,28 +37,29 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // AQUÍ SE ACTIVA EL CORS A NIVEL DE SEGURIDAD
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() 
-                .requestMatchers("/api/photos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/product-images/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products/store/external/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products/gallery/search").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/payment-method-configs/**").permitAll()
-                .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/landing.html", "/home.html", "/css/**", "/js/**", "/images/**").permitAll() 
-                .requestMatchers("/h2-console/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/export/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/export/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/stores/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/transactions/**").hasAnyAuthority("USER", "ADMIN") 
-                .anyRequest().authenticated() 
-            )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/photos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/product-images/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/store/external/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/gallery/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payment-method-configs/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/login.html", "/register.html", "/landing.html",
+                                "/home.html", "/css/**", "/js/**", "/images/**")
+                        .permitAll()
+                        .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/export/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/export/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/stores/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/transactions/**").hasAnyAuthority("USER", "ADMIN")
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
-        
+
         return http.build();
     }
 
@@ -66,29 +67,31 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Construir lista de orígenes permitidos
-        java.util.List<String> allowedOrigins = new java.util.ArrayList<>();
-        
-        // Agregar orígenes estáticos
-        allowedOrigins.add("http://localhost");
-        allowedOrigins.add("http://localhost:4200");
-        allowedOrigins.add("http://localhost:80");
-        allowedOrigins.add("http://localhost:8081");
-        
-        // Agregar ngrok dinámicamente - permitir cualquier subdominio .ngrok-free.dev
-        // Nota: Spring Boot no permite wildcards en subdominios, así que aceptamos algunos patrones comunes
-        allowedOrigins.add("https://koala-latticed-alike.ngrok-free.dev");
-        allowedOrigins.add("https://isolation-scouting-rack.ngrok-free.dev");
-        allowedOrigins.add("https://venerable-currently-jaguar.ngrok-free.dev");
-        allowedOrigins.add("https://refined-dainty-heron.ngrok-free.dev");
-        
-        configuration.setAllowedOrigins(allowedOrigins);
+
+        // Agregar orígenes desde application.properties
+        if (this.allowedOrigins != null && !this.allowedOrigins.trim().isEmpty()) {
+            for (String origin : this.allowedOrigins.split(",")) {
+                configuration.addAllowedOriginPattern(origin.trim());
+            }
+        }
+
+        // Agregar orígenes de fallback para desarrollo local y Docker
+        configuration.addAllowedOriginPattern("http://localhost");
+        configuration.addAllowedOriginPattern("http://localhost:*");
+        configuration.addAllowedOriginPattern("http://0.0.0.0");
+        configuration.addAllowedOriginPattern("http://0.0.0.0:*");
+        configuration.addAllowedOriginPattern("http://127.0.0.1");
+        configuration.addAllowedOriginPattern("http://127.0.0.1:*");
+
+        // Permitir comodines (wildcards) para ngrok de forma segura usando patterns
+        configuration.addAllowedOriginPattern("https://*.ngrok-free.dev");
+
         configuration.setAllowedMethods(java.util.Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(java.util.Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        configuration.setAllowedHeaders(
+                java.util.Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

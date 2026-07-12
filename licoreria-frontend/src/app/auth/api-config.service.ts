@@ -10,19 +10,14 @@ export class ApiConfigService {
 
   private getApiBaseUrl(): string {
     const currentUrl = window.location.hostname;
-    const currentPort = window.location.port;
-    const isNgrok = currentUrl.includes('ngrok');
     const isLocalhost = currentUrl === 'localhost' || currentUrl === '127.0.0.1';
 
-    if (isNgrok) {
-      // Si accedemos a través de ngrok, usar la misma URL base para el backend
-      return `https://isolation-scouting-rack.ngrok-free.dev`;
-    } else if (isLocalhost) {
-      // Si es localhost, usar el puerto 8081 para el backend
+    if (isLocalhost) {
+      // Si es localhost en desarrollo, usar el puerto 8081 para el backend
       return `http://localhost:8081`;
     } else {
-      // Para otros casos (IP pública, dominio, etc.), usar el puerto 8081
-      return `http://${currentUrl}:8081`;
+      // Para producción (VPS, dominios o ngrok), usar rutas relativas pasándolas por el proxy Nginx en puerto 80
+      return '';
     }
   }
 
