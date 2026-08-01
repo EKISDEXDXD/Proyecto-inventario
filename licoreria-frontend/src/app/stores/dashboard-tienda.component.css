@@ -13,6 +13,13 @@
   font-size: 3rem;
   color: #667eea;
   margin-top: 0.2rem;
+  transition: transform 0.3s ease, filter 0.3s ease, text-shadow 0.3s ease;
+}
+
+.title-header:hover .bx-shop {
+  transform: rotate(-6deg) scale(1.03);
+  filter: drop-shadow(0 4px 10px rgba(102, 126, 234, 0.24));
+  text-shadow: 0 8px 16px rgba(102, 126, 234, 0.22);
 }
 
 :host-context(.dark) .title-header .bx-shop {
@@ -353,7 +360,7 @@
   }
 
   .address-info {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
   }
 
   /* Function Cards - Small mobile: 1 column, full width */
@@ -520,6 +527,12 @@
   max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.info-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
 }
 
 :host-context(.dark) .info-box {
@@ -570,7 +583,7 @@
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
   border: 1px solid #e8ecf1;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   text-align: center;
   min-height: 220px;
   display: flex;
@@ -580,9 +593,18 @@
 }
 
 .card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
   border-color: #cbd5e1;
+}
+
+.card:hover .card-icon {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.card:hover .card-icon i {
+  transform: translateY(-2px) rotate(-6deg) scale(1.08);
+  text-shadow: 0 14px 24px rgba(102, 126, 234, 0.16);
 }
 
 .card.active {
@@ -610,6 +632,7 @@
 .card-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
+  transition: transform 0.3s ease, text-shadow 0.3s ease;
 }
 
 :host-context(.dark) .card-icon {
@@ -623,6 +646,11 @@
   color: #0f172a;
   font-size: 1.25rem;
   font-weight: 700;
+  transition: transform 0.2s ease;
+}
+
+.card:hover h4 {
+  transform: translateY(-1px);
 }
 
 :host-context(.dark) .card h4 {
@@ -633,6 +661,11 @@
   margin: 0;
   color: #64748b;
   font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.card:hover p {
+  transform: translateY(-1px);
 }
 
 :host-context(.dark) .card p {

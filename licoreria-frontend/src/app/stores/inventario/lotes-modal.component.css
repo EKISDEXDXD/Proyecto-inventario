@@ -47,7 +47,7 @@
   background-color: var(--bg-surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 650px;
+  max-width: 560px;
   width: 100%;
   max-height: 85vh;
   display: flex;
@@ -68,8 +68,9 @@
 }
 
 .modal-header {
+  position: relative;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
@@ -85,9 +86,14 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .modal-header-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   display: flex;
   gap: 0.5rem;
 }
@@ -555,16 +561,76 @@
 }
 
 @media (max-width: 640px) {
-  .lotes-modal-content {
-    max-height: 90vh;
+  .lotes-modal-overlay {
+    padding: 0.4rem;
   }
 
-  .form-row {
-    grid-template-columns: 1fr;
+  .lotes-modal-content {
+    max-width: min(420px, 92vw);
+    width: 100%;
+    max-height: calc(100vh - 1.2rem);
+    margin: 0.4rem auto;
+  }
+
+  .modal-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.9rem 0.9rem 0.8rem;
+  }
+
+  .modal-title {
+    font-size: 1rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    word-break: break-word;
+    margin-bottom: 0;
+  }
+
+  .modal-header-actions {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .lotes-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .lote-card {
+    padding: 0.9rem;
+  }
+
+  .lote-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .lote-info-primary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .lote-name {
+    font-size: 0.95rem;
+    word-break: break-word;
   }
 
   .lote-details {
     flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .detail-item {
+    min-width: 0;
   }
 
   .lote-actions {
@@ -573,6 +639,63 @@
 
   .btn-action {
     min-width: unset;
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .create-form {
+    padding: 0.9rem;
+  }
+
+  .lote-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .lote-info-primary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .lote-name {
+    font-size: 0.95rem;
+    word-break: break-word;
+  }
+
+  .active-for-sale-badge,
+  .lote-stock-badge,
+  .badge,
+  .detail-value {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .lote-details {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .detail-item {
+    min-width: 0;
+  }
+
+  .lote-actions {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    min-width: unset;
+    width: 100%;
   }
 
   .form-actions {

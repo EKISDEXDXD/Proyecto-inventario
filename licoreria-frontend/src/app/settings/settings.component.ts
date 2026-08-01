@@ -34,9 +34,10 @@ export class SettingsComponent implements OnInit {
   loadingPaymentMethodCreation = false;
 
   paymentMethods: PaymentMethodConfig[] = [];
-  currentStoreId: number | null = null;
   selectedQRImage: File | null = null;
   selectedQRImagePreview: string | null = null;
+  showQrModal = false;
+  qrModalImageUrl: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -54,69 +55,9 @@ export class SettingsComponent implements OnInit {
 
   ngOnInit() {
     this.loadCurrentUsername();
-    this.loadUserStore();
+    this.loadPaymentMethods();
   }
 
-  loadUserStore() {
-    // Obtener la tienda del usuario desde el backend
-    const token = localStorage.getItem('token');
-    if (!token) {
-      this.errorMessage = 'No se encontró token de autenticación';
-      return;
-    }
-
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-
-    // Llamar al endpoint /api/stores/my-store
-    fetch(this.apiConfig.getApiUrl('/api/stores/my-store'), { headers })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Verificar que sea JSON válido
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('La respuesta del servidor no es válida. El backend podría no estar disponible.');
-        }
-        
-        return response.json();
-      })
-      .then((store: any) => {
-        this.ngZone.run(() => {
-          if (store && store.id) {
-            this.currentStoreId = store.id;
-            this.loadPaymentMethods();
-          } else {
-            throw new Error('Respuesta del servidor inválida');
-          }
-        });
-      })
-      .catch(error => {
-        this.ngZone.run(() => {
-          console.error('Error loading store:', error);
-          
-          // Mensaje más específico según el tipo de error
-          let errorMsg = 'Error al cargar la tienda del usuario.';
-          if (error.message.includes('<!doctype') || error.message.includes('HTML')) {
-            errorMsg = 'El servidor de API no está disponible. Por favor, intenta más tarde.';
-          } else if (error.message.includes('401') || error.message.includes('403')) {
-            errorMsg = 'No tienes permiso para acceder a esta información.';
-          } else if (error.message.includes('404')) {
-            errorMsg = 'Tu tienda no fue encontrada en el sistema.';
-          }
-          
-          this.errorMessage = errorMsg;
-          this.paymentMethods = [];
-          this.ngZone.run(() => {
-            setTimeout(() => this.errorMessage = '', 7000);
-          });
-        });
-      });
-  }
 
   initializeForms() {
     this.usernameForm = this.fb.group({
@@ -259,12 +200,20 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  createPaymentMethod() {
-    if (!this.currentStoreId) {
-      this.errorMessage = 'No se encontró la tienda del usuario';
+  openQrModal(imageUrl: string | null) {
+    if (!imageUrl) {
       return;
     }
+    this.qrModalImageUrl = imageUrl;
+    this.showQrModal = true;
+  }
 
+  closeQrModal() {
+    this.showQrModal = false;
+    this.qrModalImageUrl = null;
+  }
+
+  createPaymentMethod() {
     if (this.paymentMethodForm.invalid) {
       this.errorMessage = 'Por favor completa los campos requeridos';
       return;

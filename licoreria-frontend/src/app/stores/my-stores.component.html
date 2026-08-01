@@ -20,8 +20,27 @@
       <p class="page-subtitle">Gestiona todas tus tiendas en un solo lugar</p>
     </div>
 
+    <!-- Loading Skeleton -->
+    <div *ngIf="loading && stores.length === 0" class="stores-grid">
+      <div *ngFor="let placeholder of [1,2,3,4]" class="store-card skeleton">
+        <div class="card-header">
+          <div class="store-info">
+            <div class="skeleton-line skeleton-title"></div>
+            <div class="skeleton-line skeleton-text"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="skeleton-line skeleton-text"></div>
+          <div class="skeleton-line skeleton-text short"></div>
+        </div>
+        <div class="card-footer">
+          <div class="skeleton-line skeleton-button"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Empty State -->
-    <div *ngIf="stores.length === 0" class="empty-state">
+    <div *ngIf="!loading && stores.length === 0" class="empty-state">
       <div class="empty-state-icon"><i class="bx bx-building"></i></div>
       <h2>No tienes tiendas registradas</h2>
       <p>Crea tu primera tienda para comenzar a gestionar tu inventario</p>
@@ -29,7 +48,7 @@
 
     <!-- Stores Grid -->
     <div *ngIf="stores.length > 0" class="stores-grid">
-      <div *ngFor="let store of stores" class="store-card" [ngStyle]="{'border-top': '4px solid ' + (store.color || '#E8E8E8')}">
+      <div *ngFor="let store of stores; trackBy: trackByStoreId" class="store-card" [ngStyle]="{'border-top': '4px solid ' + (store.color || '#E8E8E8')}">
         <!-- Card Header -->
         <div class="card-header">
           <div class="store-info">

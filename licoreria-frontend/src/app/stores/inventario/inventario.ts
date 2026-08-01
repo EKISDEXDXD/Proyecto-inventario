@@ -24,6 +24,14 @@ export class InventarioComponent implements OnInit {
   store: any = null;
   products: any[] = [];
   filteredProducts: any[] = [];
+  displayProducts: any[] = [];
+  productNameMap: Record<number, string> = {};
+  productStockCache: Record<number, number> = {};
+  productStockStatusCache: Record<number, 'normal' | 'low' | 'out'> = {};
+  lowStockProducts: any[] = [];
+  outOfStockProducts: any[] = [];
+  normalStockProducts: any[] = [];
+  activeAlertProducts: any[] = [];
   loading: boolean = true;
   searchTerm: string = '';
   showCreateForm: boolean = false;
@@ -257,29 +265,23 @@ export class InventarioComponent implements OnInit {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: (data) => {
         console.log('loadStoreProducts - SUCCESS, cantidad de productos:', data?.length);
-        // Filtrar solo productos principales visibles y activos
-        this.products = Array.isArray(data)
-          ? data.filter(p => this.isVisibleRootProduct(p))
-          : [];
-        
-        // Cargar lotes para cada producto principal
-        let lotesLoaded = 0;
-        this.products.forEach(product => {
-          this.loadLotesForProduct(product.id, () => {
-            lotesLoaded++;
-            // Cuando se hayan cargado TODOS los lotes, recalcular la vista
-            if (lotesLoaded === this.products.length) {
-              this.updateFilteredProductsWithActiveLotes();
-              this.loading = false;
-              this.ngZone.run(() => this.cdr.detectChanges());
-            }
-          });
+        const products = Array.isArray(data) ? data.filter(p => this.isVisibleRootProduct(p)) : [];
+        this.products = products;
+        this.displayProducts = [...this.products];
+        this.productNameMap = {};
+        this.products.forEach(p => {
+          if (p && p.id) {
+            this.productNameMap[p.id] = p.name || `Producto ${p.id}`;
+          }
         });
-        
-        // Si no hay productos, terminar loading
-        if (this.products.length === 0) {
-          this.loading = false;
-          this.ngZone.run(() => this.cdr.detectChanges());
+        this.updateProductCaches();
+        this.filteredProducts = [...this.displayProducts];
+        this.loading = false;
+        this.ngZone.run(() => this.cdr.detectChanges());
+
+        // Cargar lotes en segundo plano para mejorar la velocidad de carga inicial
+        if (this.products.length > 0) {
+          this.loadLotesForDisplayProducts();
         }
       },
       error: (err) => {
@@ -294,31 +296,122 @@ export class InventarioComponent implements OnInit {
    * Actualiza filteredProducts mostrando solo productos raíz visibles.
    * Los lotes no deben aparecer como elementos principales en el buscador.
    */
-  updateFilteredProductsWithActiveLotes() {
+  private loadLotesForDisplayProducts() {
+    this.products.forEach(product => {
+      this.loadLotesForProduct(product.id, () => {
+        this.updateProductCaches(product.id);
+      });
+    });
+  }
+
+  private updateProductCaches(updatedProductId?: number) {
+    const displayed = this.displayProducts.length > 0 ? this.displayProducts : this.products;
+    const low: any[] = [];
+    const out: any[] = [];
+    const normal: any[] = [];
+    const activeAlerts: any[] = [];
+    const threshold = this.lowStockThreshold;
+
+    displayed.forEach(product => {
+      const stock = this.computeDisplayStock(product);
+      const effectiveThreshold = product.alert?.threshold ?? threshold;
+      const status: 'normal' | 'low' | 'out' = stock === 0 ? 'out' : stock <= effectiveThreshold ? 'low' : 'normal';
+
+      if (product && product.id) {
+        this.productStockCache[product.id] = stock;
+        this.productStockStatusCache[product.id] = status;
+      }
+
+      if (status === 'normal') {
+        normal.push(product);
+      }
+
+      if (product.alert?.isEnabled) {
+        activeAlerts.push(product);
+        if (status === 'low') {
+          low.push(product);
+        }
+        if (status === 'out') {
+          out.push(product);
+        }
+      }
+    });
+
+    this.lowStockProducts = low;
+    this.outOfStockProducts = out;
+    this.normalStockProducts = normal;
+    this.activeAlertProducts = activeAlerts;
+
+    if (updatedProductId) {
+      this.cdr.detectChanges();
+    }
+  }
+
+  private computeDisplayStock(product: any): number {
+    if (!product || !product.id) {
+      return 0;
+    }
+
+    if (this.productStockCache[product.id] !== undefined) {
+      return this.productStockCache[product.id];
+    }
+
+    const stock = this.calculateDisplayStock(product);
+    this.productStockCache[product.id] = stock;
+    return stock;
+  }
+
+  private calculateDisplayStock(product: any): number {
+    if (!product) {
+      return 0;
+    }
+
+    const rootStock = Number(product.stock ?? 0);
+    const lotes = this.getLotesForProduct(product.id);
+
+    if (!Array.isArray(lotes) || lotes.length === 0) {
+      return rootStock;
+    }
+
+    return lotes.reduce((total, lote) => {
+      if (!lote) {
+        return total;
+      }
+
+      const isVisibleLote = (lote.isActive ?? true) && !(lote.isDeleted ?? false);
+      if (!isVisibleLote) {
+        return total;
+      }
+
+      return total + Number(lote.stock ?? 0);
+    }, rootStock);
+  }
+
+  private updateFilteredProductsWithActiveLotes() {
     try {
-      this.filteredProducts = this.products.filter(product => this.isVisibleRootProduct(product));
+      this.displayProducts = this.products.filter(product => this.isVisibleRootProduct(product));
+      this.filteredProducts = [...this.displayProducts];
+      this.updateProductCaches();
     } catch (error) {
       console.error('Error en updateFilteredProductsWithActiveLotes:', error);
+      this.displayProducts = [];
       this.filteredProducts = [];
     }
   }
 
   onSearch() {
     try {
-      // Validación: si no hay products, retornar vacío
-      if (!Array.isArray(this.products) || this.products.length === 0) {
+      if (!Array.isArray(this.displayProducts) || this.displayProducts.length === 0) {
         this.filteredProducts = [];
         return;
       }
 
-      const visibleProducts = this.products.filter(product => this.isVisibleRootProduct(product));
-
       if (!this.searchTerm || this.searchTerm.trim() === '') {
-        this.filteredProducts = visibleProducts;
+        this.filteredProducts = [...this.displayProducts];
       } else {
         const searchLower = this.searchTerm.toLowerCase().trim();
 
-        this.filteredProducts = visibleProducts.filter(displayProduct => {
+        this.filteredProducts = this.displayProducts.filter(displayProduct => {
           if (!displayProduct) {
             return false;
           }
@@ -331,8 +424,7 @@ export class InventarioComponent implements OnInit {
       }
     } catch (error) {
       console.error('Error en onSearch:', error);
-      // Si hay error, mostrar todos los productos
-      this.updateFilteredProductsWithActiveLotes();
+      this.filteredProducts = [...this.displayProducts];
     }
   }
 
@@ -487,6 +579,7 @@ export class InventarioComponent implements OnInit {
     localStorage.setItem('normalStockThreshold', this.normalStockThreshold.toString());
 
     this.showThresholdConfig = false;
+    this.updateProductCaches();
     alert('Ajustes guardados permanentemente en este navegador.');
   }
 
@@ -521,21 +614,15 @@ export class InventarioComponent implements OnInit {
   }
 
   getLowStockProducts() {
-    return this.getDisplayProductsForAlerts().filter(p => {
-      const threshold = p.alert?.threshold ?? this.lowStockThreshold;
-      return p.stock > 0 && p.stock <= threshold;
-    });
+    return this.lowStockProducts;
   }
 
   getOutOfStockProducts() {
-    return this.getDisplayProductsForAlerts().filter(p => p.stock === 0);
+    return this.outOfStockProducts;
   }
 
   getNormalStockProducts() {
-    return this.getDisplayProductsForAlerts().filter(p => {
-      const threshold = p.alert?.threshold ?? this.lowStockThreshold;
-      return p.stock > threshold;
-    });
+    return this.normalStockProducts;
   }
 
   // Método para obtener el estado del stock de un producto
@@ -553,41 +640,7 @@ export class InventarioComponent implements OnInit {
   }
 
   getDisplayStockForProduct(product: any): number {
-    try {
-      if (!product) {
-        return 0;
-      }
-
-      if (product.parentId) {
-        return Number(product.stock ?? 0);
-      }
-
-      const rootStock = this.isVisibleRootProduct(product) ? Number(product.stock ?? 0) : 0;
-      const lotes = this.getLotesForProduct(product.id);
-
-      if (!Array.isArray(lotes) || lotes.length === 0) {
-        return rootStock;
-      }
-
-      const lotesStock = lotes.reduce((total, lote) => {
-        if (!lote) {
-          return total;
-        }
-
-        const isVisibleLote = (lote.isActive ?? true) && !(lote.isDeleted ?? false);
-        if (!isVisibleLote) {
-          return total;
-        }
-
-        const loteStock = Number(lote.stock ?? 0);
-        return total + loteStock;
-      }, 0);
-
-      return rootStock + lotesStock;
-    } catch (error) {
-      console.error('Error en getDisplayStockForProduct:', error);
-      return Number(product?.stock ?? 0);
-    }
+    return this.computeDisplayStock(product);
   }
 
   // Métodos para gestionar alertas
@@ -1035,15 +1088,18 @@ export class InventarioComponent implements OnInit {
 
   // Obtener todos los productos con alertas activas
   getActiveAlerts() {
-    return this.getDisplayProductsForAlerts().filter(p => p.alert?.isEnabled);
+    return this.activeAlertProducts;
   }
 
   // Obtener productos con alertas activas que están en estado bajo
   getAlertsWithStatus(status: 'low' | 'out') {
-    return this.getDisplayProductsForAlerts().filter(p => {
-      if (!p.alert?.isEnabled) return false;
-      return this.getStockStatus(p) === status;
-    });
+    if (status === 'low') {
+      return this.lowStockProducts.filter(p => p.alert?.isEnabled);
+    }
+    if (status === 'out') {
+      return this.outOfStockProducts.filter(p => p.alert?.isEnabled);
+    }
+    return [];
   }
 
   /**
@@ -1052,11 +1108,7 @@ export class InventarioComponent implements OnInit {
    */
   private getDisplayProductsForAlerts(): any[] {
     try {
-      if (!Array.isArray(this.products)) {
-        return [];
-      }
-
-      return this.products.filter(product => this.isVisibleRootProduct(product));
+      return [...this.displayProducts];
     } catch (error) {
       console.error('Error en getDisplayProductsForAlerts:', error);
       return [];
@@ -1275,7 +1327,7 @@ export class InventarioComponent implements OnInit {
         if (onComplete) {
           onComplete();
         }
-        this.cdr.detectChanges();
+        this.updateProductCaches(productId);
       },
       error: (err) => {
         console.error('Error cargando lotes:', err);
@@ -1283,6 +1335,7 @@ export class InventarioComponent implements OnInit {
         if (onComplete) {
           onComplete();
         }
+        this.updateProductCaches(productId);
       }
     });
   }

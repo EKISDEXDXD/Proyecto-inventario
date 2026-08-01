@@ -206,6 +206,64 @@
     height: 100%;
 }
 
+.store-card.skeleton {
+    position: relative;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    pointer-events: none;
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+    display: block;
+    width: 100%;
+    height: 14px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(226,232,240,0.95) 25%, rgba(241,245,249,1) 50%, rgba(226,232,240,0.95) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    margin-bottom: 0.75rem;
+}
+
+.skeleton-title {
+    width: 60%;
+    height: 18px;
+}
+
+.skeleton-text {
+    width: 100%;
+    height: 12px;
+}
+
+.skeleton-text.short {
+    width: 70%;
+}
+
+.skeleton-button {
+    width: 45%;
+    height: 38px;
+    margin-top: 0.5rem;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.72;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -150% 0;
+    }
+    100% {
+        background-position: 150% 0;
+    }
+}
+
 .store-card:hover {
     border-color: #cbd5e1;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);

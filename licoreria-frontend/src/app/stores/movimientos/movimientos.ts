@@ -27,6 +27,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   store: any = null;
   products: any[] = [];
   filteredProducts: any[] = [];
+  // Cache para mapa id -> nombre de producto (mejora rendimiento en filtros)
+  private productNameMap: { [id: number]: string } = {};
   // Propiedades del selector de lotes
   selectedLote: any = null;
   lotesForSelected: any[] = [];
@@ -62,8 +64,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   showCart: boolean = false;
   cartItems: any[] = [];
   isRegisteringAllMovements: boolean = false;
+  isRegisteringQuickPurchase: boolean = false;
   selectedPaymentMethodConfigId: number | null = null;
   pendingCartRegistration: boolean = false;
+  pendingQuickPurchase: boolean = false;
+  quickPurchaseMovement: any | null = null;
 
   // Reports Properties
   reports: Report[] = [];
@@ -568,6 +573,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       next: (data) => {
         console.log('Productos cargados, total:', data?.length);
         this.products = data || [];
+        // Construir cache de nombres para búsquedas rápidas
+        this.productNameMap = {};
+        this.products.forEach(p => {
+          if (p && p.id) this.productNameMap[p.id] = p.name || ('Producto ' + p.id);
+        });
         this.filteredProducts = this.getInventoryDisplayProducts();
         this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
         this.loadRecentProducts();
@@ -613,7 +623,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private sortTransactions() {
-    this.transactions = this.transactions.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+    this.transactions.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+    this.applyTransactionFilters();
   }
 
   private sortAdminCostMovements() {
@@ -763,6 +774,45 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
     // Mostrar modal de forma de pago
     this.pendingCartRegistration = true;
+    this.pendingQuickPurchase = false;
+    this.quickPurchaseMovement = null;
+    this.paymentMethodModal.open();
+  }
+
+  quickPurchase() {
+    if (this.movement.productId === 0 || this.movement.quantity <= 0) {
+      alert('Por favor selecciona un producto y cantidad válida');
+      return;
+    }
+
+    if (!this.movement.reason || this.movement.reason.trim() === '') {
+      alert('Por favor selecciona un motivo válido');
+      return;
+    }
+
+    const product = this.products.find(p => p.id === this.movement.productId);
+    if (!product) {
+      alert('Producto no encontrado');
+      return;
+    }
+
+    if (!this.userId) {
+      alert('Error: No se pudo identificar el usuario');
+      return;
+    }
+
+    this.quickPurchaseMovement = {
+      productId: this.movement.productId,
+      productName: product.name,
+      type: this.movement.type,
+      quantity: this.movement.quantity,
+      reason: this.movement.reason,
+      price: product.price,
+      dateTime: null
+    };
+
+    this.pendingQuickPurchase = true;
+    this.pendingCartRegistration = false;
     this.paymentMethodModal.open();
   }
 
@@ -772,7 +822,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private proceedWithRegistration() {
-    if (this.selectedPaymentMethodConfigId === null || !this.pendingCartRegistration) {
+    if (this.selectedPaymentMethodConfigId === null || (!this.pendingCartRegistration && !this.pendingQuickPurchase)) {
       return;
     }
 
@@ -784,105 +834,156 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       'Content-Type': 'application/json'
     });
 
-    this.isRegisteringAllMovements = true;
-    this.pendingCartRegistration = false;
-    this.cdr.detectChanges();
-
-    // Obtener la hora local correctamente ajustada
     const now = new Date();
     const timezoneOffset = now.getTimezoneOffset() * 60 * 1000;
     const localDateTime = new Date(now.getTime() - timezoneOffset).toISOString();
 
-    // Crear array de transacciones a registrar CON método de pago
-    const transactionsToRegister = this.cartItems.map(item => ({
-      productId: item.productId,
-      type: item.type,
-      quantity: item.quantity,
-      reason: item.reason,
-      dateTime: localDateTime,
-      userId: this.userId,
-      paymentMethodConfigId: this.selectedPaymentMethodConfigId  // Usar el ID del método de pago
-    }));
+    if (this.pendingCartRegistration) {
+      this.isRegisteringAllMovements = true;
+      this.pendingCartRegistration = false;
+      this.cdr.detectChanges();
 
-    // Agregar transacciones de forma optimista
-    const optimisticTransactions = transactionsToRegister.map((trans, index) => ({
-      id: Date.now() + index,
-      ...trans,
-      dateTime: localDateTime
-    }));
+      const transactionsToRegister = this.cartItems.map(item => ({
+        productId: item.productId,
+        type: item.type,
+        quantity: item.quantity,
+        reason: item.reason,
+        dateTime: localDateTime,
+        userId: this.userId,
+        paymentMethodConfigId: this.selectedPaymentMethodConfigId
+      }));
 
-    this.transactions.unshift(...optimisticTransactions);
-    this.cdr.detectChanges();
-    const originalTransactions = [...this.transactions];
+      const optimisticTransactions = transactionsToRegister.map((trans, index) => ({
+        id: Date.now() + index,
+        ...trans,
+        dateTime: localDateTime
+      }));
 
-    // Actualizar stock optimistamente para todos los productos
-    const originalStocks: { [key: number]: number } = {};
-    this.cartItems.forEach(item => {
-      const productIndex = this.products.findIndex(p => p.id === item.productId);
+      const originalTransactions = [...this.transactions];
+      this.transactions.unshift(...optimisticTransactions);
+      this.applyTransactionFilters();
+      this.cdr.detectChanges();
+
+      const originalStocks: { [key: number]: number } = {};
+      this.cartItems.forEach(item => {
+        const productIndex = this.products.findIndex(p => p.id === item.productId);
+        if (productIndex !== -1) {
+          originalStocks[item.productId] = this.products[productIndex].stock;
+          this.products[productIndex].stock += item.type === 'ENTRADA' ? item.quantity : -item.quantity;
+        }
+      });
+      this.cdr.detectChanges();
+
+      const batchRequest = { transactions: transactionsToRegister };
+
+      console.log('Enviando batch:', batchRequest);
+
+      this.http.post(`${this.apiTransactionsUrl}/batch`, batchRequest, { headers }).subscribe({
+        next: (response: any) => {
+          console.log('Respuesta del servidor:', response);
+          const createdTransactions = Array.isArray(response) ? response : response.transactions || [];
+          createdTransactions.forEach((createdTrans: any, index: number) => {
+            const optIndex = this.transactions.findIndex(t => t.id === optimisticTransactions[index].id);
+            if (optIndex !== -1) {
+              this.transactions[optIndex] = createdTrans;
+            }
+          });
+
+          this.sortTransactions();
+          this.cartItems = [];
+          this.showCart = false;
+          this.isRegisteringAllMovements = false;
+          this.selectedPaymentMethodConfigId = null;
+          this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
+          this.updateAvailableReasons();
+          this.clearProductSearch();
+
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error registrando movimientos en lote:', err);
+          console.error('Status:', err.status);
+          console.error('Mensaje:', err.error?.message || err.statusText);
+          this.transactions = originalTransactions;
+          Object.keys(originalStocks).forEach(productIdStr => {
+            const productId = parseInt(productIdStr);
+            const productIndex = this.products.findIndex(p => p.id === productId);
+            if (productIndex !== -1) {
+              this.products[productIndex].stock = originalStocks[productId];
+            }
+          });
+
+          this.isRegisteringAllMovements = false;
+          this.selectedPaymentMethodConfigId = null;
+          this.cdr.detectChanges();
+          const errorMsg = err.error?.message || 'Error al registrar los movimientos. Inténtalo de nuevo.';
+          alert(errorMsg);
+        }
+      });
+    } else if (this.pendingQuickPurchase && this.quickPurchaseMovement) {
+      this.isRegisteringQuickPurchase = true;
+      this.pendingQuickPurchase = false;
+      this.cdr.detectChanges();
+
+      const transactionToRegister = {
+        productId: this.quickPurchaseMovement.productId,
+        type: this.quickPurchaseMovement.type,
+        quantity: this.quickPurchaseMovement.quantity,
+        reason: this.quickPurchaseMovement.reason,
+        dateTime: localDateTime,
+        userId: this.userId,
+        paymentMethodConfigId: this.selectedPaymentMethodConfigId
+      };
+
+      const optimisticTransaction = {
+        id: Date.now(),
+        ...transactionToRegister
+      };
+
+      const originalTransactions = [...this.transactions];
+      const originalStocks: { [key: number]: number } = {};
+      const productIndex = this.products.findIndex(p => p.id === this.quickPurchaseMovement.productId);
       if (productIndex !== -1) {
-        originalStocks[item.productId] = this.products[productIndex].stock;
-        this.products[productIndex].stock += item.type === 'ENTRADA' ? item.quantity : -item.quantity;
+        originalStocks[this.quickPurchaseMovement.productId] = this.products[productIndex].stock;
+        this.products[productIndex].stock += this.quickPurchaseMovement.type === 'ENTRADA' ? this.quickPurchaseMovement.quantity : -this.quickPurchaseMovement.quantity;
       }
-    });
-    this.cdr.detectChanges();
 
-    // Enviar todas las transacciones al servidor
-    const batchRequest = { transactions: transactionsToRegister };
+      this.transactions.unshift(optimisticTransaction);
+      this.applyTransactionFilters();
+      this.cdr.detectChanges();
 
-    console.log('Enviando batch:', batchRequest);
-
-    this.http.post(`${this.apiTransactionsUrl}/batch`, batchRequest, { headers }).subscribe({
-      next: (response: any) => {
-        console.log('Respuesta del servidor:', response);
-        
-        // Si response es un array de transacciones
-        const createdTransactions = Array.isArray(response) ? response : response.transactions || [];
-        console.log('Transacciones creadas:', createdTransactions);
-        
-        // Reemplazar transacciones optimistas con las reales
-        createdTransactions.forEach((createdTrans: any, index: number) => {
-          const optIndex = this.transactions.findIndex(t => t.id === optimisticTransactions[index].id);
+      this.http.post(`${this.apiTransactionsUrl}`, transactionToRegister, { headers }).subscribe({
+        next: (createdTransaction: any) => {
+          const optIndex = this.transactions.findIndex(t => t.id === optimisticTransaction.id);
           if (optIndex !== -1) {
-            this.transactions[optIndex] = createdTrans;
+            this.transactions[optIndex] = createdTransaction;
           }
-        });
 
-        this.sortTransactions();
-        this.loadStoreProducts();
-        
-        // Limpiar carrito
-        this.cartItems = [];
-        this.showCart = false;
-        this.isRegisteringAllMovements = false;
-        this.selectedPaymentMethodConfigId = null;
-        this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
-        this.updateAvailableReasons();
-        this.clearProductSearch();
-        
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error registrando movimientos en lote:', err);
-        console.error('Status:', err.status);
-        console.error('Mensaje:', err.error?.message || err.statusText);
-        
-        // Revertir cambios optimistas
-        this.transactions = originalTransactions;
-        Object.keys(originalStocks).forEach(productIdStr => {
-          const productId = parseInt(productIdStr);
-          const productIndex = this.products.findIndex(p => p.id === productId);
+          this.sortTransactions();
+          this.isRegisteringQuickPurchase = false;
+          this.selectedPaymentMethodConfigId = null;
+          this.quickPurchaseMovement = null;
+          this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
+          this.updateAvailableReasons();
+          this.clearProductSearch();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error registrando compra rápida:', err);
+          this.transactions = originalTransactions;
+          this.applyTransactionFilters();
           if (productIndex !== -1) {
-            this.products[productIndex].stock = originalStocks[productId];
+            this.products[productIndex].stock = originalStocks[this.quickPurchaseMovement.productId];
           }
-        });
-
-        this.isRegisteringAllMovements = false;
-        this.selectedPaymentMethodConfigId = null;
-        this.cdr.detectChanges();
-        const errorMsg = err.error?.message || 'Error al registrar los movimientos. Inténtalo de nuevo.';
-        alert(errorMsg);
-      }
-    });
+          this.isRegisteringQuickPurchase = false;
+          this.selectedPaymentMethodConfigId = null;
+          this.quickPurchaseMovement = null;
+          this.cdr.detectChanges();
+          const errorMsg = err.error?.message || 'Error al registrar la compra rápida. Inténtalo de nuevo.';
+          alert(errorMsg);
+        }
+      });
+    }
   }
 
   registerMovement() {
@@ -1035,6 +1136,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   getProductName(productId: number): string {
+    if (this.productNameMap && this.productNameMap[productId]) {
+      return this.productNameMap[productId];
+    }
     const product = this.products.find(p => p.id === productId);
     return product ? product.name : 'Producto desconocido';
   }

@@ -231,7 +231,9 @@
               </div>
               
               <div *ngIf="method.type === 'QR' && method.imageUrl" class="method-preview">
-                <img [src]="method.imageUrl" alt="QR Code" class="qr-image">
+                <button type="button" class="qr-preview-trigger" (click)="openQrModal(method.imageUrl)">
+                  <img [src]="method.imageUrl" alt="QR Code" class="qr-image">
+                </button>
               </div>
               
               <div class="method-footer">
@@ -352,6 +354,15 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div *ngIf="showQrModal" class="qr-modal-backdrop" (click)="closeQrModal()">
+      <div class="qr-modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+        <button type="button" class="qr-modal-close" (click)="closeQrModal()" aria-label="Cerrar vista previa">
+          <i class="bx bx-x"></i>
+        </button>
+        <img *ngIf="qrModalImageUrl" [src]="qrModalImageUrl" alt="Vista previa del QR" class="qr-modal-image">
       </div>
     </div>
 

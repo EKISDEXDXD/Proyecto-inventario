@@ -290,7 +290,7 @@ html, body {
   }
 
   button {
-    min-height: 44px;
+    min-height: 34px;
     min-width: 44px;
   }
 }
@@ -309,9 +309,7 @@ html, body {
     font-size: 1.1rem;
   }
 
-  h3 {
-    font-size: 1rem;
-  }
+  
 }
 
 

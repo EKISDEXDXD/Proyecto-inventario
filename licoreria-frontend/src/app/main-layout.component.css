@@ -469,44 +469,44 @@
   }
 
   .menu-main .logo-box {
-    height: 40px;
-    width: 40px;
-    font-size: 1rem;
+    height: 48px;
+    width: 48px;
+    font-size: 1.75rem;
   }
 
   .menu-main .name {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
   }
 
   .menu-main .profession {
-    font-size: 0.9rem;
+    font-size: 1.85rem;
   }
 
   .menu-main .toggle-btn {
-    height: 25px;
-    width: 25px;
-    font-size: 18px;
+    height: 30px;
+    width: 30px;
+    font-size: 22px;
     right: -10px;
   }
 
   /* Menu Navigation Mobile */
   .menu-main .nav-link {
-    height: 50px;
+    height: 58px;
     padding-left: 15px;
-    margin: 3px 10px;
+    margin: 4px 10px;
   }
 
   .menu-main .nav-link i {
-    font-size: 24px;
-    min-width: 40px;
+    font-size: 28px;
+    min-width: 44px;
   }
 
   .menu-main .nav-text {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .menu-main .menu-section-title {
-    font-size: 0.75rem;
+    font-size: 0.95rem;
     margin-left: 15px;
   }
 
@@ -575,53 +575,53 @@
   }
 
   .menu-main .logo-box {
-    height: 35px;
-    width: 35px;
-    font-size: 0.9rem;
+    height: 40px;
+    width: 40px;
+    font-size: 1rem;
   }
 
   .menu-main .name {
-    font-size: 1rem;
+    font-size: 1.55rem;
     white-space: nowrap;
   }
 
   .menu-main .profession {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
   }
 
   .menu-main .toggle-btn {
-    height: 22px;
-    width: 22px;
-    font-size: 16px;
+    height: 24px;
+    width: 24px;
+    font-size: 18px;
     right: -8px;
   }
 
   .menu-main .nav-link {
-    height: 45px;
+    height: 48px;
     padding-left: 12px;
     margin: 2px 0;
   }
 
   .menu-main .nav-link i {
-    font-size: 20px;
-    min-width: 35px;
+    font-size: 22px;
+    min-width: 36px;
   }
 
   .menu-main .nav-text {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .menu-main .menu-section-title {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     margin-left: 12px;
   }
 
   .menu-main .sun-moon i {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .menu-main .mode-text {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .menu-main .profile-section,
@@ -667,53 +667,53 @@
   }
 
   .menu-main .logo-box {
-    height: 35px;
-    width: 35px;
-    font-size: 0.9rem;
+    height: 38px;
+    width: 38px;
+    font-size: 1rem;
   }
 
   .menu-main .name {
-    font-size: 0.95rem;
+    font-size: 1.15rem;
     white-space: nowrap;
   }
 
   .menu-main .profession {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
   }
 
   .menu-main .toggle-btn {
     height: 22px;
     width: 22px;
-    font-size: 16px;
+    font-size: 17px;
     right: -8px;
   }
 
   .menu-main .nav-link {
-    height: 44px;
+    height: 46px;
     padding-left: 12px;
     margin: 2px 0;
   }
 
   .menu-main .nav-link i {
-    font-size: 18px;
-    min-width: 32px;
+    font-size: 20px;
+    min-width: 34px;
   }
 
   .menu-main .nav-text {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .menu-main .menu-section-title {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     margin-left: 12px;
   }
 
   .menu-main .sun-moon i {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .menu-main .mode-text {
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 

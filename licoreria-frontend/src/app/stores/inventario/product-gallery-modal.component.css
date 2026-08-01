@@ -59,7 +59,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 900;
+  z-index: 800;
   animation: fadeIn 0.4s ease-out;
   isolation: isolate;
   
@@ -81,7 +81,7 @@
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
   width: 90vw;
   height: 85vh;
-  max-width: 1200px;
+  max-width: 1100px;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -136,16 +136,6 @@
   line-height: 1.3;
 }
 
-.gallery-modal-header p {
-  margin: 2px 0 0 0;
-  font-size: 13px;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  line-height: 1.4;
-}
-
 .gallery-modal-header i {
   color: var(--color-primary);
   font-size: 28px;
@@ -181,6 +171,7 @@
 .gallery-modal-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -492,6 +483,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -590,6 +582,7 @@
 /* ==================== GALLERY CONTAINER ==================== */
 .gallery-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px;
   background: #fafbfc;
@@ -887,27 +880,110 @@
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
   .gallery-modal-content {
-    width: 95vw;
-    height: 90vh;
+    width: min(100vw - 24px, 1000px);
+    height: calc(100vh - 24px);
+    max-width: 100%;
     border-radius: 20px;
   }
 
   .gallery-modal-body {
     flex-direction: column;
+    gap: 0;
   }
 
   .gallery-sidebar {
+    display: none;
+  }
+
+  .gallery-main {
     width: 100%;
-    border-right: none;
-    border-bottom: 2px solid var(--color-border);
-    max-height: 200px;
-    min-height: 150px;
+    padding: 0;
+  }
+
+  .gallery-modal-header {
+    padding: 16px 18px 12px;
+    gap: 12px;
+  }
+
+  .gallery-search {
+    width: 100%;
+    padding: 14px 18px 18px;
+    border-bottom: 1px solid var(--color-border);
+    background: #ffffff;
+  }
+
+  .gallery-search .search-input-group {
+    width: 100%;
+  }
+
+  .gallery-search .search-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .gallery-container {
+    flex: 1;
+    min-height: 0;
+    padding: 0 12px 12px;
+    overflow-y: auto;
   }
 
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+    gap: 10px;
   }
+
+  .product-card {
+    border-radius: 12px;
+    padding: 0;
+  }
+
+  .product-image-container {
+    height: 100px;
+  }
+
+  .product-name {
+    font-size: 13px;
+  }
+
+  .product-description {
+    font-size: 11px;
+    max-height: 32px;
+  }
+
+  .product-info {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .product-prices {
+    padding: 8px 0;
+    font-size: 12px;
+  }
+
+  .gallery-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .gallery-container {
+    padding-top: 0;
+  }
+
+  .gallery-search {
+    padding: 16px;
+  }
+
+  .search-input-group {
+    padding: 0 12px;
+  }
+
+  .btn-close {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+}
 
   .product-card {
     border-radius: 12px;
@@ -963,15 +1039,16 @@
     height: 38px;
     font-size: 18px;
   }
-}
+
 
 /* ==================== MOBILE SMALL (500px) ==================== */
 @media (max-width: 500px) {
   .gallery-modal-content {
-    width: 98vw;
-    height: 95vh;
+    width: min(96vw, 520px);
+    max-width: 520px;
+    height: auto;
+    max-height: 92vh;
     border-radius: 16px;
-    max-width: 100%;
   }
 
   .gallery-modal-overlay {
@@ -1104,6 +1181,18 @@
   flex-direction: column;
   gap: 14px;
 }
+
+.promo-product-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(96, 165, 250, 0.24);
+}
+
 
 .promo-builder-header {
   display: flex;
@@ -1416,7 +1505,7 @@
   }
 
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
     gap: 12px;
     animation: fadeIn 0.4s ease-out;
   }

@@ -15,7 +15,7 @@ import { takeUntil, debounceTime, distinctUntilChanged, catchError } from 'rxjs/
   standalone: true,
   imports: [CommonModule, FormsModule, CurrencyFormatPipe, PromotionDesignModalComponent],
   templateUrl: './product-gallery-modal.component.html',
-  styleUrl: './product-gallery-modal.component.css',
+  styleUrls: ['./product-gallery-modal.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestroy {

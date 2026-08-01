@@ -204,6 +204,7 @@
         </div>
         <div class="form-group action-block">
           <button type="submit" class="submit-btn">Agregar al carrito</button>
+          <button type="button" class="submit-btn quick-purchase-btn" (click)="quickPurchase()">Compra rápida</button>
         </div>
       </div>
     </form>
@@ -290,39 +291,6 @@
       </div>
 
       <div *ngIf="showHistoryList" class="history-list-container">
-
-        <!-- Date Filter Bar -->
-        <div class="date-filter-bar">
-          <div class="date-filter-label">
-            <i class="bx bx-calendar"></i> Filtrar por fecha:
-          </div>
-          <div class="date-filter-inputs">
-            <div class="date-input-group">
-              <label>Desde:</label>
-              <input 
-                type="date" 
-                [(ngModel)]="filterDateStart" 
-                (change)="applyFilters()"
-                class="date-picker-input">
-            </div>
-            <div class="date-input-group">
-              <label>Hasta:</label>
-              <input 
-                type="date" 
-                [(ngModel)]="filterDateEnd" 
-                (change)="applyFilters()"
-                class="date-picker-input">
-            </div>
-            <button 
-              *ngIf="filterDateStart || filterDateEnd"
-              (click)="clearDateFilter()" 
-              class="date-filter-clear"
-              title="Limpiar filtro de fecha">
-              <i class="bx bx-x"></i>
-            </button>
-          </div>
-        </div>
-
         <div *ngIf="loading" class="state-message">
           <i class="bx bx-loader bx-spin"></i> Cargando movimientos...
         </div>
@@ -346,7 +314,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let transaction of filteredMovimientos" class="clickable-row" (click)="openTransactionDetail(transaction)">
+              <tr *ngFor="let transaction of filteredMovimientos" class="clickable-row" [ngClass]="{'ajuste-row': transaction.reason === 'AJUSTE'}" (click)="openTransactionDetail(transaction)">
                 <td>{{ transaction.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
                 <td>
                   <span class="type-badge"
@@ -537,7 +505,7 @@
       </div>
 
       <div *ngIf="!showAdminCostMovementForm">
-        <button class="btn btn-primary" type="button" (click)="toggleAdminCostMovementForm()" style="width: 100%;">
+        <button class="btn btn-primary btn-sm" type="button" (click)="toggleAdminCostMovementForm()">
           <i class="bx bx-plus"></i> Nuevo Pago
         </button>
       </div>

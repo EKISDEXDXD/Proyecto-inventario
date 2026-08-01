@@ -15,6 +15,9 @@ import { ApiConfigService } from '../auth/api-config.service';
 export class MyStoresComponent implements OnInit {
   stores: any[] = [];
   openMenuId: number | null = null;
+  loading = true;
+  private cacheKey = 'myStoresCache';
+  private cacheTtlMs = 5 * 60 * 1000; // 5 minutos
 
   get isMenuOpen$() {
     return this.menuService.isMenuOpen$;
@@ -37,11 +40,19 @@ export class MyStoresComponent implements OnInit {
   }
 
   loadStores() {
+    const cached = this.getCachedStores();
+    if (cached && cached.stores?.length) {
+      this.stores = cached.stores;
+      this.loading = true;
+      this.cdr.detectChanges();
+    }
+
     const apiUrl = this.apiConfig.getApiUrl('/api/stores');
     const token = localStorage.getItem('token'); 
     
     if (!token) {
       console.error("No se encontró token en localStorage");
+      this.loading = false;
       return;
     }
 
@@ -52,18 +63,47 @@ export class MyStoresComponent implements OnInit {
     this.http.get<any[]>(apiUrl, { headers }).subscribe({
       next: (data) => {
         console.log('Tiendas cargadas exitosamente:', data);
-        this.stores = data; 
-        
-        // ¡ESTA ES LA MAGIA! Obligamos a Angular a actualizar la vista inmediatamente
-        this.cdr.detectChanges(); 
+        this.stores = data;
+        this.saveStoresCache(data);
+        this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error cargando tiendas:', err);
+        this.loading = false;
         if(err.status === 403 || err.status === 401) {
           alert("No tienes permiso o tu sesión expiró. Inicia sesión nuevamente.");
         }
       }
     });
+  }
+
+  private getCachedStores(): { stores: any[]; timestamp: number } | null {
+    try {
+      const cached = localStorage.getItem(this.cacheKey);
+      if (!cached) return null;
+      const parsed = JSON.parse(cached);
+      if (!parsed || !parsed.stores || !parsed.timestamp) return null;
+      if (Date.now() - parsed.timestamp > this.cacheTtlMs) {
+        localStorage.removeItem(this.cacheKey);
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveStoresCache(stores: any[]) {
+    try {
+      localStorage.setItem(this.cacheKey, JSON.stringify({ stores, timestamp: Date.now() }));
+    } catch {
+      // Si el almacenamiento local falla, no rompemos la vista.
+    }
+  }
+
+  trackByStoreId(index: number, store: any) {
+    return store?.id ?? index;
   }
 
   goBack() {

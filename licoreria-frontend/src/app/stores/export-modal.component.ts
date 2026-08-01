@@ -1011,19 +1011,36 @@ interface ExportHistory {
         padding: 1rem;
         display: flex !important;
         flex-direction: row !important;
-        align-items: center !important; /* Centra verticalmente icono, texto y X */
+        align-items: center !important;
         justify-content: space-between !important;
-
+        gap: 1rem;
       }
 
       .header-content {
-        flex-direction: column;
+        flex: 1;
+        display: flex;
+        flex-direction: row;
         gap: 0.75rem;
-        align-items: flex-start;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .header-text {
+        min-width: 0;
       }
 
       .header-text h2 {
         font-size: 1.3rem;
+        margin: 0;
+      }
+
+      .header-text p {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .close-btn {
+        flex-shrink: 0;
       }
 
       .card-header {

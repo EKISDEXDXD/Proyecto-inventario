@@ -46,10 +46,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
                 <i *ngIf="method.type === 'EFECTIVO'" class="bx bx-money"></i>
                 <i *ngIf="method.type === 'QR'" class="bx bx-qr"></i>
               </div>
-              <span class="payment-label">{{ method.name }}</span>
-              <span *ngIf="method.type === 'QR' && method.imageUrl" class="payment-type-badge">
-                <img [src]="method.imageUrl" alt="QR" class="qr-thumb">
-              </span>
+              <span class="payment-label">{{ method.type === 'QR' ? 'Efectivo' : method.name }}</span>
             </button>
           </div>
 
@@ -160,7 +157,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.5rem;
+      padding: 1rem;
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -193,7 +190,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
     }
 
     .modal-body {
-      padding: 2rem 1.5rem;
+      padding: 1rem 1rem;
     }
 
     .modal-description {
@@ -350,7 +347,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
     .modal-footer {
       display: flex;
       gap: 1rem;
-      padding: 1.5rem;
+      padding: 1rem;
       border-top: 1px solid var(--border-color);
       justify-content: flex-end;
     }
@@ -531,9 +528,9 @@ export class PaymentMethodModalComponent implements OnInit {
 
   selectPaymentMethod(method: PaymentMethodConfig) {
     this.selectedMethod = method;
-    
-    // Si es EFECTIVO, confirmar automáticamente sin mostrar el QR
-    if (method.type === 'EFECTIVO') {
+
+    // Tratar QR igual que EFECTIVO: confirmar automáticamente
+    if (method.type === 'EFECTIVO' || method.type === 'QR') {
       // Usar runOutsideAngular para evitar ExpressionChangedAfterItHasBeenCheckedError
       this.ngZone.runOutsideAngular(() => {
         setTimeout(() => {
@@ -542,10 +539,6 @@ export class PaymentMethodModalComponent implements OnInit {
           });
         }, 200);
       });
-    } else if (method.type === 'QR' && method.imageUrl) {
-      // Si es QR con imagen, mostrar el modal de imagen
-      this.showImageModal = true;
-      this.cdr.markForCheck();
     }
   }
 

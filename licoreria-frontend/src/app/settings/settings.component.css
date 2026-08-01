@@ -469,7 +469,7 @@
 
   .settings-header {
     flex-direction: column;
-    text-align: center;
+    text-align: left;
     padding: 2rem 1.5rem;
   }
 
@@ -776,6 +776,17 @@
   min-height: 100px;
 }
 
+.qr-preview-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.qr-preview-trigger:hover .qr-image {
+  transform: scale(1.02);
+}
+
 :host-context(.dark) .method-preview {
   background: #1a1a2e;
 }
@@ -786,6 +797,60 @@
   max-height: 150px;
   object-fit: contain;
   border-radius: 6px;
+  transition: transform 0.2s ease;
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1200;
+}
+
+.qr-modal-card {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  max-width: min(92vw, 420px);
+  width: 100%;
+}
+
+:host-context(.dark) .qr-modal-card {
+  background: #111827;
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: #334155;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+:host-context(.dark) .qr-modal-close {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.qr-modal-image {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
 }
 
 .method-footer {

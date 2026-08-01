@@ -1,15 +1,17 @@
 package com.inventario.licoreria.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+
 import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtUtil {
@@ -18,7 +20,7 @@ public class JwtUtil {
     @Value("${app.jwt.secret:esta-es-una-clave-secreta-mucho-mas-larga-y-segura-para-jwt-hs512-algoritmo-con-mas-de-64-bytes-para-licoreria-inventario-system-2026}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration:86400000}")
+    @Value("${app.jwt.expiration:604800000}")
     private long jwtExpiration;
 
     private SecretKey getSigningKey() {

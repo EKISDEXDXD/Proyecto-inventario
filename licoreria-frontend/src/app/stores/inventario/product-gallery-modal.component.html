@@ -4,10 +4,6 @@
     <div class="gallery-modal-header">
       <div>
         <h2><i class="bx bx-image"></i>Galería de Productos</h2>
-        <p class="header-subtitle">
-          <i class="bx bx-sparkles"></i>
-          Gestiona y organiza tus productos con etiquetas
-        </p>
       </div>
       <button class="btn-close" (click)="close()" aria-label="Cerrar galería" title="Cerrar (ESC)">
         <i class="bx bx-x"></i>
@@ -159,44 +155,41 @@
 
       <!-- Main Content - Gallery -->
       <main class="gallery-main">
-          
+        <div class="gallery-container" (scroll)="onGalleryScroll($event)" role="region" aria-label="Galería de productos">
+          <!-- Search Bar -->
+          <div class="gallery-search" role="search">
+            <div class="search-header">
+              <label class="search-label">
+                <i class="bx bx-search-alt"></i> Buscar Productos
+              </label>
+              <span class="search-badge">
+                <i class="bx bx-package"></i> {{ displayedProducts.length }} resultados
+              </span>
+            </div>
+            <div class="search-input-group">
+              <i class="bx bx-search"></i>
+              <input 
+                type="text" 
+                [(ngModel)]="searchQuery"
+                (input)="onSearchChange(searchQuery)"
+                placeholder="Busca por nombre, descripción..."
+                class="search-input"
+                aria-label="Buscar productos"
+              />
+            </div>
 
-        <!-- Search Bar -->
-        <div class="gallery-search" role="search">
-          <div class="search-header">
-            <label class="search-label">
-              <i class="bx bx-search-alt"></i> Buscar Productos
-            </label>
-            <span class="search-badge">
-              <i class="bx bx-package"></i> {{ displayedProducts.length }} resultados
-            </span>
-          </div>
-          <div class="search-input-group">
-            <i class="bx bx-search"></i>
-            <input 
-              type="text" 
-              [(ngModel)]="searchQuery"
-              (input)="onSearchChange(searchQuery)"
-              placeholder="Busca por nombre, descripción..."
-              class="search-input"
-              aria-label="Buscar productos"
-            />
-          </div>
-
-          <!-- Active Filters Display -->
-          <div *ngIf="selectedTagIds.length > 0" class="active-filters" role="status" aria-live="polite">
-            <span class="filters-label">Filtros activos:</span>
-            <div *ngFor="let tagId of selectedTagIds" class="filter-badge">
-              <span>{{ getTagName(tagId) }}</span>
-              <button (click)="toggleTag({id: tagId})" class="badge-close" [attr.aria-label]="'Eliminar filtro ' + getTagName(tagId)">
-                <i class="bx bx-x"></i>
-              </button>
+            <!-- Active Filters Display -->
+            <div *ngIf="selectedTagIds.length > 0" class="active-filters" role="status" aria-live="polite">
+              <span class="filters-label">Filtros activos:</span>
+              <div *ngFor="let tagId of selectedTagIds" class="filter-badge">
+                <span>{{ getTagName(tagId) }}</span>
+                <button (click)="toggleTag({id: tagId})" class="badge-close" [attr.aria-label]="'Eliminar filtro ' + getTagName(tagId)">
+                  <i class="bx bx-x"></i>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Products Gallery -->
-        <div class="gallery-container" (scroll)="onGalleryScroll($event)" role="region" aria-label="Galería de productos">
           <!-- Loading State -->
           <div *ngIf="loading && displayedProducts.length === 0" class="gallery-loading" role="status" aria-label="Cargando productos">
             <i class="bx bx-loader bx-spin"></i>
