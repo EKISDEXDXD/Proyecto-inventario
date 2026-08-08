@@ -469,7 +469,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
 })
 export class PaymentMethodModalComponent implements OnInit {
   @Input() storeId: number | null = null;
-  @Output() paymentMethodConfigIdSelected = new EventEmitter<number>();
+  @Output() paymentMethodConfigSelected = new EventEmitter<PaymentMethodConfig>();
   @Output() closed = new EventEmitter<void>();
 
   isOpen = false;
@@ -559,7 +559,7 @@ export class PaymentMethodModalComponent implements OnInit {
 
   confirm() {
     if (this.selectedMethod) {
-      this.paymentMethodConfigIdSelected.emit(this.selectedMethod.id);
+      this.paymentMethodConfigSelected.emit(this.selectedMethod);
       this.close();
     }
   }

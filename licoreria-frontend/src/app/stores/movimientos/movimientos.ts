@@ -10,6 +10,7 @@ import { ReportService, Report } from '../../home/dashboard-info/report.service'
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { ClickOutsideDirective } from '../../core/directives/click-outside.directive';
 import { PaymentMethodModalComponent } from './payment-method-modal.component';
+import { PaymentMethodConfig } from '../../settings/payment-method-config.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
@@ -69,6 +70,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   cartItems: any[] = [];
   isRegisteringAllMovements: boolean = false;
   isRegisteringQuickPurchase: boolean = false;
+  selectedPaymentMethod: PaymentMethodConfig | null = null;
   selectedPaymentMethodConfigId: number | null = null;
   pendingCartRegistration: boolean = false;
   pendingQuickPurchase: boolean = false;
@@ -739,7 +741,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       type: this.movement.type,
       quantity: this.movement.quantity,
       reason: this.movement.reason,
-      price: product.price
+      price: product.price,
+      paymentMethodConfigId: this.selectedPaymentMethod?.id || null,
+      paymentMethodName: this.selectedPaymentMethod?.name || null,
+      paymentMethodType: this.selectedPaymentMethod?.type || null
     };
 
     // Agregar al carrito
@@ -792,6 +797,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.pendingCartRegistration = true;
     this.pendingQuickPurchase = false;
     this.quickPurchaseMovement = null;
+    if (this.selectedPaymentMethod) {
+      this.selectedPaymentMethodConfigId = this.selectedPaymentMethod.id;
+      this.proceedWithRegistration();
+      return;
+    }
     this.paymentMethodModal.open();
   }
 
@@ -824,17 +834,34 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       quantity: this.movement.quantity,
       reason: this.movement.reason,
       price: product.price,
-      dateTime: null
+      dateTime: null,
+      paymentMethodConfigId: this.selectedPaymentMethod?.id || null,
+      paymentMethodName: this.selectedPaymentMethod?.name || null
     };
 
     this.pendingQuickPurchase = true;
     this.pendingCartRegistration = false;
+
+    if (this.selectedPaymentMethod) {
+      this.selectedPaymentMethodConfigId = this.selectedPaymentMethod.id;
+      this.proceedWithRegistration();
+      return;
+    }
+
     this.paymentMethodModal.open();
   }
 
-  onPaymentMethodConfigIdSelected(paymentMethodConfigId: number) {
-    this.selectedPaymentMethodConfigId = paymentMethodConfigId;
-    this.proceedWithRegistration();
+  onPaymentMethodSelected(paymentMethod: PaymentMethodConfig) {
+    this.selectedPaymentMethod = paymentMethod;
+    this.selectedPaymentMethodConfigId = paymentMethod.id;
+    if (this.pendingCartRegistration || this.pendingQuickPurchase) {
+      this.proceedWithRegistration();
+    }
+  }
+
+  clearPaymentMethodSelection() {
+    this.selectedPaymentMethod = null;
+    this.selectedPaymentMethodConfigId = null;
   }
 
   private proceedWithRegistration() {
@@ -866,7 +893,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         reason: item.reason,
         dateTime: localDateTime,
         userId: this.userId,
-        paymentMethodConfigId: this.selectedPaymentMethodConfigId
+        paymentMethodConfigId: item.paymentMethodConfigId || this.selectedPaymentMethodConfigId
       }));
 
       const optimisticTransactions = transactionsToRegister.map((trans, index) => ({
@@ -909,6 +936,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.cartItems = [];
           this.showCart = false;
           this.isRegisteringAllMovements = false;
+          this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
           this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
           this.updateAvailableReasons();
@@ -977,6 +1005,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
           this.sortTransactions();
           this.isRegisteringQuickPurchase = false;
+          this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
           this.quickPurchaseMovement = null;
           this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
@@ -992,6 +1021,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
             this.products[productIndex].stock = originalStocks[this.quickPurchaseMovement.productId];
           }
           this.isRegisteringQuickPurchase = false;
+          this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
           this.quickPurchaseMovement = null;
           this.cdr.detectChanges();

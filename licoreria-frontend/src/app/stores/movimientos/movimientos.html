@@ -3,7 +3,7 @@
   <!-- Modal de Forma de Pago -->
   <app-payment-method-modal
     [storeId]="storeId"
-    (paymentMethodConfigIdSelected)="onPaymentMethodConfigIdSelected($event)"
+    (paymentMethodConfigSelected)="onPaymentMethodSelected($event)"
     (closed)="pendingCartRegistration = false">
   </app-payment-method-modal>
 
@@ -189,37 +189,47 @@
           <input type="hidden" [(ngModel)]="movement.productId" name="productId">
         </div>
 
-        <!-- Selector de lotes -->
-        <div class="form-group lotes-selector">
-          <label>Seleccionar lote</label>
-          <div class="lotes-dropdown-container" appClickOutside (clickOutside)="showLotesDropdown = false">
-            <button
-              type="button"
-              class="form-control lotes-button"
-              (click)="showLotesDropdown = !showLotesDropdown">
-              {{ getSelectedLoteLabel() }}
-              <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
-            </button>
-            <div *ngIf="showLotesDropdown" class="lotes-dropdown">
-              <div *ngIf="availableLotes.length === 0" class="state-message">
-                <i class="bx bx-info-circle"></i> Selecciona un producto para ver lotes disponibles
-              </div>
-              <button *ngFor="let lote of availableLotes" type="button" class="lote-option" [ngClass]="{'active-for-sale': lote.isActiveForSale}" (click)="selectLote(lote)">
-                <div class="lote-info">
-                  <div class="lote-main-row">
-                    <span class="lote-name">{{ lote.name }}</span>
-                    <div class="lote-badges">
-                      <span class="lote-badge lote-badge-root" *ngIf="lote.isRootOption">Raíz</span>
-                      <span class="lote-badge" *ngIf="lote.isActiveForSale">Activo</span>
+        <!-- Selector de lotes y método de pago -->
+        <div class="lote-payment-row">
+          <div class="form-group lotes-selector">
+            <label>Seleccionar lote</label>
+            <div class="lotes-dropdown-container" appClickOutside (clickOutside)="showLotesDropdown = false">
+              <button
+                type="button"
+                class="form-control lotes-button"
+                (click)="showLotesDropdown = !showLotesDropdown">
+                {{ getSelectedLoteLabel() }}
+                <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
+              </button>
+              <div *ngIf="showLotesDropdown" class="lotes-dropdown">
+                <div *ngIf="availableLotes.length === 0" class="state-message">
+                  <i class="bx bx-info-circle"></i> Selecciona un producto para ver lotes disponibles
+                </div>
+                <button *ngFor="let lote of availableLotes" type="button" class="lote-option" [ngClass]="{'active-for-sale': lote.isActiveForSale}" (click)="selectLote(lote)">
+                  <div class="lote-info">
+                    <div class="lote-main-row">
+                      <span class="lote-name">{{ lote.name }}</span>
+                      <div class="lote-badges">
+                        <span class="lote-badge lote-badge-root" *ngIf="lote.isRootOption">Raíz</span>
+                        <span class="lote-badge" *ngIf="lote.isActiveForSale">Activo</span>
+                      </div>
+                    </div>
+                    <div class="lote-meta-row">
+                      <span class="lote-type">{{ getLoteTypeLabel(lote) }}</span>
+                      <span class="lote-stock-pill">Stock: {{ lote.stock }}</span>
+                      <span class="lote-price-pill">Precio: ${{ lote.price }}</span>
                     </div>
                   </div>
-                  <div class="lote-meta-row">
-                    <span class="lote-type">{{ getLoteTypeLabel(lote) }}</span>
-                    <span class="lote-stock-pill">Stock: {{ lote.stock }}</span>
-                    <span class="lote-price-pill">Precio: ${{ lote.price }}</span>
-                  </div>
-                </div>
-              </button>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="selected-payment-method-panel" *ngIf="selectedPaymentMethod">
+            <label>Método de pago</label>
+            <div class="selected-payment-method">
+              <span><strong>{{ selectedPaymentMethod.name }}</strong> ({{ selectedPaymentMethod.type }})</span>
+              <button type="button" class="clear-selection-btn" (click)="clearPaymentMethodSelection()">Eliminar</button>
             </div>
           </div>
         </div>
@@ -243,7 +253,7 @@
       <div class="payment-method-row">
         <button type="button" class="submit-btn payment-method-btn" (click)="paymentMethodModal.open()">
           <i class="bx bx-credit-card"></i>
-          Ver métodos de pago
+          {{ selectedPaymentMethod ? 'Cambiar método de pago' : 'Seleccionar método de pago' }}
         </button>
       </div>
     </form>
@@ -277,6 +287,7 @@
               <th>Producto</th>
               <th>Tipo</th>
               <th>Motivo</th>
+              <th>Método</th>
               <th>Cantidad</th>
               <th>Acciones</th>
             </tr>
@@ -285,11 +296,12 @@
             <tr *ngFor="let item of cartItems; let i = index" class="cart-item-row">
               <td><strong>{{ item.productName }}</strong></td>
               <td>
-                <span class="badge" [ngClass]="item.type === 'ENTRADA' ? 'badge-success' : 'badge-danger'">
+                <span class="badge" [ngClass]="item.type === 'ENTRADA' ? 'badge-danger' : 'badge-success'">
                   {{ item.type }}
                 </span>
               </td>
               <td>{{ item.reason }}</td>
+              <td>{{ item.paymentMethodName || 'No definido' }}</td>
               <td><span class="quantity-badge">{{ item.quantity }}</span></td>
               <td>
                 <button type="button" class="btn btn-delete" (click)="removeFromCart(i)" title="Eliminar del carrito">
