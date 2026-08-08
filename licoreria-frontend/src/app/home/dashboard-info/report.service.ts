@@ -8,6 +8,7 @@ export interface Report {
   title: string;
   description: string;
   reportDate: string;
+  color?: string;
   storeId: number;
   storeName: string;
   userId: number;
@@ -30,12 +31,16 @@ export class ReportService {
   /**
    * Crear un nuevo reporte
    */
-  createReport(storeId: number, title: string, description: string, reportDate: string): Observable<Report> {
-    const payload = {
+  createReport(storeId: number, title: string, description: string, reportDate: string, color?: string): Observable<Report> {
+    const payload: any = {
       title,
       description,
       reportDate
     };
+
+    if (color) {
+      payload.color = color;
+    }
 
     return this.http.post<Report>(`${this.apiUrl}/${storeId}`, payload);
   }
@@ -81,11 +86,12 @@ export class ReportService {
   /**
    * Actualizar un reporte
    */
-  updateReport(reportId: number, title?: string, description?: string, reportDate?: string): Observable<Report> {
+  updateReport(reportId: number, title?: string, description?: string, reportDate?: string, color?: string): Observable<Report> {
     const payload: any = {};
     if (title) payload.title = title;
     if (description) payload.description = description;
     if (reportDate) payload.reportDate = reportDate;
+    if (color) payload.color = color;
 
     return this.http.put<Report>(`${this.apiUrl}/${reportId}`, payload);
   }

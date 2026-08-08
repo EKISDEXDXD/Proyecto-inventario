@@ -189,8 +189,8 @@
                             {{ getDisplayStockForProduct(product) }}
                           </span>
                         </td>
-                        <td>{{ product.cost | currencyFormat }}</td>
-                        <td>{{ product.price | currencyFormat }}</td>
+                        <td>{{ getDisplayCost(product) | currencyFormat }}</td>
+                        <td>{{ getDisplayPrice(product) | currencyFormat }}</td>
                         <td (click)="$event.stopPropagation()">
                           <div class="action-buttons">
                             <button class="btn btn-info btn-icon" (click)="openAlertConfig(product)" title="Configurar alerta"><i class="bx bx-bell"></i></button>
@@ -419,7 +419,7 @@
         <div class="modal-info-grid">
           <div class="modal-info-item">
             <span class="modal-label">Stock Actual</span>
-            <span class="modal-value">{{ getTotalStockForProduct(selectedProductForDescription?.id) }}</span>
+            <span class="modal-value">{{ getDisplayProductData(selectedProductForDescription, 'stock') }}</span>
           </div>
           <div class="modal-info-item">
             <span class="modal-label">Costo</span>

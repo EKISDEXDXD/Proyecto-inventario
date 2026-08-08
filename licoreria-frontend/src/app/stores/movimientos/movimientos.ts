@@ -54,11 +54,15 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   // UI State
   showProductsList: boolean = false;
-  showHistoryList: boolean = false;
+  showHistoryList: boolean = true;
   showAdminMovementsList: boolean = false;
   showTransactionDetailModal: boolean = false;
+  showTodayEntriesModal: boolean = false;
+  showTodaySalidasModal: boolean = false;
   selectedTransaction: any = null;
   transactionComment: string = '';
+  showMovementProductsModal: boolean = false;
+  movementProductsSummary: any[] = [];
 
   // Shopping Cart State
   showCart: boolean = false;
@@ -79,6 +83,14 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   title: string = '';
   description: string = '';
   reportDate: string = '';
+  reportColor: string = '#4f46e5';
+  reportColors = [
+    { label: 'Violeta', value: '#4f46e5' },
+    { label: 'Verde', value: '#16a34a' },
+    { label: 'Naranja', value: '#f97316' },
+    { label: 'Rosa', value: '#ec4899' },
+    { label: 'Azul', value: '#2563eb' }
+  ];
   filterStartDate: string = '';
   filterEndDate: string = '';
   searchQuery: string = '';
@@ -166,6 +178,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       clearInterval(this.refreshInterval);
     }
     this.productSearchSubject.complete();
+  }
+
+  onTitleClick() {
+    this.goBack();
   }
 
   // =============== MÉTODOS PARA AUTOCOMPLETE DE PRODUCTOS ===============
@@ -1078,6 +1094,49 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  openMovementProductsModal() {
+    this.showMovementProductsModal = true;
+    this.buildMovementProductsSummary();
+    this.cdr.detectChanges();
+  }
+
+  closeMovementProductsModal() {
+    this.showMovementProductsModal = false;
+    this.cdr.detectChanges();
+  }
+
+  private buildMovementProductsSummary() {
+    const summaryMap: { [key: number]: { productName: string; totalMovements: number; entradas: number; salidas: number; netQuantity: number; } } = {};
+
+    this.todayTransactions.forEach(transaction => {
+      const productId = transaction.productId;
+      const productName = this.getProductName(productId);
+      const type = String(transaction?.type ?? transaction?.transactionType ?? '').trim().toUpperCase();
+      const quantity = Number(transaction?.quantity ?? 0);
+
+      if (!summaryMap[productId]) {
+        summaryMap[productId] = {
+          productName,
+          totalMovements: 0,
+          entradas: 0,
+          salidas: 0,
+          netQuantity: 0
+        };
+      }
+
+      summaryMap[productId].totalMovements += 1;
+      if (type === 'ENTRADA') {
+        summaryMap[productId].entradas += 1;
+        summaryMap[productId].netQuantity += quantity;
+      } else if (type === 'SALIDA') {
+        summaryMap[productId].salidas += 1;
+        summaryMap[productId].netQuantity -= quantity;
+      }
+    });
+
+    this.movementProductsSummary = Object.values(summaryMap).sort((a, b) => b.totalMovements - a.totalMovements);
+  }
+
   private loadTransactionComment(transactionId: number) {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -1161,9 +1220,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       .toUpperCase();
   }
 
+  private normalizeTransactionType(transaction: any): string {
+    return String(transaction?.type ?? transaction?.transactionType ?? '').trim().toUpperCase();
+  }
+
   private isCountableStatsMovement(transaction: any): boolean {
-    const type = String(transaction?.type ?? '').trim().toUpperCase();
-    const reason = this.normalizeReason(transaction?.reason);
+    const type = this.normalizeTransactionType(transaction);
+    const reason = this.normalizeReason(transaction?.reason ?? transaction?.transactionReason);
 
     if (type === 'ENTRADA') {
       return reason === 'COMPRA';
@@ -1188,11 +1251,19 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   get entradasCount(): number {
-    return this.todayTransactions.filter(t => t.type === 'ENTRADA' && this.isCountableStatsMovement(t)).length;
+    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t)).length;
+  }
+
+  get todayEntradas(): any[] {
+    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t));
+  }
+
+  get todaySalidas(): any[] {
+    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'SALIDA' && this.isCountableStatsMovement(t));
   }
 
   get salidasCount(): number {
-    return this.todayTransactions.filter(t => t.type === 'SALIDA' && this.isCountableStatsMovement(t)).length;
+    return this.todaySalidas.length;
   }
 
   get todayLabel(): string {
@@ -1262,6 +1333,22 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   toggleProductsList() {
     this.showProductsList = !this.showProductsList;
+  }
+
+  openTodayEntriesModal() {
+    this.showTodayEntriesModal = true;
+  }
+
+  closeTodayEntriesModal() {
+    this.showTodayEntriesModal = false;
+  }
+
+  openTodaySalidasModal() {
+    this.showTodaySalidasModal = true;
+  }
+
+  closeTodaySalidasModal() {
+    this.showTodaySalidasModal = false;
   }
 
   toggleHistoryList() {
@@ -1383,7 +1470,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.reportLoading = true;
     this.reportService.getReportsByStore(this.storeId, this.currentPage, this.pageSize).subscribe({
       next: (response: any) => {
-        this.reports = response.content || response;
+        this.reports = (response.content || response).map((report: any) => ({
+          ...report,
+          color: report.color || '#4f46e5'
+        }));
         this.totalPages = response.totalPages || Math.ceil(this.reports.length / this.pageSize);
         this.filteredReports = [...this.reports];
         this.reportLoading = false;
@@ -1408,6 +1498,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.title = '';
     this.description = '';
     this.reportDate = '';
+    this.reportColor = '#4f46e5';
     this.editingReportId = null;
   }
 
@@ -1419,7 +1510,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
     this.reportLoading = true;
     if (this.editingReportId) {
-      this.reportService.updateReport(this.editingReportId, this.title, this.description, this.reportDate)
+      this.reportService.updateReport(this.editingReportId, this.title, this.description, this.reportDate, this.reportColor)
         .subscribe({
           next: () => {
             this.loadReports();
@@ -1437,7 +1528,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           }
         });
     } else {
-      this.reportService.createReport(this.storeId, this.title, this.description, this.reportDate)
+      this.reportService.createReport(this.storeId, this.title, this.description, this.reportDate, this.reportColor)
         .subscribe({
           next: () => {
             this.loadReports();
@@ -1455,6 +1546,30 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           }
         });
     }
+  }
+
+  getReportStyle(report: Report): { [key: string]: string } {
+    const color = report.color || '#4f46e5';
+    const lightColor = this.lightenHexColor(color, 18);
+    return {
+      backgroundColor: color,
+      backgroundImage: `linear-gradient(135deg, ${color} 0%, ${lightColor} 100%)`,
+      borderTop: `4px solid ${color}`
+    };
+  }
+
+  private lightenHexColor(hex: string, percent: number): string {
+    const cleanedHex = hex.replace('#', '');
+    const num = parseInt(cleanedHex, 16);
+    let r = (num >> 16) + Math.round(255 * percent / 100);
+    let g = ((num >> 8) & 0x00FF) + Math.round(255 * percent / 100);
+    let b = (num & 0x0000FF) + Math.round(255 * percent / 100);
+
+    r = Math.min(255, r);
+    g = Math.min(255, g);
+    b = Math.min(255, b);
+
+    return `rgb(${r}, ${g}, ${b})`;
   }
 
   deleteReport(reportId: number) {

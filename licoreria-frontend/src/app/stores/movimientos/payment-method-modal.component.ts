@@ -46,7 +46,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
                 <i *ngIf="method.type === 'EFECTIVO'" class="bx bx-money"></i>
                 <i *ngIf="method.type === 'QR'" class="bx bx-qr"></i>
               </div>
-              <span class="payment-label">{{ method.type === 'QR' ? 'Efectivo' : method.name }}</span>
+              <span class="payment-label">{{ method.name }}</span>
             </button>
           </div>
 
@@ -529,8 +529,13 @@ export class PaymentMethodModalComponent implements OnInit {
   selectPaymentMethod(method: PaymentMethodConfig) {
     this.selectedMethod = method;
 
-    // Tratar QR igual que EFECTIVO: confirmar automáticamente
-    if (method.type === 'EFECTIVO' || method.type === 'QR') {
+    if (method.type === 'QR' && method.imageUrl) {
+      this.showImageModal = true;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (method.type === 'EFECTIVO') {
       // Usar runOutsideAngular para evitar ExpressionChangedAfterItHasBeenCheckedError
       this.ngZone.runOutsideAngular(() => {
         setTimeout(() => {

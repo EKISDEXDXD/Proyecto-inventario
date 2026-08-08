@@ -69,6 +69,13 @@
   font-weight: 800;
   margin: 0 0 0.5rem 0;
   letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: transform 0.15s ease, text-shadow 0.15s ease;
+}
+
+.main-title:active {
+  transform: translateY(4px) scale(0.98);
+  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
 .main-subtitle {
@@ -303,6 +310,9 @@
 }
 .history-list-container {
   overflow-x: auto;
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 .products-card {
   padding: 1.5rem;
@@ -1152,43 +1162,87 @@
   color: white;
 }
 
-@media (max-width: 768px) {
-  .transaction-detail-modal {
-    padding: 1rem;
+  .movement-products-list {
+    display: grid;
+    gap: 1rem;
   }
 
-  .transaction-detail-modal .modal-actions {
-    justify-content: stretch;
+  .movement-product-item {
+    background-color: var(--bg-body);
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    padding: 1rem 1rem 0.85rem;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   }
+
+  .product-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+  }
+
+  .movement-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+    background-color: rgba(148, 163, 184, 0.12);
+    border: 1px solid transparent;
+  }
+
+  .badge-primary {
+    background-color: rgba(99, 102, 241, 0.16);
+    color: #3730a3;
+    border-color: rgba(99, 102, 241, 0.24);
+  }
+
+  .badge-success {
+    background-color: rgba(245, 158, 11, 0.28);
+    
+  }
+
+  .badge-danger {
+    background-color: #10b981;
+    
+    
+  }
+
+  .product-quantity {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+  }
+
+  .stat-card-clickable {
+    cursor: pointer;
+  }
+
+  .stat-card-clickable:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  }
+
+.today-entries-table-wrapper {
+  overflow-x: auto;
+  border-radius: 1rem;
+  background: var(--bg-surface);
+  padding: 0.5rem;
 }
 
-.type-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 600;
-  display: inline-block;
-  min-width: 80px;
-  text-align: center;
-}
-
-.type-badge.entrada {
-  background-color: #fef3c7;
-  color: #92400e;
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);
-}
-
-.type-badge.salida {
-  background-color: #dcfce7;
-  color: #166534;
-  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.1);
-}
-
-.ajuste-row {
-  background-color: rgba(59, 130, 246, 0.08);
-}
-
-.ajuste-row:hover {
-  background-color: rgba(59, 130, 246, 0.12);
+.today-entries-table-wrapper .transactions-table {
+  width: 100%;
+  border-radius: 1rem;
 }
 
 .ajuste-row td {
@@ -1230,6 +1284,42 @@
   background-color: #ef4444;
   box-shadow: 0 4px 8px rgba(220, 38, 38, 0.6);
 }
+/* Base minimalista y moderna */
+.type-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important; /* Esquinas suavizadas estilo Dashboard */
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.025em !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ENTRADA (Compra / Reabastecimiento) - Ámbar / Naranja Soft */
+.type-badge.entrada {
+  background-color: #ffedd5 !important; /* Fondo melocotón / naranja suave */
+  color: #c2410c !important;            /* Texto naranja cálido intenso */
+}
+
+/* SALIDA (Venta / Ingreso Dinero) - Verde Menta Neón Soft */
+.type-badge.salida {
+  background-color: #d1fae5 !important; /* Fondo menta ultra-limpio */
+  color: #047857 !important;            /* Texto esmeralda profundo */
+}
+.type-badge {
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    min-width: auto !important;
+    display: inline-block;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    color: white !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+  }
 
 /* ============ MOBILE OPTIMIZATION 480px ============ */
 @media (max-width: 480px) {
@@ -1385,11 +1475,42 @@
   }
 
   .type-badge {
-    padding: 0.3rem 0.5rem !important;
-    font-size: 0.7rem !important;
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.75rem !important;
     min-width: auto !important;
     display: inline-block;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    color: white !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
   }
+
+  /* Base minimalista y moderna */
+.type-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important; /* Esquinas suavizadas estilo Dashboard */
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.025em !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ENTRADA (Compra / Reabastecimiento) - Ámbar / Naranja Soft */
+.type-badge.entrada {
+  background-color: #ffedd5 !important; /* Fondo melocotón / naranja suave */
+  color: #c2410c !important;            /* Texto naranja cálido intenso */
+}
+
+/* SALIDA (Venta / Ingreso Dinero) - Verde Menta Neón Soft */
+.type-badge.salida {
+  background-color: #d1fae5 !important; /* Fondo menta ultra-limpio */
+  color: #047857 !important;            /* Texto esmeralda profundo */
+}
 
   .transactions-table th:nth-child(4),
   .transactions-table td:nth-child(4) {
@@ -1579,6 +1700,28 @@
     box-shadow: 0 14px 30px rgba(251, 113, 133, 0.28);
   }
 
+  .payment-method-row {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+    margin-top: 0.75rem;
+  }
+
+  .payment-method-btn {
+    background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .payment-method-btn:hover {
+    box-shadow: 0 14px 30px rgba(74, 222, 128, 0.28);
+  }
+
   @media (min-width: 768px) {
     .action-block {
       flex-direction: row !important;
@@ -1589,6 +1732,14 @@
     .submit-btn,
     .quick-purchase-btn {
       width: auto !important;
+    }
+
+    .payment-method-row {
+      justify-content: flex-start;
+    }
+
+    .payment-method-btn {
+      width: auto;
     }
   }
 }
@@ -1804,7 +1955,7 @@
 
 .expandable-content.expanded {
   max-height: 5000px;
-  padding: 2rem;
+  padding: 1rem;
 }
 
 /* Form Section */
@@ -2020,7 +2171,7 @@
   font-weight: 700;
   color: var(--text-main);
   background-color: var(--bg-surface);
-  padding: 2rem;
+  padding: 1.25rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
@@ -2168,6 +2319,35 @@
   max-height: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.report-color-group {
+  margin-top: 1rem;
+}
+
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+}
+
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.color-swatch:hover {
+  transform: translateY(-1px);
+}
+
+.color-swatch.selected {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
 }
 
 @media (max-width: 480px) {
@@ -2993,23 +3173,45 @@
 
 /* Badge de tipo */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.35rem 0.75rem;
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
   min-width: 70px;
+  color: var(--text-main);
+  background-color: rgba(148, 163, 184, 0.12);
+  border: 1px solid transparent;
 }
 
-.badge-success {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: var(--color-warning);
-}
-
+/* Base minimalista y moderna */
+.badge-success,
 .badge-danger {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: var(--color-success);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.025em !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* BADGE SUCCESS (Verde Menta Neón Soft) */
+.badge-success {
+  background-color: #d1fae5 !important; /* Fondo menta ultra-limpio */
+  color: #047857 !important;            /* Texto esmeralda profundo */
+}
+
+/* BADGE DANGER / ATENCIÓN (Naranja / Ámbar Soft) */
+.badge-danger {
+  background-color: #ffedd5 !important; /* Fondo melocotón / naranja suave */
+  color: #c2410c !important;            /* Texto naranja cálido intenso */
 }
 
 /* Badge de cantidad */
@@ -3477,3 +3679,14 @@
 :host-context(.dark) .lote-stock {
   color: var(--text-muted);
 }
+.quick-purchase-btn {
+    background: linear-gradient(135deg, #f97316 0%, #fb7185 100%);
+  }
+
+  .payment-method-btn {
+    background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
+    color: white;
+    
+    
+    
+  }

@@ -1,5 +1,16 @@
 package com.inventario.licoreria.modules.reports.service;
 
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.inventario.licoreria.modules.reports.dto.ReportDTO;
 import com.inventario.licoreria.modules.reports.model.Report;
 import com.inventario.licoreria.modules.reports.repository.ReportRepository;
@@ -7,16 +18,6 @@ import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.store.repository.StoreRepository;
 import com.inventario.licoreria.modules.users.model.User;
 import com.inventario.licoreria.modules.users.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -36,7 +37,7 @@ public class ReportService {
      * Crear un nuevo reporte con foto opcional
      */
     public ReportDTO createReport(Long storeId, Long userId, String title, String description, 
-                                 LocalDate reportDate, MultipartFile photoFile) throws IOException {
+                                 LocalDate reportDate, String color, MultipartFile photoFile) throws IOException {
         Store store = storeRepository.findById(storeId)
             .orElseThrow(() -> new RuntimeException("Tienda no encontrada"));
         
@@ -47,6 +48,7 @@ public class ReportService {
         report.setTitle(title);
         report.setDescription(description);
         report.setReportDate(reportDate);
+        report.setColor(color != null ? color : "#4f46e5");
         report.setStore(store);
         report.setUser(user);
         report.setActive(true);
@@ -116,13 +118,16 @@ public class ReportService {
      * Actualizar un reporte
      */
     public ReportDTO updateReport(Long reportId, String title, String description, 
-                                 LocalDate reportDate, MultipartFile photoFile) throws IOException {
+                                 LocalDate reportDate, String color, MultipartFile photoFile) throws IOException {
         Report report = reportRepository.findById(reportId)
             .orElseThrow(() -> new RuntimeException("Reporte no encontrado"));
 
         report.setTitle(title);
         report.setDescription(description);
         report.setReportDate(reportDate);
+        if (color != null) {
+            report.setColor(color);
+        }
 
         if (photoFile != null && !photoFile.isEmpty()) {
             report.setPhotoData(photoFile.getBytes());
@@ -153,6 +158,7 @@ public class ReportService {
         dto.setTitle(report.getTitle());
         dto.setDescription(report.getDescription());
         dto.setReportDate(report.getReportDate());
+        dto.setColor(report.getColor());
         dto.setPhotoFileName(report.getPhotoFileName());
         dto.setPhotoMimeType(report.getPhotoMimeType());
         dto.setStoreId(report.getStore().getId());

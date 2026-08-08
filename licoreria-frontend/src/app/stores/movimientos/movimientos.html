@@ -8,7 +8,7 @@
   </app-payment-method-modal>
 
   <div class="card main-title-card">
-    <h1 class="main-title"><i class="bx bx-trending-up"></i> Movimientos</h1>
+    <h1 class="main-title" (click)="onTitleClick()"><i class="bx bx-trending-up"></i> Movimientos</h1>
     <p class="main-subtitle">Historial completo de entradas y salidas de productos</p>
   </div>
 
@@ -19,21 +19,21 @@
   </div>
 
   <div class="stats-grid">
-    <div class="stat-card">
+    <div class="stat-card stat-card-clickable" (click)="openMovementProductsModal()">
       <div class="stat-icon"><i class="bx bx-list-ul"></i></div>
       <div class="stat-content">
         <h3>{{ todayCount }}</h3>
         <p>Total Movimientos</p>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-card-clickable" (click)="openTodayEntriesModal()">
       <div class="stat-icon success"><i class="bx bx-plus-circle"></i></div>
       <div class="stat-content">
         <h3>{{ entradasCount }}</h3>
         <p>Entradas Hoy</p>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-card-clickable" (click)="openTodaySalidasModal()">
       <div class="stat-icon danger"><i class="bx bx-minus-circle"></i></div>
       <div class="stat-content">
         <h3>{{ salidasCount }}</h3>
@@ -45,6 +45,39 @@
       <div class="stat-content">
         <h3>{{ todayLabel }}</h3>
         <p>Hoy</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Productos con Movimientos -->
+  <div *ngIf="showMovementProductsModal" class="transaction-detail-modal-overlay" (click)="closeMovementProductsModal()">
+    <div class="transaction-detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Productos con Movimientos</h3>
+          <p>Resumen de productos que tuvieron movimientos hoy</p>
+        </div>
+        <button class="icon-btn modal-close-btn" type="button" (click)="closeMovementProductsModal()"><i class="bx bx-x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="movementProductsSummary.length > 0" class="movement-products-list">
+          <div *ngFor="let item of movementProductsSummary" class="movement-product-item">
+            <div class="product-name">{{ item.productName }}</div>
+            <div class="movement-badges">
+              <span class="badge badge-primary">Movimientos: {{ item.totalMovements }}</span>
+              <span class="badge badge-success">Entradas: {{ item.entradas }}</span>
+              <span class="badge badge-danger">Salidas: {{ item.salidas }}</span>
+            </div>
+            <div class="product-quantity">Cantidad neta: {{ item.netQuantity }}</div>
+          </div>
+        </div>
+        <div *ngIf="movementProductsSummary.length === 0" class="empty-state">
+          <i class="bx bx-inbox"></i>
+          <p>No se registraron movimientos hoy.</p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" type="button" (click)="closeMovementProductsModal()">Cerrar</button>
       </div>
     </div>
   </div>
@@ -206,6 +239,12 @@
           <button type="submit" class="submit-btn">Agregar al carrito</button>
           <button type="button" class="submit-btn quick-purchase-btn" (click)="quickPurchase()">Compra rápida</button>
         </div>
+      </div>
+      <div class="payment-method-row">
+        <button type="button" class="submit-btn payment-method-btn" (click)="paymentMethodModal.open()">
+          <i class="bx bx-credit-card"></i>
+          Ver métodos de pago
+        </button>
       </div>
     </form>
   </div>
@@ -375,6 +414,94 @@
                 <button class="btn btn-danger" type="button" (click)="deleteTransaction(selectedTransaction?.id)">Eliminar movimiento</button>
                 <button class="btn btn-primary" type="button" (click)="saveTransactionComment()">Guardar comentario</button>
                 <button class="btn btn-secondary" type="button" (click)="closeTransactionDetail()">Cerrar</button>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="showTodayEntriesModal" class="transaction-detail-modal-overlay" (click)="closeTodayEntriesModal()">
+            <div class="transaction-detail-modal" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <div>
+                  <h3>Entradas de Hoy</h3>
+                  <p>{{ todayLabel }} · {{ entradasCount }} entrada(s)</p>
+                </div>
+                <button class="icon-btn modal-close-btn" type="button" (click)="closeTodayEntriesModal()"><i class="bx bx-x"></i></button>
+              </div>
+
+              <div class="modal-body">
+                <div *ngIf="todayEntradas.length === 0" class="state-message">
+                  <i class="bx bx-inbox"></i>
+                  <p>No se registraron entradas de compra hoy.</p>
+                </div>
+
+                <div *ngIf="todayEntradas.length > 0" class="today-entries-table-wrapper">
+                  <table class="transactions-table">
+                    <thead>
+                      <tr>
+                        <th>Hora</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let transaction of todayEntradas">
+                        <td>{{ transaction.dateTime | date:'HH:mm' }}</td>
+                        <td>{{ getProductName(transaction.productId) }}</td>
+                        <td>{{ transaction.quantity }}</td>
+                        <td>{{ transaction.reason || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn btn-secondary" type="button" (click)="closeTodayEntriesModal()">Cerrar</button>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="showTodaySalidasModal" class="transaction-detail-modal-overlay" (click)="closeTodaySalidasModal()">
+            <div class="transaction-detail-modal" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <div>
+                  <h3>Salidas de Hoy</h3>
+                  <p>{{ todayLabel }} · {{ salidasCount }} salida(s)</p>
+                </div>
+                <button class="icon-btn modal-close-btn" type="button" (click)="closeTodaySalidasModal()"><i class="bx bx-x"></i></button>
+              </div>
+
+              <div class="modal-body">
+                <div *ngIf="todaySalidas.length === 0" class="state-message">
+                  <i class="bx bx-inbox"></i>
+                  <p>No se registraron salidas de venta hoy.</p>
+                </div>
+
+                <div *ngIf="todaySalidas.length > 0" class="today-entries-table-wrapper">
+                  <table class="transactions-table">
+                    <thead>
+                      <tr>
+                        <th>Hora</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let transaction of todaySalidas">
+                        <td>{{ transaction.dateTime | date:'HH:mm' }}</td>
+                        <td>{{ getProductName(transaction.productId) }}</td>
+                        <td>{{ transaction.quantity }}</td>
+                        <td>{{ transaction.reason || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn btn-secondary" type="button" (click)="closeTodaySalidasModal()">Cerrar</button>
               </div>
             </div>
           </div>
@@ -581,6 +708,19 @@
               rows="4" class="form-textarea"></textarea>
           </div>
 
+          <div class="form-group report-color-group">
+            <label>Color de cabecera *</label>
+            <div class="color-palette">
+              <button type="button" class="color-swatch"
+                *ngFor="let color of reportColors"
+                [class.selected]="reportColor === color.value"
+                [style.background]="color.value"
+                (click)="reportColor = color.value"
+                [attr.aria-label]="color.label">
+              </button>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button class="btn btn-success" (click)="submitReport()" [disabled]="reportLoading">
               {{ reportLoading ? 'Guardando...' : (editingReportId ? 'Actualizar' : 'Crear') }}
@@ -650,7 +790,7 @@
 
         <div *ngIf="!reportLoading && filteredReports.length > 0" class="reports-grid">
           <div class="report-card" *ngFor="let report of paginatedReports">
-            <div class="report-header">
+            <div class="report-header" [ngStyle]="getReportStyle(report)">
               <h5>{{ report.title }}</h5>
               <span class="report-date">{{ report.reportDate }}</span>
             </div>

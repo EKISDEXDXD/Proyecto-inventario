@@ -1,10 +1,11 @@
 package com.inventario.licoreria.modules.reports.dto;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -14,6 +15,7 @@ public class ReportDTO {
     private String title;
     private String description;
     private LocalDate reportDate;
+    private String color;
     private String photoFileName;
     private String photoMimeType;
     private Long storeId;
