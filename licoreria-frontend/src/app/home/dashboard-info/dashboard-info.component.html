@@ -1,14 +1,17 @@
 <main class="dashboard-page">
   <header class="dashboard-header">
-    <div>
-      <span class="eyebrow">ANALITICA DE TIENDA</span>
-      <h1>{{ storeName }}</h1>
-      <p>Ventas, inventario y rendimiento en un solo lugar.</p>
-    </div>
-    <label class="currency-picker">Moneda
-      <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
-    </label>
+    <h1><i class="bx bx-bar-chart-alt-2"></i> Dashboard Info</h1>
+    <p>Ventas, inventario y rendimiento en un solo lugar.</p>
   </header>
+
+  <section class="dashboard-store-card">
+    <div class="dashboard-store-heading">
+      <h2><i class="bx bx-bar-chart-alt-2"></i> Dashboard - {{ storeName }}</h2>
+      <label class="currency-picker">Moneda
+        <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
+      </label>
+    </div>
+  </section>
 
   <section class="filters-panel">
     <div class="filter-heading">
@@ -18,8 +21,33 @@
     <div class="filter-grid">
       <label>Tipo<select [(ngModel)]="typeFilter"><option value="SALIDA">Salidas</option><option value="ENTRADA">Entradas</option><option value="ALL">Todos</option></select></label>
       <label>Motivo<select [(ngModel)]="reasonFilter"><option value="ALL">Todos los motivos</option><option *ngFor="let reason of reasons" [value]="reason">{{ reason }}</option></select></label>
-      <label>Etiqueta<select [(ngModel)]="selectedTag"><option value="ALL">Todas las etiquetas</option><option *ngFor="let tag of tags" [value]="tag.name">{{ tag.name }}</option></select></label>
-      <label>Pago<select [(ngModel)]="selectedPayment"><option value="ALL">Todos los métodos</option><option *ngFor="let payment of payments" [value]="payment">{{ payment }}</option></select></label>
+      <div class="multi-filter">
+        <span class="filter-label">Categorías</span>
+        <details>
+          <summary>{{ selectedTags.size ? selectedTags.size + ' seleccionada(s)' : 'Todas las categorías' }}</summary>
+          <div class="multi-options">
+            <label *ngFor="let tag of tags"><input type="checkbox" [checked]="selectedTags.has(tag.name)" (change)="toggleTag(tag.name)"><span>{{ tag.name }}</span></label>
+          </div>
+        </details>
+      </div>
+      <div class="multi-filter">
+        <span class="filter-label">Productos</span>
+        <details>
+          <summary>{{ selectedProductIds.size ? selectedProductIds.size + ' seleccionado(s)' : 'Todos los productos' }}</summary>
+          <div class="multi-options product-options">
+            <label *ngFor="let product of rootProducts"><input type="checkbox" [checked]="selectedProductIds.has(product.id)" (change)="toggleProductFilter(product.id)"><span>{{ product.name }}</span></label>
+          </div>
+        </details>
+      </div>
+      <div class="multi-filter">
+        <span class="filter-label">Pago</span>
+        <details>
+          <summary>{{ selectedPayments.size ? selectedPayments.size + ' seleccionado(s)' : 'Todos los métodos' }}</summary>
+          <div class="multi-options">
+            <label *ngFor="let payment of payments"><input type="checkbox" [checked]="selectedPayments.has(payment)" (change)="togglePayment(payment)"><span>{{ payment }}</span></label>
+          </div>
+        </details>
+      </div>
       <label>Desde<input type="date" [(ngModel)]="dateFrom"></label>
       <label>Hasta<input type="date" [(ngModel)]="dateTo"></label>
     </div>
@@ -43,17 +71,46 @@
 
     <section class="insight-grid">
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">DIMENSIONES</span><h2>Unidades por etiqueta</h2></div><span class="panel-note">Clic para seleccionar varias</span></div>
+        <div class="panel-title"><div><span class="eyebrow">DIMENSIONES</span><h2>Unidades por etiqueta</h2></div></div>
         <div *ngIf="categoryBreakdown.length; else emptyCategories" class="bars">
           <button class="bar-row" *ngFor="let item of categoryBreakdown" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">
-            <div class="bar-label"><span>{{ item.name }}</span><b>{{ formatUnits(item.units) }}</b></div><div class="track"><i [style.width.%]="item.width"></i></div>
+            <div class="bar-label"><span>{{ item.name }}</span><b>{{ formatUnits(item.units) }}<ng-container *ngIf="item.selectedSegments.length"> · escala {{ formatUnits(item.scale) }} · seleccionados {{ formatUnits(item.selectedUnits) }}</ng-container></b></div>
+            <div class="track" [class.stacked-track]="item.selectedSegments.length" [style.background]="item.selectedSegments.length ? '#eef1f4' : null">
+              <ng-container *ngIf="item.selectedSegments.length; else categoryTotalBar">
+                <i *ngFor="let segment of item.selectedSegments" class="stacked-segment" [style.width.%]="segment.width" [style.background]="segment.color" [title]="segment.name + ': ' + formatUnits(segment.units)"></i><i class="stacked-remainder" [style.width.%]="item.remainderWidth" title="Otros productos de la categoría"></i>
+              </ng-container>
+              <ng-template #categoryTotalBar><i [style.width.%]="item.width"></i></ng-template>
+            </div>
           </button>
         </div>
       </article>
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">TENDENCIA</span><h2>Ventas por día</h2></div><span class="panel-note">Clic para cruzar días</span></div>
-        <div *ngIf="dailySales.length; else emptyTrend" class="daily-bars">
-          <button *ngFor="let day of dailySales" class="day-column" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)"><span class="day-value">{{ formatMoney(day.revenue) }}</span><div class="day-track"><i [style.height.%]="day.width"></i></div><b>{{ day.label }}</b><small>{{ formatUnits(day.units) }}</small></button>
+        <div class="panel-title"><div><span class="eyebrow">TENDENCIA</span><h2>Ventas por día</h2></div></div>
+        <div *ngIf="dailySales.length; else emptyTrend" class="daily-metrics">
+          <div class="daily-metric">
+            <h3>Por dinero</h3>
+            <div class="daily-line-chart">
+              <div class="line-y-label">{{ formatMoney(dailySales[0].revenue) }}</div>
+              <svg viewBox="0 0 700 150" preserveAspectRatio="none" role="img" aria-label="Ventas por dinero por día">
+                <polyline class="line-grid" points="0,20 700,20 700,75 0,75 0,130 700,130"></polyline>
+                <polyline class="sales-line money-line" [attr.points]="dailyRevenuePoints"></polyline>
+                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.revenueWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }}: {{ formatMoney(day.revenue) }} | Horarios: {{ day.hours }}</title></circle>
+              </svg>
+              <div class="line-labels"><button *ngFor="let day of dailySales" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)">{{ day.label }}<small>{{ day.hours }}</small></button></div>
+            </div>
+          </div>
+          <div class="daily-metric">
+            <h3>Por unidades</h3>
+            <div class="daily-line-chart">
+              <div class="line-y-label">{{ formatUnits(dailySales[0].units) }} un.</div>
+              <svg viewBox="0 0 700 150" preserveAspectRatio="none" role="img" aria-label="Ventas por unidades por día">
+                <polyline class="line-grid" points="0,20 700,20 700,75 0,75 0,130 700,130"></polyline>
+                <polyline class="sales-line units-line" [attr.points]="dailyUnitsPoints"></polyline>
+                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.unitsWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }}: {{ formatUnits(day.units) }} unidades | Horarios: {{ day.hours }}</title></circle>
+              </svg>
+              <div class="line-labels"><button *ngFor="let day of dailySales" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)">{{ day.label }}<small>{{ day.hours }}</small></button></div>
+            </div>
+          </div>
         </div>
       </article>
     </section>
