@@ -1,11 +1,23 @@
 package com.inventario.licoreria.modules.inventory.model;
 
+import java.time.LocalDateTime;
+
+import org.springframework.lang.NonNull;
+
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.users.model.User;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
-import org.springframework.lang.NonNull;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "transaction")
@@ -36,7 +48,6 @@ public class Transaction {
     private User user;
 
     @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JsonIgnore
     private PaymentMethod paymentMethod;
 
     public Transaction() {

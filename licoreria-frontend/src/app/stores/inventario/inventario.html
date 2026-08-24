@@ -102,7 +102,7 @@
           <ul class="alert-list">
             <li *ngFor="let product of getAlertsWithStatus('low')">
               <span class="product-name">{{ product.name }}</span>
-              <span class="product-info">(Stock: {{ product.stock }}, Umbral: {{ product.alert.threshold }})</span>
+              <span class="product-info">(Stock: {{ getDisplayStockForProduct(product) }}, Umbral: {{ getAlertThreshold(product) }})</span>
             </li>
           </ul>
         </div>
@@ -112,7 +112,7 @@
           <ul class="alert-list">
             <li *ngFor="let product of getAlertsWithStatus('out')">
               <span class="product-name">{{ product.name }}</span>
-              <span class="product-info">(Umbral: {{ product.alert.threshold }})</span>
+              <span class="product-info">(Stock: {{ getDisplayStockForProduct(product) }}, Umbral: {{ getAlertThreshold(product) }})</span>
             </li>
           </ul>
         </div>
@@ -223,8 +223,8 @@
                                 <div class="form-group">
                                   <label>Estado de Alerta</label>
                                   <select [(ngModel)]="alertForm.isEnabled" name="isEnabled" class="form-control">
-                                    <option [value]="true">✅ Alerta Activa</option>
-                                    <option [value]="false">⭕ Alerta Inactiva</option>
+                                    <option [ngValue]="true">✅ Alerta Activa</option>
+                                    <option [ngValue]="false">⭕ Alerta Inactiva</option>
                                   </select>
                                 </div>
                               </div>

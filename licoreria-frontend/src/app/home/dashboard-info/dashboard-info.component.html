@@ -63,10 +63,10 @@
   <div *ngIf="!loading && errorMessage" class="state-box error">{{ errorMessage }}</div>
   <ng-container *ngIf="!loading && !errorMessage">
     <section class="kpi-grid">
-      <article class="kpi-card accent-sales"><span>Ingreso total</span><strong>{{ formatMoney(totalRevenue) }}</strong><small>{{ formatUnits(sales.length) }} ventas</small></article>
-      <article class="kpi-card accent-cost"><span>Costo de venta</span><strong>{{ formatMoney(totalCost) }}</strong><small>Solo ventas confirmadas</small></article>
-      <article class="kpi-card accent-profit"><span>Ganancia bruta</span><strong>{{ formatMoney(grossProfit) }}</strong><small>{{ margin | number:'1.1-1' }}% de margen</small></article>
-      <article class="kpi-card accent-net"><span>Utilidad neta</span><strong>{{ formatMoney(netProfit) }}</strong><small>Después de costos administrativos</small></article>
+      <article class="kpi-card accent-sales" tabindex="0"><div class="kpi-icon"><i class="bx bx-dollar-circle"></i></div><div class="kpi-content"><strong>{{ formatMoney(totalRevenue) }}</strong><span>INGRESO TOTAL</span><small>{{ formatUnits(sales.length) }} ventas</small></div></article>
+      <article class="kpi-card accent-cost" tabindex="0"><div class="kpi-icon"><i class="bx bx-receipt"></i></div><div class="kpi-content"><strong>{{ formatMoney(totalCost) }}</strong><span>COSTO DE VENTA</span><small>Solo ventas confirmadas</small></div></article>
+      <article class="kpi-card accent-profit" tabindex="0"><div class="kpi-icon"><i class="bx bx-line-chart"></i></div><div class="kpi-content"><strong>{{ formatMoney(grossProfit) }}</strong><span>GANANCIA BRUTA</span><small>{{ margin | number:'1.1-1' }}% de margen</small></div></article>
+      <article class="kpi-card accent-net" tabindex="0"><div class="kpi-icon"><i class="bx bx-wallet"></i></div><div class="kpi-content"><strong>{{ formatMoney(netProfit) }}</strong><span>UTILIDAD NETA</span><small>Después de costos administrativos</small></div></article>
     </section>
 
     <section class="insight-grid">
@@ -94,7 +94,7 @@
               <svg viewBox="0 0 700 150" preserveAspectRatio="none" role="img" aria-label="Ventas por dinero por día">
                 <polyline class="line-grid" points="0,20 700,20 700,75 0,75 0,130 700,130"></polyline>
                 <polyline class="sales-line money-line" [attr.points]="dailyRevenuePoints"></polyline>
-                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.revenueWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }}: {{ formatMoney(day.revenue) }} | Horarios: {{ day.hours }}</title></circle>
+                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.revenueWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }} | {{ formatMoney(day.revenue) }} | Horarios: {{ day.hours }}</title></circle>
               </svg>
               <div class="line-labels"><button *ngFor="let day of dailySales" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)">{{ day.label }}<small>{{ day.hours }}</small></button></div>
             </div>
@@ -106,7 +106,7 @@
               <svg viewBox="0 0 700 150" preserveAspectRatio="none" role="img" aria-label="Ventas por unidades por día">
                 <polyline class="line-grid" points="0,20 700,20 700,75 0,75 0,130 700,130"></polyline>
                 <polyline class="sales-line units-line" [attr.points]="dailyUnitsPoints"></polyline>
-                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.unitsWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }}: {{ formatUnits(day.units) }} unidades | Horarios: {{ day.hours }}</title></circle>
+                <circle *ngFor="let day of dailySales; let index = index" class="sales-point" [class.active-point]="day.active" [attr.cx]="dailyPointX(index)" [attr.cy]="dailyPointY(day.unitsWidth)" r="5" (click)="toggleDate(day.date)"><title>{{ day.label }} | {{ formatUnits(day.units) }} unidades | Horarios: {{ day.hours }}</title></circle>
               </svg>
               <div class="line-labels"><button *ngFor="let day of dailySales" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)">{{ day.label }}<small>{{ day.hours }}</small></button></div>
             </div>
@@ -119,10 +119,10 @@
       <article class="panel">
         <div class="panel-title"><div><span class="eyebrow">RENDIMIENTO</span><h2>Productos más vendidos</h2></div><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div>
         <div *ngIf="productSummaries.length; else emptyProducts" class="product-list">
-          <div class="product-group" *ngFor="let item of productSummaries">
+          <div class="product-group" *ngFor="let item of productSummaries; let index = index">
             <div class="product-row" [class.active-selection]="isProductSelected(item.root.id)">
               <button class="product-main" type="button" (click)="toggleProductFilter(item.root.id)">
-                <span class="rank">{{ productSummaries.indexOf(item) + 1 }}</span>
+                <span class="rank">{{ index + 1 }}</span>
                 <span class="product-name">
                   <b>{{ item.root.name }}</b>
                   <small>{{ item.lots.length }} lote(s) asociado(s)</small>
@@ -157,15 +157,73 @@
         <ng-template #emptyRisk><div class="empty-inline">Ningún producto está bajo su umbral de alerta.</div></ng-template>
       </article>
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Indicadores rápidos</h2></div></div>
-        <div class="mini-stats">
-          <div><span>Pérdidas registradas</span><b>{{ formatUnits(losses) }} un.</b></div>
-          <div><span>Costos administrativos</span><b>{{ formatMoney(adminCost) }}</b></div>
-          <div><span>Movimientos filtrados</span><b>{{ formatUnits(filteredTransactions.length) }}</b></div>
-          <div><span>Productos con stock bajo</span><b>{{ lowStockCount }}</b></div>
+        <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Productos con stock bajo</h2></div><span class="panel-note">{{ lowStockProducts.length }} producto(s)</span></div>
+        <div *ngIf="lowStockProducts.length; else emptyLowStock" class="risk-list low-stock-list">
+          <div class="risk-row" *ngFor="let item of lowStockProducts" [class.critical]="item.severity === 'critical'">
+            <span class="risk-dot"></span>
+            <span class="risk-name">{{ item.name }}</span>
+            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
+          </div>
+        </div>
+        <ng-template #emptyLowStock><div class="empty-inline">Todos los productos tienen stock suficiente.</div></ng-template>
+      </article>
+    </section>
+    <section class="profitability-section">
+      <div class="section-heading"><div><span class="eyebrow">SEGUNDA SECCIÓN · ANÁLISIS FINANCIERO</span><h2>Rentabilidad % y ganancia total</h2><p>Compara margen, ganancia y salidas para descubrir qué categorías rinden más por volumen.</p></div><span class="profitability-total">Ganancia total <b>{{ formatMoney(totalCategoryProfit) }}</b></span></div>
+      <article class="panel profitability-panel">
+        <div *ngIf="categoryProfitability.length; else emptyProfitability" class="profitability-line-chart">
+          <div class="profitability-legend"><span><i class="margin-legend"></i>Rentabilidad %</span><span><i class="profit-legend"></i>Ganancia total</span><span><i class="volume-legend"></i>Salidas: pasa el cursor por los puntos</span></div>
+          <div class="profitability-chart-frame">
+            <div class="profit-axis left-axis"><span>{{ maxCategoryMargin.toFixed(0) }}%</span><span>{{ (maxCategoryMargin / 2).toFixed(0) }}%</span><span>0%</span></div>
+            <svg viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="Rentabilidad porcentual y ganancia total por categoría">
+              <line class="profit-grid-line" x1="0" y1="30" x2="900" y2="30"></line><line class="profit-grid-line" x1="0" y1="130" x2="900" y2="130"></line><line class="profit-grid-line" x1="0" y1="230" x2="900" y2="230"></line>
+              <polyline class="profit-line margin-line" [attr.points]="categoryMarginPoints"></polyline><polyline class="profit-line total-profit-line" [attr.points]="categoryTotalProfitPoints"></polyline>
+                <g *ngFor="let item of categoryProfitability; let index = index" class="category-point-group" [class.active-point-group]="item.active" (click)="toggleTag(item.name)">
+                <circle class="category-point margin-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.margin, maxCategoryMargin)" r="5"><title>{{ item.name }} | Rentabilidad: {{ item.margin.toFixed(2) }}% | Salidas: {{ formatUnits(item.units) }}</title></circle>
+                <circle class="category-point profit-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.profit, maxCategoryProfit)" r="5"><title>{{ item.name }} | Ganancia: {{ formatMoney(item.profit) }} | Salidas: {{ formatUnits(item.units) }}</title></circle>
+              </g>
+            </svg>
+            <div class="profit-axis right-axis"><span>{{ formatMoney(maxCategoryProfit) }}</span><span>{{ formatMoney(maxCategoryProfit / 2) }}</span><span>{{ formatMoney(0) }}</span></div>
+          </div>
+          <div class="profit-category-labels"><button *ngFor="let item of categoryProfitability; let index = index" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">{{ item.name }}<small>{{ formatUnits(item.units) }} salidas</small></button></div>
         </div>
       </article>
     </section>
+
+    <section class="dashboard-reports-section">
+      <div class="section-heading"><div><span class="eyebrow">REPORTES EN PANTALLA</span><h2>Resumen ejecutivo</h2><p>Indicadores principales del periodo seleccionado.</p></div><span class="report-period">{{ executiveSummaryPeriod }}</span></div>
+      <div class="period-controls"><span>Periodo</span><button type="button" [class.active-period]="executivePeriod === 'ALL'" (click)="setExecutivePeriod('ALL')">Todo</button><button type="button" [class.active-period]="executivePeriod === 'TODAY'" (click)="setExecutivePeriod('TODAY')">Hoy</button><button type="button" [class.active-period]="executivePeriod === '7D'" (click)="setExecutivePeriod('7D')">7 días</button><button type="button" [class.active-period]="executivePeriod === '30D'" (click)="setExecutivePeriod('30D')">30 días</button><button type="button" [class.active-period]="executivePeriod === 'CUSTOM'" (click)="setExecutivePeriod('CUSTOM')">Personalizado</button><input type="date" [(ngModel)]="dateFrom" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha inicial"><span>hasta</span><input type="date" [(ngModel)]="dateTo" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></div>
+      <div class="executive-grid">
+        <article class="report-stat report-stat-cost"><i class="report-stat-icon bx bx-wallet"></i><span>Total invertido</span><strong>{{ formatMoney(totalInvested) }}</strong><small>Compras y entradas</small></article>
+        <article class="report-stat report-stat-sales"><i class="report-stat-icon bx bx-trending-up"></i><span>Ingresos</span><strong>{{ formatMoney(totalRevenue) }}</strong><small>{{ formatUnits(executiveSalesUnits) }} unidades vendidas</small></article>
+        <article class="report-stat report-stat-warning"><i class="report-stat-icon bx bx-receipt"></i><span>Costo de venta</span><strong>{{ formatMoney(totalCost) }}</strong><small>Costo de productos vendidos</small></article>
+        <article class="report-stat report-stat-profit"><i class="report-stat-icon bx bx-line-chart"></i><span>Ganancia bruta</span><strong>{{ formatMoney(grossProfit) }}</strong><small>Ingresos menos costo</small></article>
+        <article class="report-stat report-stat-net"><i class="report-stat-icon bx bx-pie-chart-alt-2"></i><span>Margen</span><strong>{{ margin | number:'1.1-1' }}%</strong><small>Rentabilidad sobre ingresos</small></article>
+      </div>
+
+      <div class="reports-grid">
+        <article class="panel report-card">
+          <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Flujo diario</h2></div><span class="panel-note">Últimos 14 días</span></div>
+          <div *ngIf="dailyFlow.length; else emptyDailyFlow" class="flow-list">
+            <div class="flow-row" *ngFor="let item of dailyFlow">
+              <span class="flow-date">{{ item.label }}</span>
+              <div class="flow-values">
+                <span class="flow-metric flow-metric-entries"><small>Entradas</small><b>{{ formatUnits(item.entries) }} un.</b><em>{{ formatMoney(item.entryCost) }} invertido</em></span>
+                <span class="flow-metric flow-metric-sales"><small>Ventas</small><b>{{ formatMoney(item.salesRevenue) }}</b><em>{{ formatUnits(item.sales) }} un.</em></span>
+                <span class="flow-metric flow-metric-cost"><small>Costo de venta</small><b>{{ formatMoney(item.salesCost) }}</b><em>productos vendidos</em></span>
+                <span class="flow-metric flow-metric-profit"><small>Ganancia</small><b>{{ formatMoney(item.grossProfit) }}</b><em>bruta del día</em></span>
+              </div>
+            </div>
+          </div>
+          <div class="flow-legend"><span><i class="flow-entry"></i>Entradas</span><span><i class="flow-sale"></i>Ventas</span></div>
+        </article>
+        <article class="panel report-card">
+          <div class="panel-title"><div><span class="eyebrow">CONTROL FINANCIERO</span><h2>Costos administrativos</h2></div><span class="panel-note">Periodo filtrado</span></div>
+          <div class="admin-summary"><div><span>Total</span><b>{{ formatMoney(administrativeCostTotal) }}</b></div><div><span>Promedio</span><b>{{ formatMoney(administrativeCostAverage) }}</b></div></div>
+          <div *ngIf="administrativeCostRows.length; else emptyAdminCosts" class="admin-cost-list"><div class="admin-cost-row" *ngFor="let item of administrativeCostRows"><div><b>{{ item.description }}</b><small>{{ item.label }}</small></div><strong>{{ formatMoney(item.amount) }}</strong></div></div>
+        </article>
+      </div>
+    </section>
   </ng-container>
-  <ng-template #emptyCategories><div class="empty-inline">No hay ventas por etiqueta con estos filtros.</div></ng-template><ng-template #emptyTrend><div class="empty-inline">No hay ventas en el período seleccionado.</div></ng-template><ng-template #emptyProducts><div class="empty-inline">No hay productos vendidos con estos filtros.</div></ng-template><ng-template #emptyPayments><div class="empty-inline">No hay métodos de pago registrados.</div></ng-template>
+  <ng-template #emptyCategories><div class="empty-inline">No hay ventas por etiqueta con estos filtros.</div></ng-template><ng-template #emptyTrend><div class="empty-inline">No hay ventas en el período seleccionado.</div></ng-template><ng-template #emptyProducts><div class="empty-inline">No hay productos vendidos con estos filtros.</div></ng-template><ng-template #emptyPayments><div class="empty-inline">No hay métodos de pago registrados.</div></ng-template><ng-template #emptyProfitability><div class="empty-inline">No hay datos de rentabilidad con estos filtros.</div></ng-template><ng-template #emptyDailyFlow><div class="empty-inline">No hay movimientos diarios con estos filtros.</div></ng-template><ng-template #emptyAdminCosts><div class="empty-inline">No hay costos administrativos en este periodo.</div></ng-template>
 </main>

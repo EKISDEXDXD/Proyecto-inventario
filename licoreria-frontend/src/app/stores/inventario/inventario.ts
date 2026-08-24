@@ -309,6 +309,16 @@ export class InventarioComponent implements OnInit {
     return !!product && (Boolean(product.isActiveForSale) || Boolean(product.activeLote?.isActiveForSale));
   }
 
+  private getEffectiveAlert(product: any): any {
+    const rootProduct = product?.rootProduct
+      ?? (product?.parentId ? this.products.find(item => item.id === product.parentId) : product);
+    return rootProduct?.alert;
+  }
+
+  private isAlertEnabled(alert: any): boolean {
+    return alert?.isEnabled === true || alert?.isEnabled === 'true' || alert?.isEnabled === 1;
+  }
+
   private updateProductCaches(updatedProductId?: number) {
     const displayed = this.displayProducts.length > 0 ? this.displayProducts : this.products;
     const low: any[] = [];
@@ -319,9 +329,9 @@ export class InventarioComponent implements OnInit {
 
     displayed.forEach(product => {
       const stock = this.getDisplayStockForProduct(product);
-      const effectiveThreshold = product.alert?.threshold ?? threshold;
+      const alert = this.getEffectiveAlert(product);
+      const effectiveThreshold = alert?.threshold ?? threshold;
       const status: 'normal' | 'low' | 'out' = stock === 0 ? 'out' : stock <= effectiveThreshold ? 'low' : 'normal';
-      const onSale = this.isProductOnSale(product);
 
       if (product && product.id) {
         this.productStockCache[product.id] = stock;
@@ -332,7 +342,7 @@ export class InventarioComponent implements OnInit {
         normal.push(product);
       }
 
-      if (product.alert?.isEnabled && onSale) {
+      if (this.isAlertEnabled(alert)) {
         activeAlerts.push(product);
         if (status === 'low') {
           low.push(product);
@@ -1188,7 +1198,7 @@ export class InventarioComponent implements OnInit {
         const productIndex = this.products.findIndex(p => p.id === this.selectedProduct.id);
         if (productIndex !== -1) {
           this.products[productIndex].alert = updatedAlert;
-          this.filteredProducts = [...this.products];
+          this.updateFilteredProductsWithActiveLotes();
         }
         this.closeAlertPanel();
         alert('Alerta configurada correctamente');
@@ -1203,18 +1213,22 @@ export class InventarioComponent implements OnInit {
 
   // Obtener todos los productos con alertas activas
   getActiveAlerts() {
-    return this.activeAlertProducts.filter(p => this.isProductOnSale(p));
+    return this.activeAlertProducts;
   }
 
   // Obtener productos con alertas activas que están en estado bajo
   getAlertsWithStatus(status: 'low' | 'out') {
     if (status === 'low') {
-      return this.lowStockProducts.filter(p => p.alert?.isEnabled && this.isProductOnSale(p));
+      return this.lowStockProducts.filter(p => this.isAlertEnabled(this.getEffectiveAlert(p)));
     }
     if (status === 'out') {
-      return this.outOfStockProducts.filter(p => p.alert?.isEnabled && this.isProductOnSale(p));
+      return this.outOfStockProducts.filter(p => this.isAlertEnabled(this.getEffectiveAlert(p)));
     }
     return [];
+  }
+
+  getAlertThreshold(product: any): number {
+    return Number(this.getEffectiveAlert(product)?.threshold ?? this.lowStockThreshold);
   }
 
   /**
