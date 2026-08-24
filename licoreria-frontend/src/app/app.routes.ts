@@ -25,7 +25,6 @@ export const routes: Routes = [
     children: [
       { path: '', component: HomeComponent },
       { path: 'home', component: HomeComponent },
-      { path: 'dashboard-info', component: DashboardInfoComponent },
       { path: 'my-stores', component: MyStoresComponent },
       { path: 'create-store', component: CreateStoreComponent },
       { path: 'edit-store/:id', component: EditStoreComponent },

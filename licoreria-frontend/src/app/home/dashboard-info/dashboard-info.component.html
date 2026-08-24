@@ -1,337 +1,114 @@
-<div class="dashboard-container">
-  <!-- Header -->
-  <header class="dashboard-info-header">
-    <div class="dashboard-info-title">
-      <h1>Dashboard Info</h1>
-      <p class="subtitle">Gráficos, métricas clave y reportes de inventario, valor de stock y alertas de existencia.</p>
+<main class="dashboard-page">
+  <header class="dashboard-header">
+    <div>
+      <span class="eyebrow">ANALITICA DE TIENDA</span>
+      <h1>{{ storeName }}</h1>
+      <p>Ventas, inventario y rendimiento en un solo lugar.</p>
     </div>
+    <label class="currency-picker">Moneda
+      <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
+    </label>
   </header>
 
-  <div *ngIf="loading" class="loading">Cargando métricas...</div>
-
-  <div *ngIf="!loading" class="dashboard-info-content">
-    <!-- SECCIÓN 1: ESTADÍSTICAS PRINCIPALES -->
-    <div class="stats-grid">
-      <article class="stat-card">
-        <h3><i class="bx bx-package"></i> Total de productos</h3>
-        <p class="stat-number">{{ totalProducts }}</p>
-      </article>
-      <article class="stat-card">
-        <h3><i class="bx bx-bar-chart-alt"></i> Stock total</h3>
-        <p class="stat-number">{{ totalStock }}</p>
-      </article>
-      <article class="stat-card">
-        <h3><i class="bx bx-alert-triangle"></i> Productos en alerta</h3>
-        <p class="stat-number">{{ lowStock }}</p>
-      </article>
+  <section class="filters-panel">
+    <div class="filter-heading">
+      <div><span class="eyebrow">FILTROS CRUZADOS</span><h2>Explorar datos</h2></div>
+      <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
     </div>
-
-    <!-- SECCIÓN 1.5: COSTOS E INGRESOS DEL INVENTARIO -->
-    <div class="cost-revenue-section">
-      <div class="cost-revenue-container">
-        <!-- Tarjeta de Coste -->
-        <div class="cost-card">
-          <div class="card-icon cost-icon">
-            <i class="bx bx-import"></i>
-          </div>
-          <div class="card-content">
-            <h3>Coste del Inventario</h3>
-            <p class="card-value">${{ totalInventoryCost | number:'1.0-0' }}</p>
-            <p class="card-subtitle">Inversión Total</p>
-          </div>
-        </div>
-
-        <!-- Tarjeta de Valor de Venta -->
-        <div class="revenue-card">
-          <div class="card-icon revenue-icon">
-            <i class="bx bx-export"></i>
-          </div>
-          <div class="card-content">
-            <h3>Valor de Venta</h3>
-            <p class="card-value">${{ totalSaleValue | number:'1.0-0' }}</p>
-            <p class="card-subtitle">Valor Estimado</p>
-          </div>
-        </div>
-
-        <!-- Tarjeta de Margen -->
-        <div class="margin-card">
-          <div class="card-icon margin-icon">
-            <i class="bx bx-trending-up"></i>
-          </div>
-          <div class="card-content">
-            <h3>Margen de Ganancia</h3>
-            <p class="card-value">{{ profitMargin | number:'1.1-1' }}%</p>
-            <p class="card-subtitle">Rentabilidad</p>
-          </div>
-        </div>
-
-        <!-- Tarjeta de Ganancia en Dinero -->
-        <div class="profit-card">
-          <div class="card-icon profit-icon">
-            <i class="bx bx-money"></i>
-          </div>
-          <div class="card-content">
-            <h3>Ganancia Neta</h3>
-            <p class="card-value">${{ profitMarginAmount | number:'1.0-0' }}</p>
-            <p class="card-subtitle">Ganancia Total</p>
-          </div>
-        </div>
-      </div>
+    <div class="filter-grid">
+      <label>Tipo<select [(ngModel)]="typeFilter"><option value="SALIDA">Salidas</option><option value="ENTRADA">Entradas</option><option value="ALL">Todos</option></select></label>
+      <label>Motivo<select [(ngModel)]="reasonFilter"><option value="ALL">Todos los motivos</option><option *ngFor="let reason of reasons" [value]="reason">{{ reason }}</option></select></label>
+      <label>Etiqueta<select [(ngModel)]="selectedTag"><option value="ALL">Todas las etiquetas</option><option *ngFor="let tag of tags" [value]="tag.name">{{ tag.name }}</option></select></label>
+      <label>Pago<select [(ngModel)]="selectedPayment"><option value="ALL">Todos los métodos</option><option *ngFor="let payment of payments" [value]="payment">{{ payment }}</option></select></label>
+      <label>Desde<input type="date" [(ngModel)]="dateFrom"></label>
+      <label>Hasta<input type="date" [(ngModel)]="dateTo"></label>
     </div>
+    <div class="chip-row" *ngIf="activeFilterChips.length">
+      <span class="chip-hint">Filtros cruzados activos:</span>
+      <button type="button" class="chip" *ngFor="let chip of activeFilterChips" (click)="chip.onRemove()">
+        <small>{{ chip.group }}</small>{{ chip.label }}<span class="chip-x">×</span>
+      </button>
+    </div>
+  </section>
 
-    <!-- SECCIÓN 4: TOP 5 PRODUCTOS MÁS VENDIDOS -->
-    <section class="expandable-card top-sold-card">
-      <div class="expandable-header" (click)="toggleSection('topSold')">
-        <div class="header-left">
-          <i class="bx" [class.bx-chevron-down]="expandedSections['topSold']" [class.bx-chevron-right]="!expandedSections['topSold']"></i>
-          <div class="header-text">
-            <h2><i class="bx bx-flame"></i> Top 5 Productos Más Vendidos</h2>
-            <p>Los productos que más salidas han registrado</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="expandable-content" [class.expanded]="expandedSections['topSold']">
-        <div class="ranking-list">
-          <div *ngIf="topSoldProducts.length === 0" class="empty-state">
-            <p>No hay datos de productos vendidos</p>
-          </div>
-          <div *ngFor="let product of topSoldProducts; let i = index" class="ranking-item">
-            <div class="rank-number" [ngClass]="'rank-' + (i + 1)">{{ i + 1 }}</div>
-            <div class="ranking-info">
-              <h4>{{ product.name }}</h4>
-              <p class="product-code">{{ product.sku || 'N/A' }}</p>
-            </div>
-            <div class="ranking-stats">
-              <span class="stat-label">Vendido:</span>
-              <span class="stat-value">{{ product.salesCount || 0 }} unidades</span>
-            </div>
-          </div>
-        </div>
-      </div>
+  <div *ngIf="loading" class="state-box">Cargando información de la tienda...</div>
+  <div *ngIf="!loading && errorMessage" class="state-box error">{{ errorMessage }}</div>
+  <ng-container *ngIf="!loading && !errorMessage">
+    <section class="kpi-grid">
+      <article class="kpi-card accent-sales"><span>Ingreso total</span><strong>{{ formatMoney(totalRevenue) }}</strong><small>{{ formatUnits(sales.length) }} ventas</small></article>
+      <article class="kpi-card accent-cost"><span>Costo de venta</span><strong>{{ formatMoney(totalCost) }}</strong><small>Solo ventas confirmadas</small></article>
+      <article class="kpi-card accent-profit"><span>Ganancia bruta</span><strong>{{ formatMoney(grossProfit) }}</strong><small>{{ margin | number:'1.1-1' }}% de margen</small></article>
+      <article class="kpi-card accent-net"><span>Utilidad neta</span><strong>{{ formatMoney(netProfit) }}</strong><small>Después de costos administrativos</small></article>
     </section>
 
-    <!-- SECCIÓN 5: TOP 5 PRODUCTOS MENOS VENDIDOS -->
-    <section class="expandable-card bottom-sold-card">
-      <div class="expandable-header" (click)="toggleSection('bottomSold')">
-        <div class="header-left">
-          <i class="bx" [class.bx-chevron-down]="expandedSections['bottomSold']" [class.bx-chevron-right]="!expandedSections['bottomSold']"></i>
-          <div class="header-text">
-            <h2><i class="bx bx-trending-down"></i> Top 5 Productos Menos Vendidos</h2>
-            <p>Los productos con menor movimiento de salidas</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="expandable-content" [class.expanded]="expandedSections['bottomSold']">
-        <div class="ranking-list">
-          <div *ngIf="bottomSoldProducts.length === 0" class="empty-state">
-            <p>No hay datos de productos vendidos</p>
-          </div>
-          <div *ngFor="let product of bottomSoldProducts; let i = index" class="ranking-item">
-            <div class="rank-number rank-low">{{ i + 1 }}</div>
-            <div class="ranking-info">
-              <h4>{{ product.name }}</h4>
-              <p class="product-code">{{ product.sku || 'N/A' }}</p>
-            </div>
-            <div class="ranking-stats">
-              <span class="stat-label">Vendido:</span>
-              <span class="stat-value low">{{ product.salesCount || 0 }} unidades</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-   
-
-    <!-- SECCIÓN 7: FORMULARIO DE REPORTES DE INFORMACIÓN -->
-    <section class="expandable-card reports-card">
-      <div class="expandable-header">
-        <div class="header-left">
-          <div class="header-text">
-            <h2>Reportes de Información</h2>
-            <p>Crea y gestiona reportes descriptivos</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="expandable-content expanded">
-        <!-- Formulario de Reportes -->
-        <div class="form-section" *ngIf="showReportForm">
-          <div class="form-card">
-            <h3>{{ editingReportId ? 'Editar Reporte' : 'Crear Nuevo Reporte' }}</h3>
-
-            <div class="form-group">
-              <label for="report-title">Título *</label>
-              <input 
-                type="text" 
-                id="report-title" 
-                [(ngModel)]="title" 
-                placeholder="Ingresa el título del reporte"
-                class="form-input"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="report-date">Fecha del Reporte *</label>
-              <input 
-                type="date" 
-                id="report-date" 
-                [(ngModel)]="reportDate"
-                class="form-input"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="report-description">Descripción *</label>
-              <textarea 
-                id="report-description" 
-                [(ngModel)]="description" 
-                placeholder="Ingresa la descripción del reporte"
-                rows="4"
-                class="form-textarea"
-              ></textarea>
-            </div>
-
-            <div class="form-actions">
-              <button 
-                class="btn btn-success" 
-                (click)="submitReport()"
-                [disabled]="reportLoading"
-              >
-                {{ reportLoading ? 'Guardando...' : (editingReportId ? 'Actualizar' : 'Crear') }}
-              </button>
-              <button 
-                class="btn btn-secondary" 
-                (click)="toggleReportForm()"
-                [disabled]="reportLoading"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Botón Nuevo Reporte (cuando no hay formulario) -->
-        <div *ngIf="!showReportForm" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center;">
-          <button class="btn btn-primary" (click)="toggleReportForm()">
-            + Nuevo Reporte
-          </button>
-          <button 
-            class="btn btn-filter-toggle" 
-            (click)="toggleFilters()"
-            [class.active]="showFilters"
-          >
-            <i class="bx" [class.bx-chevron-down]="showFilters" [class.bx-chevron-right]="!showFilters"></i>
-            Filtros
+    <section class="insight-grid">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">DIMENSIONES</span><h2>Unidades por etiqueta</h2></div><span class="panel-note">Clic para seleccionar varias</span></div>
+        <div *ngIf="categoryBreakdown.length; else emptyCategories" class="bars">
+          <button class="bar-row" *ngFor="let item of categoryBreakdown" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">
+            <div class="bar-label"><span>{{ item.name }}</span><b>{{ formatUnits(item.units) }}</b></div><div class="track"><i [style.width.%]="item.width"></i></div>
           </button>
         </div>
-
-        <!-- Filtros Compactos (Collapsible) -->
-        <div class="compact-filters" [class.expanded]="showFilters" *ngIf="!showReportForm">
-          <!-- Buscador -->
-          <div class="filter-item">
-            <input 
-              type="text" 
-              [(ngModel)]="searchQuery"
-              (input)="onSearchChange()"
-              placeholder="Buscar reportes..."
-              class="form-input compact-search"
-            />
-          </div>
-
-          <!-- Filtro Fecha Desde -->
-          <div class="filter-item">
-            <label for="compact-start-date">Desde:</label>
-            <input 
-              type="date" 
-              id="compact-start-date" 
-              [(ngModel)]="filterStartDate"
-              (change)="applyDateFilter()"
-              class="form-input compact-input"
-            />
-          </div>
-
-          <!-- Filtro Fecha Hasta -->
-          <div class="filter-item">
-            <label for="compact-end-date">Hasta:</label>
-            <input 
-              type="date" 
-              id="compact-end-date" 
-              [(ngModel)]="filterEndDate"
-              (change)="applyDateFilter()"
-              class="form-input compact-input"
-            />
-          </div>
-
-          <!-- Botones Acciones -->
-          <div class="filter-actions-compact">
-            <button class="btn btn-sm btn-success" (click)="applyDateFilter()">
-              Aplicar
-            </button>
-            <button class="btn btn-sm btn-secondary" (click)="resetFilters()">
-              Limpiar
-            </button>
-          </div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">TENDENCIA</span><h2>Ventas por día</h2></div><span class="panel-note">Clic para cruzar días</span></div>
+        <div *ngIf="dailySales.length; else emptyTrend" class="daily-bars">
+          <button *ngFor="let day of dailySales" class="day-column" type="button" [class.active-selection]="day.active" (click)="toggleDate(day.date)"><span class="day-value">{{ formatMoney(day.revenue) }}</span><div class="day-track"><i [style.height.%]="day.width"></i></div><b>{{ day.label }}</b><small>{{ formatUnits(day.units) }}</small></button>
         </div>
-
-        <!-- Lista de Reportes -->
-        <div class="reports-section" *ngIf="!showReportForm">
-          <h4>Reportes ({{ filteredReports.length }})</h4>
-
-          <div *ngIf="reportLoading" class="loading-small">
-            <p>Cargando reportes...</p>
-          </div>
-
-          <div *ngIf="!reportLoading && filteredReports.length === 0" class="no-reports">
-            <p>No hay reportes disponibles</p>
-          </div>
-
-          <div *ngIf="!reportLoading && filteredReports.length > 0" class="reports-grid">
-            <div class="report-card" *ngFor="let report of filteredReports">
-              <div class="report-header">
-                <h5>{{ report.title }}</h5>
-                <span class="report-date">{{ report.reportDate }}</span>
-              </div>
-
-              <div class="report-content">
-                <p class="report-description">{{ report.description }}</p>
-                <div class="report-meta">
-                  <span><strong>Usuario:</strong> {{ report.userName }}</span>
-                  <span><strong>Creado:</strong> {{ report.createdAt | date:'short' }}</span>
-                </div>
-              </div>
-
-              <div class="report-actions">
-                
-                <button class="btn btn-sm btn-danger" (click)="deleteReport(report.id)">
-                   Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Paginación -->
-          <div *ngIf="!reportLoading && totalPages > 1" class="pagination">
-            <button 
-              class="btn btn-secondary-small" 
-              (click)="previousPage()"
-              [disabled]="currentPage === 0"
-            >
-              ← Anterior
-            </button>
-            <span>Página {{ currentPage + 1 }} de {{ totalPages }}</span>
-            <button 
-              class="btn btn-secondary-small" 
-              (click)="nextPage()"
-              [disabled]="currentPage === totalPages - 1"
-            >
-              Siguiente →
-            </button>
-          </div>
-        </div>
-      </div>
+      </article>
     </section>
-  </div>
-</div>
+
+    <section class="lower-grid">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">RENDIMIENTO</span><h2>Productos más vendidos</h2></div><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div>
+        <div *ngIf="productSummaries.length; else emptyProducts" class="product-list">
+          <div class="product-group" *ngFor="let item of productSummaries">
+            <div class="product-row" [class.active-selection]="isProductSelected(item.root.id)">
+              <button class="product-main" type="button" (click)="toggleProductFilter(item.root.id)">
+                <span class="rank">{{ productSummaries.indexOf(item) + 1 }}</span>
+                <span class="product-name">
+                  <b>{{ item.root.name }}</b>
+                  <small>{{ item.lots.length }} lote(s) asociado(s)</small>
+                  <span class="mini-track"><i [style.width.%]="item.barWidth"></i></span>
+                </span>
+                <strong>{{ formatUnits(item.units) }}</strong>
+                <span>{{ formatMoney(item.revenue) }}</span>
+              </button>
+              <button class="expand-button" type="button" [attr.aria-label]="item.expanded ? 'Ocultar lotes' : 'Mostrar lotes'" (click)="toggleProduct(item)"><span class="chevron" [class.open]="item.expanded">⌄</span></button>
+            </div>
+            <div class="lot-list" *ngIf="item.expanded"><div class="lot-row" *ngFor="let lot of item.lots"><span><b>{{ lot.name }}</b><small>{{ formatUnits(lotMetrics(lot).units) }} un. | {{ formatMoney(lotMetrics(lot).profit) }} ganancia</small></span><span>Stock {{ formatUnits(lot.stock || 0) }}</span><span>{{ formatMoney(lot.price || 0) }}</span></div></div>
+          </div>
+        </div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">COBRANZA</span><h2>Ventas por método de pago</h2></div></div>
+        <div *ngIf="paymentBreakdown.length; else emptyPayments" class="payment-list"><button class="payment-row" *ngFor="let item of paymentBreakdown" type="button" [class.active-selection]="item.active" (click)="togglePayment(item.name)"><div><span class="dot"></span>{{ item.name }}</div><strong>{{ formatUnits(item.units) }}</strong><div class="track"><i [style.width.%]="item.width"></i></div></button></div>
+        <div class="payment-foot">Ticket promedio <b>{{ formatMoney(averageTicket) }}</b></div>
+      </article>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">RIESGO</span><h2>Stock crítico</h2></div><span class="panel-note">Según alertas configuradas</span></div>
+        <div *ngIf="stockRisk.length; else emptyRisk" class="risk-list">
+          <div class="risk-row" *ngFor="let item of stockRisk" [class.critical]="item.severity === 'critical'">
+            <span class="risk-dot"></span>
+            <span class="risk-name">{{ item.name }}</span>
+            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
+          </div>
+        </div>
+        <ng-template #emptyRisk><div class="empty-inline">Ningún producto está bajo su umbral de alerta.</div></ng-template>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Indicadores rápidos</h2></div></div>
+        <div class="mini-stats">
+          <div><span>Pérdidas registradas</span><b>{{ formatUnits(losses) }} un.</b></div>
+          <div><span>Costos administrativos</span><b>{{ formatMoney(adminCost) }}</b></div>
+          <div><span>Movimientos filtrados</span><b>{{ formatUnits(filteredTransactions.length) }}</b></div>
+          <div><span>Productos con stock bajo</span><b>{{ lowStockCount }}</b></div>
+        </div>
+      </article>
+    </section>
+  </ng-container>
+  <ng-template #emptyCategories><div class="empty-inline">No hay ventas por etiqueta con estos filtros.</div></ng-template><ng-template #emptyTrend><div class="empty-inline">No hay ventas en el período seleccionado.</div></ng-template><ng-template #emptyProducts><div class="empty-inline">No hay productos vendidos con estos filtros.</div></ng-template><ng-template #emptyPayments><div class="empty-inline">No hay métodos de pago registrados.</div></ng-template>
+</main>
