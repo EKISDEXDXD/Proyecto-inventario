@@ -27,8 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId ORDER BY t.dateTime DESC")
     List<Transaction> findByUserIdOrderByDateTimeDesc(@Param("userId") Long userId);
 
-    // Buscar transacciones por tienda
-    @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
+    // Buscar transacciones por tienda (fetch join evita N+1 al traer product y user en una sola consulta)
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.product p JOIN FETCH t.user WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
     List<Transaction> findByStoreIdOrderByDateTimeDesc(@Param("storeId") Long storeId);
 
     @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")

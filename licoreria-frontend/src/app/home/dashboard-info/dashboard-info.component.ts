@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -29,12 +29,13 @@ interface StockRiskItem { id: number; name: string; stock: number; threshold: nu
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './dashboard-info.component.html',
-  styleUrls: ['./dashboard-info.component.css']
+  styleUrls: ['./dashboard-info.component.css'],
+  // Con muchos datos, la estrategia por defecto recalculaba todos los getters en cada ciclo global de
+  // detección de cambios (scroll, timers, etc). OnPush limita el recálculo a eventos propios del componente.
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardInfoComponent implements OnInit {
   storeId = 0; storeName = 'Tienda'; loading = true; errorMessage = ''; currency = 'Bs'; filtersOpen = false;
-  typeFilter: 'ALL' | 'ENTRADA' | 'SALIDA' = 'SALIDA'; reasonFilter = 'ALL';
-  sortBy: 'units' | 'revenue' | 'profit' = 'units'; productSearchTerm = ''; dateFrom = ''; dateTo = '';
   transactions: TransactionRecord[] = []; products: ProductRecord[] = []; paymentMethodConfigs: PaymentMethodConfigRecord[] = []; adminMovements: Array<{ dateTime: string; amountPaid: number; description?: string; concept?: string; type?: string }> = [];
   expandedProductIds = new Set<number>();
   selectedTags = new Set<string>();
@@ -42,6 +43,39 @@ export class DashboardInfoComponent implements OnInit {
   selectedProductIds = new Set<number>();
   selectedPayments = new Set<string>();
   executivePeriod: 'ALL' | 'TODAY' | '7D' | '30D' | 'CUSTOM' = 'ALL';
+
+  // Con datasets grandes en producción, recalcular todo en cada acceso a un getter es muy costoso.
+  // _cache memoriza el resultado de cada getter pesado hasta que bump() incrementa _version.
+  private _version = 0;
+  private _cache = new Map<string, { version: number; value: any }>();
+  private _typeFilter: 'ALL' | 'ENTRADA' | 'SALIDA' = 'SALIDA';
+  private _reasonFilter = 'ALL';
+  private _sortBy: 'units' | 'revenue' | 'profit' = 'units';
+  private _productSearchTerm = '';
+  private _dateFrom = '';
+  private _dateTo = '';
+
+  get typeFilter(): 'ALL' | 'ENTRADA' | 'SALIDA' { return this._typeFilter; }
+  set typeFilter(value: 'ALL' | 'ENTRADA' | 'SALIDA') { this._typeFilter = value; this.bump(); }
+  get reasonFilter(): string { return this._reasonFilter; }
+  set reasonFilter(value: string) { this._reasonFilter = value; this.bump(); }
+  get sortBy(): 'units' | 'revenue' | 'profit' { return this._sortBy; }
+  set sortBy(value: 'units' | 'revenue' | 'profit') { this._sortBy = value; this.bump(); }
+  get productSearchTerm(): string { return this._productSearchTerm; }
+  set productSearchTerm(value: string) { this._productSearchTerm = value; this.bump(); }
+  get dateFrom(): string { return this._dateFrom; }
+  set dateFrom(value: string) { this._dateFrom = value; this.bump(); }
+  get dateTo(): string { return this._dateTo; }
+  set dateTo(value: string) { this._dateTo = value; this.bump(); }
+
+  private bump(): void { this._version++; }
+  private memo<T>(key: string, compute: () => T): T {
+    const cached = this._cache.get(key);
+    if (cached && cached.version === this._version) return cached.value;
+    const value = compute();
+    this._cache.set(key, { version: this._version, value });
+    return value;
+  }
 
   constructor(private route: ActivatedRoute, private router: Router, private http: HttpClient, private apiConfig: ApiConfigService, private cdr: ChangeDetectorRef) {}
 
@@ -81,14 +115,15 @@ export class DashboardInfoComponent implements OnInit {
         this.transactions = transactions;
       }
       this.loading = false;
+      this.bump();
       this.cdr.detectChanges();
     });
   }
 
-  get reasons(): string[] { return [...new Set(this.transactions.map(item => item.reason).filter(Boolean))].sort(); }
-  get tags(): Array<{ id: number; name: string }> { const result = new Map<number, string>(); this.products.forEach(product => this.productTags(product).forEach(tag => result.set(tag.id, tag.name))); return [...result.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)); }
-  get payments(): string[] { return [...new Set([...this.paymentMethodConfigs.filter(item => item.isActive !== false).map(item => item.name), ...this.transactions.map(item => item.paymentMethod?.paymentMethodConfig?.name).filter(Boolean) as string[]])].sort(); }
-  get filteredTransactions(): TransactionRecord[] { return this.matchingTransactions(); }
+  get reasons(): string[] { return this.memo('reasons', () => [...new Set(this.transactions.map(item => item.reason).filter(Boolean))].sort()); }
+  get tags(): Array<{ id: number; name: string }> { return this.memo('tags', () => { const result = new Map<number, string>(); this.products.forEach(product => this.productTags(product).forEach(tag => result.set(tag.id, tag.name))); return [...result.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)); }); }
+  get payments(): string[] { return this.memo('payments', () => [...new Set([...this.paymentMethodConfigs.filter(item => item.isActive !== false).map(item => item.name), ...this.transactions.map(item => item.paymentMethod?.paymentMethodConfig?.name).filter(Boolean) as string[]])].sort()); }
+  get filteredTransactions(): TransactionRecord[] { return this.memo('filteredTransactions', () => this.matchingTransactions()); }
   private isAnalyticTransaction(item: TransactionRecord): boolean {
     if (this.typeFilter === 'ENTRADA') return item.type === 'ENTRADA' && item.reason === 'COMPRA';
     return item.type === 'SALIDA' && item.reason === 'VENTA';
@@ -109,7 +144,7 @@ export class DashboardInfoComponent implements OnInit {
         && (!this.dateTo || date <= this.dateTo);
     });
   }
-  get sales(): TransactionRecord[] { return this.filteredTransactions.filter(item => item.type === 'SALIDA' && item.reason === 'VENTA'); }
+  get sales(): TransactionRecord[] { return this.memo('sales', () => this.filteredTransactions.filter(item => item.type === 'SALIDA' && item.reason === 'VENTA')); }
   get totalRevenue(): number { return this.sales.reduce((sum, item) => sum + this.amount(item, 'price'), 0); }
   get totalCost(): number { return this.sales.reduce((sum, item) => sum + this.amount(item, 'cost'), 0); }
   get grossProfit(): number { return this.totalRevenue - this.totalCost; }
@@ -127,21 +162,24 @@ export class DashboardInfoComponent implements OnInit {
   get executiveMovements(): number { return this.filteredTransactions.length; }
   get executiveSummaryPeriod(): string { return this.dateFrom || this.dateTo ? `${this.dateFrom || 'Inicio'} - ${this.dateTo || 'Hoy'}` : 'Todo el periodo disponible'; }
   get dailyFlow(): DailyFlow[] {
-    const map = new Map<string, DailyFlow>();
-    this.matchingTransactions(['dates', 'type']).filter(item => item.reason !== 'AJUSTE').forEach(item => {
-      const date = item.dateTime?.slice(0, 10) ?? '';
-      if (!date) return;
-      const current = map.get(date) ?? { date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short', day: '2-digit', month: 'short' }), entries: 0, entryCost: 0, sales: 0, salesRevenue: 0, salesCost: 0, grossProfit: 0, width: 0 };
-      if (item.type === 'ENTRADA') { current.entries += item.quantity; current.entryCost += this.amount(item, 'cost'); }
-      if (item.type === 'SALIDA' && item.reason === 'VENTA') { current.sales += item.quantity; current.salesRevenue += this.amount(item, 'price'); current.salesCost += this.amount(item, 'cost'); current.grossProfit += this.amount(item, 'price') - this.amount(item, 'cost'); }
-      map.set(date, current);
+    return this.memo('dailyFlow', () => {
+      const map = new Map<string, DailyFlow>();
+      this.matchingTransactions(['dates', 'type']).filter(item => item.reason !== 'AJUSTE').forEach(item => {
+        const date = item.dateTime?.slice(0, 10) ?? '';
+        if (!date) return;
+        const current = map.get(date) ?? { date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short', day: '2-digit', month: 'short' }), entries: 0, entryCost: 0, sales: 0, salesRevenue: 0, salesCost: 0, grossProfit: 0, width: 0 };
+        if (item.type === 'ENTRADA') { current.entries += item.quantity; current.entryCost += this.amount(item, 'cost'); }
+        if (item.type === 'SALIDA' && item.reason === 'VENTA') { current.sales += item.quantity; current.salesRevenue += this.amount(item, 'price'); current.salesCost += this.amount(item, 'cost'); current.grossProfit += this.amount(item, 'price') - this.amount(item, 'cost'); }
+        map.set(date, current);
+      });
+      const days = [...map.values()].sort((first, second) => first.date.localeCompare(second.date)).slice(-14);
+      const max = Math.max(...days.map(item => Math.max(item.entries, item.sales)), 1);
+      return days.map(item => ({ ...item, width: item.sales / max * 100 }));
     });
-    const days = [...map.values()].sort((first, second) => first.date.localeCompare(second.date)).slice(-14);
-    const max = Math.max(...days.map(item => Math.max(item.entries, item.sales)), 1);
-    return days.map(item => ({ ...item, width: item.sales / max * 100 }));
   }
   get administrativeCostRows(): Array<{ date: string; label: string; amount: number; description: string }> {
-    return this.adminMovements.filter(item => { const date = item.dateTime?.slice(0, 10) ?? ''; return (!this.dateFrom || date >= this.dateFrom) && (!this.dateTo || date <= this.dateTo); }).map(item => ({ date: item.dateTime?.slice(0, 10) ?? '', label: item.dateTime ? new Date(item.dateTime).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha', amount: Number(item.amountPaid ?? 0), description: item.description || item.concept || item.type || 'Costo administrativo' })).sort((first, second) => second.date.localeCompare(first.date)); }
+    return this.memo('administrativeCostRows', () => this.adminMovements.filter(item => { const date = item.dateTime?.slice(0, 10) ?? ''; return (!this.dateFrom || date >= this.dateFrom) && (!this.dateTo || date <= this.dateTo); }).map(item => ({ date: item.dateTime?.slice(0, 10) ?? '', label: item.dateTime ? new Date(item.dateTime).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha', amount: Number(item.amountPaid ?? 0), description: item.description || item.concept || item.type || 'Costo administrativo' })).sort((first, second) => second.date.localeCompare(first.date)));
+  }
   get administrativeCostTotal(): number { return this.administrativeCostRows.reduce((sum, item) => sum + item.amount, 0); }
   get administrativeCostAverage(): number { return this.administrativeCostRows.length ? this.administrativeCostTotal / this.administrativeCostRows.length : 0; }
   get dailyFlowMax(): number { return Math.max(...this.dailyFlow.map(item => Math.max(item.entries, item.sales)), 1); }
@@ -157,52 +195,56 @@ export class DashboardInfoComponent implements OnInit {
     this.dateFrom = toIso(period === 'TODAY' ? today : from); this.dateTo = toIso(today);
   }
 
-  get productSummaries(): ProductSummary[] { const key = this.sortBy; const search = this.productSearchTerm.trim().toLocaleLowerCase(); const raw = this.rootProducts.map(root => { const lots = this.products.filter(product => product.parentId === root.id); const ids = new Set([root.id, ...lots.map(lot => lot.id)]); const rows = this.matchingTransactions(['products']).filter(item => this.isAnalyticTransaction(item) && item.product?.id && ids.has(item.product.id)); return { root, lots, expanded: this.expandedProductIds.has(root.id), units: rows.reduce((sum, item) => sum + item.quantity, 0), revenue: rows.reduce((sum, item) => sum + this.amount(item, 'price'), 0), cost: rows.reduce((sum, item) => sum + this.amount(item, 'cost'), 0), profit: rows.reduce((sum, item) => sum + this.amount(item, 'price') - this.amount(item, 'cost'), 0), barWidth: 0 }; }).filter(item => item.units > 0 && (!search || item.root.name.toLocaleLowerCase().includes(search) || item.lots.some(lot => lot.name.toLocaleLowerCase().includes(search)))); const max = Math.max(...raw.map(item => item[key]), 1); return raw.map(item => ({ ...item, barWidth: Math.max(item[key] / max * 100, 3) })).sort((a, b) => b[key] - a[key]); }
+  get productSummaries(): ProductSummary[] { return this.memo('productSummaries', () => { const key = this.sortBy; const search = this.productSearchTerm.trim().toLocaleLowerCase(); const raw = this.rootProducts.map(root => { const lots = this.products.filter(product => product.parentId === root.id); const ids = new Set([root.id, ...lots.map(lot => lot.id)]); const rows = this.matchingTransactions(['products']).filter(item => this.isAnalyticTransaction(item) && item.product?.id && ids.has(item.product.id)); return { root, lots, expanded: this.expandedProductIds.has(root.id), units: rows.reduce((sum, item) => sum + item.quantity, 0), revenue: rows.reduce((sum, item) => sum + this.amount(item, 'price'), 0), cost: rows.reduce((sum, item) => sum + this.amount(item, 'cost'), 0), profit: rows.reduce((sum, item) => sum + this.amount(item, 'price') - this.amount(item, 'cost'), 0), barWidth: 0 }; }).filter(item => item.units > 0 && (!search || item.root.name.toLocaleLowerCase().includes(search) || item.lots.some(lot => lot.name.toLocaleLowerCase().includes(search)))); const max = Math.max(...raw.map(item => item[key]), 1); return raw.map(item => ({ ...item, barWidth: Math.max(item[key] / max * 100, 3) })).sort((a, b) => b[key] - a[key]); }); }
   get categoryBreakdown(): Array<{ name: string; units: number; width: number; scale: number; active: boolean; selectedSegments: CategoryBarSegment[]; selectedUnits: number; remainder: number; remainderWidth: number }> {
-    const map = new Map<string, number>();
-    const selectedMap = new Map<string, Map<number, { name: string; units: number }>>();
-    this.matchingTransactions(['tags', 'products']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
-      const tags = item.product ? this.productTags(item.product) : [];
-      const names = tags.length ? tags.map(tag => tag.name) : ['Sin etiqueta'];
-      names.forEach(name => {
-        map.set(name, (map.get(name) ?? 0) + item.quantity);
-        const rootId = this.rootId(item.product);
-        if (this.selectedProductIds.has(rootId)) {
-          const products = selectedMap.get(name) ?? new Map<number, { name: string; units: number }>();
-          const current = products.get(rootId) ?? { name: item.product?.name ?? `#${rootId}`, units: 0 };
-          current.units += item.quantity;
-          products.set(rootId, current);
-          selectedMap.set(name, products);
-        }
+    return this.memo('categoryBreakdown', () => {
+      const map = new Map<string, number>();
+      const selectedMap = new Map<string, Map<number, { name: string; units: number }>>();
+      this.matchingTransactions(['tags', 'products']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
+        const tags = item.product ? this.productTags(item.product) : [];
+        const names = tags.length ? tags.map(tag => tag.name) : ['Sin etiqueta'];
+        names.forEach(name => {
+          map.set(name, (map.get(name) ?? 0) + item.quantity);
+          const rootId = this.rootId(item.product);
+          if (this.selectedProductIds.has(rootId)) {
+            const products = selectedMap.get(name) ?? new Map<number, { name: string; units: number }>();
+            const current = products.get(rootId) ?? { name: item.product?.name ?? `#${rootId}`, units: 0 };
+            current.units += item.quantity;
+            products.set(rootId, current);
+            selectedMap.set(name, products);
+          }
+        });
       });
+      const maxUnits = Math.max(...map.values(), 1);
+      const barScale = Math.floor(maxUnits / 50) * 50 + 50;
+      return [...map.entries()].map(([name, units]) => {
+        const selected = [...(selectedMap.get(name)?.entries() ?? [])].sort(([, first], [, second]) => second.units - first.units);
+        const scale = Math.max(50, Math.ceil(units / 50) * 50);
+        const selectedSegments = selected.map(([productId, value], index) => ({ productId, name: value.name, units: value.units, width: value.units / scale * 100, color: this.productColor(index) }));
+        const selectedUnits = selectedSegments.reduce((sum, item) => sum + item.units, 0);
+        return { name, units, scale, width: units / barScale * 100, active: this.selectedTags.has(name), selectedSegments, selectedUnits, remainder: Math.max(units - selectedUnits, 0), remainderWidth: Math.max(units - selectedUnits, 0) / scale * 100 };
+      }).sort((a, b) => b.units - a.units);
     });
-    const maxUnits = Math.max(...map.values(), 1);
-    const barScale = Math.floor(maxUnits / 50) * 50 + 50;
-    return [...map.entries()].map(([name, units]) => {
-      const selected = [...(selectedMap.get(name)?.entries() ?? [])].sort(([, first], [, second]) => second.units - first.units);
-      const scale = Math.max(50, Math.ceil(units / 50) * 50);
-      const selectedSegments = selected.map(([productId, value], index) => ({ productId, name: value.name, units: value.units, width: value.units / scale * 100, color: this.productColor(index) }));
-      const selectedUnits = selectedSegments.reduce((sum, item) => sum + item.units, 0);
-      return { name, units, scale, width: units / barScale * 100, active: this.selectedTags.has(name), selectedSegments, selectedUnits, remainder: Math.max(units - selectedUnits, 0), remainderWidth: Math.max(units - selectedUnits, 0) / scale * 100 };
-    }).sort((a, b) => b.units - a.units);
   }
   get categoryProfitability(): CategoryProfitability[] {
-    const totals = new Map<string, { revenue: number; cost: number; units: number }>();
-    this.matchingTransactions(['tags']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
-      const tags = item.product ? this.productTags(item.product) : [];
-      const names = tags.length ? tags.map(tag => tag.name) : ['Sin etiqueta'];
-      names.forEach(name => {
-        const current = totals.get(name) ?? { revenue: 0, cost: 0, units: 0 };
-        current.revenue += this.amount(item, 'price');
-        current.cost += this.amount(item, 'cost');
-        current.units += item.quantity;
-        totals.set(name, current);
+    return this.memo('categoryProfitability', () => {
+      const totals = new Map<string, { revenue: number; cost: number; units: number }>();
+      this.matchingTransactions(['tags']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
+        const tags = item.product ? this.productTags(item.product) : [];
+        const names = tags.length ? tags.map(tag => tag.name) : ['Sin etiqueta'];
+        names.forEach(name => {
+          const current = totals.get(name) ?? { revenue: 0, cost: 0, units: 0 };
+          current.revenue += this.amount(item, 'price');
+          current.cost += this.amount(item, 'cost');
+          current.units += item.quantity;
+          totals.set(name, current);
+        });
       });
+      return [...totals.entries()].map(([name, value]) => {
+        const profit = value.revenue - value.cost;
+        return { name, ...value, profit, margin: value.revenue ? profit / value.revenue * 100 : 0, active: this.selectedTags.has(name) };
+      }).sort((a, b) => b.units - a.units);
     });
-    return [...totals.entries()].map(([name, value]) => {
-      const profit = value.revenue - value.cost;
-      return { name, ...value, profit, margin: value.revenue ? profit / value.revenue * 100 : 0, active: this.selectedTags.has(name) };
-    }).sort((a, b) => b.units - a.units);
   }
   get totalCategoryProfit(): number { return this.categoryProfitability.reduce((sum, item) => sum + item.profit, 0); }
   get maxCategoryMargin(): number { return Math.max(...this.categoryProfitability.map(item => item.margin), 1); }
@@ -211,13 +253,13 @@ export class DashboardInfoComponent implements OnInit {
   get categoryTotalProfitPoints(): string { return this.categoryProfitability.map((item, index) => `${this.categoryPointX(index)},${this.categoryPointY(item.profit, this.maxCategoryProfit)}`).join(' '); }
   categoryPointX(index: number): number { return this.categoryProfitability.length > 1 ? index * 900 / (this.categoryProfitability.length - 1) : 450; }
   categoryPointY(value: number, max: number): number { return 230 - Math.max(value, 0) / max * 200; }
-  get dailySales(): Array<{ date: string; label: string; units: number; revenue: number; revenueWidth: number; unitsWidth: number; hours: string; active: boolean }> { const map = new Map<string, { units: number; revenue: number; hours: Set<string> }>(); this.matchingTransactions(['dates']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const key = item.dateTime?.slice(0, 10) ?? ''; const current = map.get(key) ?? { units: 0, revenue: 0, hours: new Set<string>() }; current.units += item.quantity; current.revenue += this.amount(item, 'price'); const time = item.dateTime?.slice(11, 16); if (time) current.hours.add(time); map.set(key, current); }); const days = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-7); const maxRevenue = Math.max(...days.map(([, value]) => value.revenue), 1); const maxUnits = Math.max(...days.map(([, value]) => value.units), 1); return days.map(([date, value]) => ({ date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short' }), units: value.units, revenue: value.revenue, revenueWidth: value.revenue / maxRevenue * 100, unitsWidth: value.units / maxUnits * 100, hours: [...value.hours].sort().join(', ') || 'Sin hora', active: this.selectedDates.has(date) })); }
+  get dailySales(): Array<{ date: string; label: string; units: number; revenue: number; revenueWidth: number; unitsWidth: number; hours: string; active: boolean }> { return this.memo('dailySales', () => { const map = new Map<string, { units: number; revenue: number; hours: Set<string> }>(); this.matchingTransactions(['dates']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const key = item.dateTime?.slice(0, 10) ?? ''; const current = map.get(key) ?? { units: 0, revenue: 0, hours: new Set<string>() }; current.units += item.quantity; current.revenue += this.amount(item, 'price'); const time = item.dateTime?.slice(11, 16); if (time) current.hours.add(time); map.set(key, current); }); const days = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-7); const maxRevenue = Math.max(...days.map(([, value]) => value.revenue), 1); const maxUnits = Math.max(...days.map(([, value]) => value.units), 1); return days.map(([date, value]) => ({ date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short' }), units: value.units, revenue: value.revenue, revenueWidth: value.revenue / maxRevenue * 100, unitsWidth: value.units / maxUnits * 100, hours: [...value.hours].sort().join(', ') || 'Sin hora', active: this.selectedDates.has(date) })); }); }
   get dailyRevenuePoints(): string { return this.dailySales.map((day, index) => `${this.dailyPointX(index)},${this.dailyPointY(day.revenueWidth)}`).join(' '); }
   get dailyUnitsPoints(): string { return this.dailySales.map((day, index) => `${this.dailyPointX(index)},${this.dailyPointY(day.unitsWidth)}`).join(' '); }
   dailyPointX(index: number): number { return this.dailySales.length > 1 ? index * 700 / (this.dailySales.length - 1) : 350; }
   dailyPointY(width: number): number { return 130 - width * 1.1; }
-  get paymentBreakdown(): Array<{ name: string; units: number; width: number; active: boolean }> { const map = new Map<string, number>(); this.paymentMethodConfigs.filter(item => item.isActive !== false).forEach(item => map.set(item.name, 0)); this.matchingTransactions(['payments']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const name = item.paymentMethod?.paymentMethodConfig?.name ?? 'Sin método'; map.set(name, (map.get(name) ?? 0) + item.quantity); }); const total = Math.max([...map.values()].reduce((sum, units) => sum + units, 0), 1); return [...map.entries()].map(([name, units]) => ({ name, units, width: units / total * 100, active: this.selectedPayments.has(name) })).sort((a, b) => b.units - a.units); }
-  toggleProduct(summary: ProductSummary): void { summary.expanded ? this.expandedProductIds.delete(summary.root.id) : this.expandedProductIds.add(summary.root.id); }
+  get paymentBreakdown(): Array<{ name: string; units: number; width: number; active: boolean }> { return this.memo('paymentBreakdown', () => { const map = new Map<string, number>(); this.paymentMethodConfigs.filter(item => item.isActive !== false).forEach(item => map.set(item.name, 0)); this.matchingTransactions(['payments']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const name = item.paymentMethod?.paymentMethodConfig?.name ?? 'Sin método'; map.set(name, (map.get(name) ?? 0) + item.quantity); }); const total = Math.max([...map.values()].reduce((sum, units) => sum + units, 0), 1); return [...map.entries()].map(([name, units]) => ({ name, units, width: units / total * 100, active: this.selectedPayments.has(name) })).sort((a, b) => b.units - a.units); }); }
+  toggleProduct(summary: ProductSummary): void { summary.expanded ? this.expandedProductIds.delete(summary.root.id) : this.expandedProductIds.add(summary.root.id); this.bump(); this.cdr.markForCheck(); }
   lotMetrics(lot: ProductRecord): { units: number; revenue: number; profit: number } { const rows = this.sales.filter(item => item.product?.id === lot.id); return { units: rows.reduce((sum, item) => sum + item.quantity, 0), revenue: rows.reduce((sum, item) => sum + this.amount(item, 'price'), 0), profit: rows.reduce((sum, item) => sum + this.amount(item, 'price') - this.amount(item, 'cost'), 0) }; }
   toggleTag(name: string): void { this.toggleSet(this.selectedTags, name); }
   toggleDate(date: string): void { this.toggleSet(this.selectedDates, date); }
@@ -225,33 +267,35 @@ export class DashboardInfoComponent implements OnInit {
   toggleProductFilter(rootId: number): void { this.toggleSet(this.selectedProductIds, rootId); }
   isProductSelected(rootId: number): boolean { return this.selectedProductIds.has(rootId); }
   private productColor(index: number): string { const hue = (index * 137.508) % 360; return `hsl(${hue.toFixed(1)} 68% 42%)`; }
-  clearFilters(): void { this.typeFilter = 'SALIDA'; this.reasonFilter = 'ALL'; this.dateFrom = ''; this.dateTo = ''; this.executivePeriod = 'ALL'; this.selectedTags.clear(); this.selectedDates.clear(); this.selectedProductIds.clear(); this.selectedPayments.clear(); }
-  toggleFilters(): void { this.filtersOpen = !this.filtersOpen; }
+  clearFilters(): void { this.typeFilter = 'SALIDA'; this.reasonFilter = 'ALL'; this.dateFrom = ''; this.dateTo = ''; this.executivePeriod = 'ALL'; this.selectedTags.clear(); this.selectedDates.clear(); this.selectedProductIds.clear(); this.selectedPayments.clear(); this.bump(); this.cdr.markForCheck(); }
+  toggleFilters(): void { this.filtersOpen = !this.filtersOpen; this.cdr.markForCheck(); }
 
   get activeFilterChips(): FilterChip[] {
-    const chips: FilterChip[] = [];
-    this.selectedTags.forEach(name => chips.push({ group: 'Etiqueta', label: name, onRemove: () => this.toggleTag(name) }));
-    this.selectedDates.forEach(date => chips.push({ group: 'Día', label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: 'short' }), onRemove: () => this.toggleDate(date) }));
-    this.selectedPayments.forEach(name => chips.push({ group: 'Pago', label: name, onRemove: () => this.togglePayment(name) }));
-    this.selectedProductIds.forEach(id => { const product = this.rootProducts.find(item => item.id === id); chips.push({ group: 'Producto', label: product?.name ?? `#${id}`, onRemove: () => this.toggleProductFilter(id) }); });
-    return chips;
+    return this.memo('activeFilterChips', () => {
+      const chips: FilterChip[] = [];
+      this.selectedTags.forEach(name => chips.push({ group: 'Etiqueta', label: name, onRemove: () => this.toggleTag(name) }));
+      this.selectedDates.forEach(date => chips.push({ group: 'Día', label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: 'short' }), onRemove: () => this.toggleDate(date) }));
+      this.selectedPayments.forEach(name => chips.push({ group: 'Pago', label: name, onRemove: () => this.togglePayment(name) }));
+      this.selectedProductIds.forEach(id => { const product = this.rootProducts.find(item => item.id === id); chips.push({ group: 'Producto', label: product?.name ?? `#${id}`, onRemove: () => this.toggleProductFilter(id) }); });
+      return chips;
+    });
   }
 
   get lowStockProducts(): StockRiskItem[] {
-    return this.rootProducts
+    return this.memo('lowStockProducts', () => this.rootProducts
       .filter(product => product.alert?.isEnabled !== false)
       .map(product => ({ id: product.id, name: product.name, stock: this.stockFor(product), threshold: this.threshold(product) }))
       .filter(item => item.stock > 0 && item.stock <= item.threshold)
       .sort((a, b) => a.stock - b.stock)
-      .map(item => ({ ...item, severity: (item.stock <= item.threshold / 2 ? 'critical' : 'warning') as 'critical' | 'warning' }));
+      .map(item => ({ ...item, severity: (item.stock <= item.threshold / 2 ? 'critical' : 'warning') as 'critical' | 'warning' })));
   }
 
   get stockRisk(): StockRiskItem[] {
-    return this.rootProducts
+    return this.memo('stockRisk', () => this.rootProducts
       .map(product => ({ id: product.id, name: product.name, stock: this.stockFor(product), threshold: this.threshold(product) }))
       .filter(item => item.stock <= item.threshold)
       .map(item => ({ ...item, severity: (item.stock <= item.threshold / 2 ? 'critical' : 'warning') as 'critical' | 'warning' }))
-        .sort((a, b) => a.stock - b.stock);
+        .sort((a, b) => a.stock - b.stock));
   }
   formatMoney(value: number): string { return `${this.currency} ${Number(value || 0).toLocaleString('es-BO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`; }
   formatUnits(value: number): string { return Number(value || 0).toLocaleString('es-BO'); }
@@ -259,6 +303,6 @@ export class DashboardInfoComponent implements OnInit {
   private threshold(product: ProductRecord): number { return product.alert?.isEnabled !== false ? Number(product.alert?.threshold ?? 5) : Number.MAX_SAFE_INTEGER; }
   private stockFor(product: ProductRecord): number { return this.products.filter(item => item.id === product.id || item.parentId === product.id).reduce((sum, item) => sum + Number(item.stock ?? 0), 0); }
   private rootId(product?: ProductRecord): number { if (!product) return 0; return product.parentId ?? product.id; }
-  private toggleSet<T>(set: Set<T>, value: T): void { set.has(value) ? set.delete(value) : set.add(value); }
+  private toggleSet<T>(set: Set<T>, value: T): void { set.has(value) ? set.delete(value) : set.add(value); this.bump(); this.cdr.markForCheck(); }
   private productTags(product: ProductRecord): Array<{ id: number; name: string }> { return (product.tags ?? []).map(item => 'tag' in item && item.tag ? item.tag : item as { id: number; name: string }); }
 }
