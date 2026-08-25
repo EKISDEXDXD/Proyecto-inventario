@@ -1,5 +1,6 @@
 package com.inventario.licoreria.modules.inventory.controller;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -86,8 +87,9 @@ public class TransactionController {
     }
 
     @GetMapping("/store/{storeId}")
-    public List<Transaction> getByStore(@PathVariable @NonNull Long storeId) {
-        return transactionService.findByStoreId(storeId);
+    public List<Transaction> getByStore(@PathVariable @NonNull Long storeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde) {
+        return transactionService.findByStoreId(storeId, desde != null ? desde.atStartOfDay() : null);
     }
 
     @GetMapping("/store/{storeId}/page")

@@ -89,6 +89,9 @@
 .dashboard-reports-section .section-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .report-period { padding: 7px 10px; border: 1px solid #c7d2fe; border-radius: 7px; background: var(--primary-soft); color: var(--primary-dark); font-size: 10px; font-weight: 800; white-space: nowrap; }
 .period-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fbfcfe; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.history-window-note { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0; padding: 8px 10px; border-radius: 7px; background: #fff7e6; color: #92650c; font-size: 10px; font-weight: 700; text-transform: none; letter-spacing: normal; }
+.history-window-note button { padding: 4px 9px; border: 1px solid #f0c674; border-radius: 6px; background: #fff; color: #92650c; font: inherit; font-weight: 800; cursor: pointer; }
+.history-window-note button:disabled { opacity: .6; cursor: wait; }
 .period-controls button { padding: 7px 10px; border: 1px solid #dfe3eb; border-radius: 7px; background: #fff; color: var(--muted); font: inherit; font-size: 10px; cursor: pointer; text-transform: none; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; }
 .period-controls button:hover, .period-controls button.active-period { border-color: #a5b4fc; background: var(--primary-soft); color: var(--primary-dark); transform: translateY(-1px); }
 .period-controls input { width: 132px; min-height: 32px; }

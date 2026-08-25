@@ -265,7 +265,8 @@ export class InventarioComponent implements OnInit {
     this.http.get<any[]>(`${this.apiProductsUrl}/store/${this.storeId}`, { headers }).subscribe({
       next: (data) => {
         console.log('loadStoreProducts - SUCCESS, cantidad de productos:', data?.length);
-        const products = Array.isArray(data) ? data.filter(p => this.isVisibleRootProduct(p)) : [];
+        const all = Array.isArray(data) ? data : [];
+        const products = all.filter(p => this.isVisibleRootProduct(p));
         // Ordenar productos por nombre para lista ordenada
         products.sort((a: any, b: any) => (a?.name || '').localeCompare(b?.name || ''));
         this.products = products;
@@ -275,33 +276,27 @@ export class InventarioComponent implements OnInit {
             this.productNameMap[p.id] = p.name || `Producto ${p.id}`;
           }
         });
+
+        // El GET a /store/{id} ya trae los lotes (productos con parentId) en la misma respuesta,
+        // así que se agrupan aquí en vez de disparar una petición HTTP por producto (eso causaba
+        // el parpadeo de las alertas: hasta N peticiones en paralelo, cada una re-renderizando todo).
+        this.lotesMap = new Map();
+        all.filter(p => p && p.parentId).forEach(lote => {
+          const group = this.lotesMap.get(lote.parentId) ?? [];
+          group.push(lote);
+          this.lotesMap.set(lote.parentId, group);
+        });
+        this.lotesMap.forEach(group => group.sort((a: any, b: any) => (a?.orderIndex ?? 0) - (b?.orderIndex ?? 0)));
+
         this.updateFilteredProductsWithActiveLotes();
         this.loading = false;
         this.ngZone.run(() => this.cdr.detectChanges());
-
-        // Cargar solo el lote activo en segundo plano para mejorar la velocidad inicial
-        if (this.products.length > 0) {
-          this.loadLotesForDisplayProducts();
-        }
       },
       error: (err) => {
         console.error('loadStoreProducts - ERROR:', err);
         this.loading = false;
         this.ngZone.run(() => this.cdr.detectChanges());
       }
-    });
-  }
-
-  /**
-   * Actualiza filteredProducts mostrando solo productos raíz visibles.
-   * Los lotes no deben aparecer como elementos principales en el buscador.
-   */
-  private loadLotesForDisplayProducts() {
-    // Para mostrar el stock total, cargamos todos los lotes por producto en segundo plano.
-    this.products.forEach(product => {
-      this.loadLotesForProduct(product.id, () => {
-        this.cdr.detectChanges();
-      });
     });
   }
 

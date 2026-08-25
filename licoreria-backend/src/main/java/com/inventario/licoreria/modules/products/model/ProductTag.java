@@ -1,14 +1,17 @@
 package com.inventario.licoreria.modules.products.model;
 
+import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
 @Table(name = "product_tag", uniqueConstraints = {
@@ -20,6 +23,8 @@ public class ProductTag {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Sin @JsonIgnore aquí, Product -> tags -> ProductTag -> product -> tags -> ... recursa infinito (StackOverflowError)
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
@@ -27,6 +32,7 @@ public class ProductTag {
     @ManyToOne
     @JoinColumn(name = "tag_id", nullable = false)
     private Tag tag;
+
 
     private LocalDateTime createdAt;
 

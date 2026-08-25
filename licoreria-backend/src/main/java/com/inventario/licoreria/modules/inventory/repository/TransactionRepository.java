@@ -31,6 +31,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t JOIN FETCH t.product p JOIN FETCH t.user WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
     List<Transaction> findByStoreIdOrderByDateTimeDesc(@Param("storeId") Long storeId);
 
+    // Igual que arriba pero acotado a partir de una fecha (carga inicial liviana del dashboard)
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.product p JOIN FETCH t.user WHERE p.store.id = :storeId AND t.dateTime >= :desde ORDER BY t.dateTime DESC")
+    List<Transaction> findByStoreIdAndDateTimeAfter(@Param("storeId") Long storeId, @Param("desde") LocalDateTime desde);
+
     @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
     Page<Transaction> findPageByStoreId(@Param("storeId") Long storeId, Pageable pageable);
 

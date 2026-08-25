@@ -38,6 +38,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   transactions: any[] = []; // Los datos originales de la API
   filteredMovimientos: any[] = []; // Los datos que se muestran
+  // Estadísticas del día, calculadas una vez en recomputeTodayStats() en vez de en cada ciclo de CD
+  todayTransactions: any[] = [];
+  todayEntradas: any[] = [];
+  todaySalidas: any[] = [];
+  todayCount = 0;
+  entradasCount = 0;
+  salidasCount = 0;
   searchTerm: string = '';
   startDate: string = ''; // Para filtro de transacciones
   endDate: string = ''; // Para filtro de transacciones
@@ -657,6 +664,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.applyTransactionFilters();
   }
 
+  trackByTransactionId(_index: number, transaction: any): number {
+    return transaction?.id;
+  }
+
   private sortAdminCostMovements() {
     this.adminCostMovements = this.adminCostMovements.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
   }
@@ -711,6 +722,19 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       return matchesSearch && matchesDateFilter && matchesCompactDateRange;
     });
+    this.recomputeTodayStats();
+  }
+
+  // Con historiales grandes, filtrar this.transactions dentro de un getter se ejecutaba en cada ciclo
+  // de detección de cambios. Ahora se calcula una sola vez aquí, cada vez que cambian las transacciones.
+  private recomputeTodayStats(): void {
+    const today = this.startOfToday;
+    this.todayTransactions = this.transactions.filter(t => new Date(t.dateTime) >= today);
+    this.todayEntradas = this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t));
+    this.todaySalidas = this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'SALIDA' && this.isCountableStatsMovement(t));
+    this.todayCount = this.todayTransactions.length;
+    this.entradasCount = this.todayEntradas.length;
+    this.salidasCount = this.todaySalidas.length;
   }
 
   // Método para limpiar filtro de fecha
@@ -1279,33 +1303,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     }
 
     return false;
-  }
-
-  get todayTransactions(): any[] {
-    return this.transactions.filter(t => {
-      const date = new Date(t.dateTime);
-      return date >= this.startOfToday;
-    });
-  }
-
-  get todayCount(): number {
-    return this.todayTransactions.length;
-  }
-
-  get entradasCount(): number {
-    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t)).length;
-  }
-
-  get todayEntradas(): any[] {
-    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t));
-  }
-
-  get todaySalidas(): any[] {
-    return this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'SALIDA' && this.isCountableStatsMovement(t));
-  }
-
-  get salidasCount(): number {
-    return this.todaySalidas.length;
   }
 
   get todayLabel(): string {

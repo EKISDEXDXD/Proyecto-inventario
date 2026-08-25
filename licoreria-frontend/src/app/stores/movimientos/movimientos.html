@@ -365,7 +365,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let transaction of filteredMovimientos" class="clickable-row" [ngClass]="{'ajuste-row': transaction.reason === 'AJUSTE'}" (click)="openTransactionDetail(transaction)">
+              <tr *ngFor="let transaction of filteredMovimientos; trackBy: trackByTransactionId" class="clickable-row" [ngClass]="{'ajuste-row': transaction.reason === 'AJUSTE'}" (click)="openTransactionDetail(transaction)">
                 <td>{{ transaction.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
                 <td>
                   <span class="type-badge"
@@ -457,7 +457,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr *ngFor="let transaction of todayEntradas">
+                      <tr *ngFor="let transaction of todayEntradas; trackBy: trackByTransactionId">
                         <td>{{ transaction.dateTime | date:'HH:mm' }}</td>
                         <td>{{ getProductName(transaction.productId) }}</td>
                         <td>{{ transaction.quantity }}</td>
@@ -507,7 +507,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr *ngFor="let transaction of todaySalidas">
+                      <tr *ngFor="let transaction of todaySalidas; trackBy: trackByTransactionId">
                         <td>{{ transaction.dateTime | date:'HH:mm' }}</td>
                         <td>{{ getProductName(transaction.productId) }}</td>
                         <td>{{ transaction.quantity }}</td>

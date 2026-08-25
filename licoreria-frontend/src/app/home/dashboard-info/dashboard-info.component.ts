@@ -63,10 +63,34 @@ export class DashboardInfoComponent implements OnInit {
   set sortBy(value: 'units' | 'revenue' | 'profit') { this._sortBy = value; this.bump(); }
   get productSearchTerm(): string { return this._productSearchTerm; }
   set productSearchTerm(value: string) { this._productSearchTerm = value; this.bump(); }
+  searchInputValue = '';
+  private searchDebounceHandle: ReturnType<typeof setTimeout> | undefined;
+
+  onSearchInput(value: string): void {
+    this.searchInputValue = value;
+    clearTimeout(this.searchDebounceHandle);
+    this.searchDebounceHandle = setTimeout(() => {
+      this.productSearchTerm = value;
+      this.cdr.markForCheck();
+    }, 250);
+  }
   get dateFrom(): string { return this._dateFrom; }
-  set dateFrom(value: string) { this._dateFrom = value; this.bump(); }
+  set dateFrom(value: string) {
+    this._dateFrom = value;
+    this.bump();
+    // Si piden una fecha anterior a lo ya cargado (o "todo"), hay que traer el histórico completo.
+    if (!this.fullHistoryLoaded && (!value || (this.loadedFrom && value < this.loadedFrom))) {
+      this.loadFullHistory();
+    }
+  }
   get dateTo(): string { return this._dateTo; }
   set dateTo(value: string) { this._dateTo = value; this.bump(); }
+
+  // Carga inicial liviana: solo se traen los últimos N días. El histórico completo se pide bajo demanda.
+  historyWindowDays = 90;
+  loadedFrom = '';
+  fullHistoryLoaded = false;
+  historyLoading = false;
 
   private bump(): void { this._version++; }
   private memo<T>(key: string, compute: () => T): T {
@@ -97,11 +121,13 @@ export class DashboardInfoComponent implements OnInit {
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
     this.loading = true;
     this.errorMessage = '';
+    this.fullHistoryLoaded = false;
+    this.loadedFrom = this.isoDaysAgo(this.historyWindowDays);
 
     forkJoin({
       store: this.http.get<any>(`${this.apiBase}/api/stores/${this.storeId}`, { headers }).pipe(catchError(() => of(null))),
       products: this.http.get<ProductRecord[]>(`${this.apiBase}/api/products/store/${this.storeId}`, { headers }).pipe(catchError(() => of([]))),
-      transactions: this.http.get<TransactionRecord[]>(`${this.apiBase}/api/transactions/store/${this.storeId}`, { headers }).pipe(catchError(() => of(null))),
+      transactions: this.http.get<TransactionRecord[]>(`${this.apiBase}/api/transactions/store/${this.storeId}?desde=${this.loadedFrom}`, { headers }).pipe(catchError(() => of(null))),
       movements: this.http.get<any[]>(`${this.apiBase}/api/administrative-cost-movements/store/${this.storeId}`, { headers }).pipe(catchError(() => of([]))),
       paymentMethods: this.http.get<PaymentMethodConfigRecord[]>(`${this.apiBase}/api/payment-method-configs/active`, { headers }).pipe(catchError(() => of([])))
     }).subscribe(({ store, products, transactions, movements, paymentMethods }) => {
@@ -117,6 +143,34 @@ export class DashboardInfoComponent implements OnInit {
       this.loading = false;
       this.bump();
       this.cdr.detectChanges();
+    });
+  }
+
+  private isoDaysAgo(days: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - 1));
+    const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Trae el histórico completo de transacciones cuando el usuario pide "Todo" o una fecha
+  // anterior a la ventana por defecto, para que ningún total quede incompleto sin avisar.
+  loadFullHistory(): void {
+    if (this.fullHistoryLoaded || this.historyLoading || !this.storeId) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    this.historyLoading = true;
+    this.cdr.markForCheck();
+    this.http.get<TransactionRecord[]>(`${this.apiBase}/api/transactions/store/${this.storeId}`, { headers }).pipe(catchError(() => of(null))).subscribe(transactions => {
+      if (transactions !== null) {
+        this.transactions = transactions;
+        this.fullHistoryLoaded = true;
+        this.loadedFrom = '';
+        this.bump();
+      }
+      this.historyLoading = false;
+      this.cdr.markForCheck();
     });
   }
 
@@ -160,7 +214,10 @@ export class DashboardInfoComponent implements OnInit {
   get executiveSalesUnits(): number { return this.sales.reduce((sum, item) => sum + item.quantity, 0); }
   get executiveLosses(): number { return this.losses; }
   get executiveMovements(): number { return this.filteredTransactions.length; }
-  get executiveSummaryPeriod(): string { return this.dateFrom || this.dateTo ? `${this.dateFrom || 'Inicio'} - ${this.dateTo || 'Hoy'}` : 'Todo el periodo disponible'; }
+  get executiveSummaryPeriod(): string {
+    if (this.dateFrom || this.dateTo) return `${this.dateFrom || 'Inicio'} - ${this.dateTo || 'Hoy'}`;
+    return this.fullHistoryLoaded ? 'Todo el periodo disponible' : `Últimos ${this.historyWindowDays} días`;
+  }
   get dailyFlow(): DailyFlow[] {
     return this.memo('dailyFlow', () => {
       const map = new Map<string, DailyFlow>();

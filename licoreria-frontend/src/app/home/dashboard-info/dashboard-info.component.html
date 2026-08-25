@@ -123,7 +123,7 @@
 
     <section class="lower-grid">
       <article class="panel">
-        <div class="panel-title product-panel-title"><div><h2>Productos más vendidos</h2><p>Identifica los productos con mayor volumen, ingreso o ganancia.</p><label class="product-search"><i class="bx bx-search"></i><input type="search" [(ngModel)]="productSearchTerm" placeholder="Buscar producto..." aria-label="Buscar producto"><button *ngIf="productSearchTerm" type="button" (click)="productSearchTerm = ''" aria-label="Limpiar búsqueda"><i class="bx bx-x"></i></button></label></div><div class="product-panel-controls"><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div></div>
+        <div class="panel-title product-panel-title"><div><h2>Productos más vendidos</h2><p>Identifica los productos con mayor volumen, ingreso o ganancia.</p><label class="product-search"><i class="bx bx-search"></i><input type="search" [ngModel]="searchInputValue" (ngModelChange)="onSearchInput($event)" placeholder="Buscar producto..." aria-label="Buscar producto"><button *ngIf="searchInputValue" type="button" (click)="onSearchInput('')" aria-label="Limpiar búsqueda"><i class="bx bx-x"></i></button></label></div><div class="product-panel-controls"><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div></div>
         <div *ngIf="productSummaries.length; else emptyProducts" class="product-list">
           <div class="product-group" *ngFor="let item of productSummaries; let index = index">
             <div class="product-row" [class.active-selection]="isProductSelected(item.root.id)">
@@ -210,6 +210,10 @@
           <span class="date-separator">hasta</span>
           <label><span>Hasta</span><input type="date" [(ngModel)]="dateTo" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></label>
         </div>
+        <p *ngIf="!fullHistoryLoaded" class="history-window-note">
+          <i class="bx bx-info-circle"></i> Mostrando los últimos {{ historyWindowDays }} días para cargar más rápido.
+          <button type="button" (click)="loadFullHistory()" [disabled]="historyLoading">{{ historyLoading ? 'Cargando historial completo...' : 'Ver historial completo' }}</button>
+        </p>
       </div>
       <div class="executive-grid">
         <article class="report-stat report-stat-cost"><i class="report-stat-icon bx bx-wallet"></i><span>Total invertido</span><strong>{{ formatMoney(totalInvested) }}</strong><small>Compras y entradas</small></article>

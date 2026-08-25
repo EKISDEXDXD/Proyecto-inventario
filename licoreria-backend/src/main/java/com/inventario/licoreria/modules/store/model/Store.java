@@ -1,7 +1,8 @@
 package com.inventario.licoreria.modules.store.model;
 
-import com.inventario.licoreria.modules.users.model.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.inventario.licoreria.modules.users.model.User;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,6 +21,7 @@ public class Store {
     private String name;
     private String description;
     private String address;
+    @JsonIgnore
     private String accessPassword;
     private String color;
 

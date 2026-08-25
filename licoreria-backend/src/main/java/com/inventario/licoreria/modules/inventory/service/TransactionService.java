@@ -158,6 +158,14 @@ public class TransactionService {
         return transactionRepository.findByStoreIdOrderByDateTimeDesc(storeId);
     }
 
+    // Buscar transacciones por tienda desde una fecha (carga inicial liviana del dashboard)
+    public List<Transaction> findByStoreId(@NonNull Long storeId, LocalDateTime desde) {
+        if (desde == null) {
+            return findByStoreId(storeId);
+        }
+        return transactionRepository.findByStoreIdAndDateTimeAfter(storeId, desde);
+    }
+
     public Page<Transaction> findPageByStoreId(@NonNull Long storeId, Pageable pageable) {
         return transactionRepository.findPageByStoreId(storeId, pageable);
     }
