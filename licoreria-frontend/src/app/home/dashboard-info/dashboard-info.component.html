@@ -1,24 +1,29 @@
 <main class="dashboard-page">
-  <header class="dashboard-header">
+  <header class="dashboard-header" role="button" tabindex="0" (click)="goBack()" (keydown.enter)="goBack()" (keydown.space)="$event.preventDefault(); goBack()" aria-label="Volver a la página anterior">
     <h1><i class="bx bx-bar-chart-alt-2"></i> Dashboard Info</h1>
-    <p>Ventas, inventario y rendimiento en un solo lugar.</p>
   </header>
 
   <section class="dashboard-store-card">
     <div class="dashboard-store-heading">
       <h2><i class="bx bx-bar-chart-alt-2"></i> Dashboard - {{ storeName }}</h2>
-      <label class="currency-picker">Moneda
-        <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
-      </label>
+      <div class="dashboard-store-actions">
+        <button type="button" class="filter-toggle-button" [class.active]="filtersOpen" (click)="toggleFilters()" [attr.aria-expanded]="filtersOpen" aria-controls="dashboard-filters">
+          <i class="bx bx-filter-alt"></i><span>Filtros</span><i class="bx bx-chevron-down"></i>
+        </button>
+        <label class="currency-picker">Moneda
+          <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
+        </label>
+      </div>
     </div>
   </section>
 
-  <section class="filters-panel">
-    <div class="filter-heading">
-      <div><span class="eyebrow">FILTROS CRUZADOS</span><h2>Explorar datos</h2></div>
-      <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
-    </div>
-    <div class="filter-grid">
+  <details id="dashboard-filters" class="filters-panel" [open]="filtersOpen">
+    <div class="filter-content">
+      <div class="filter-heading">
+        <span class="filter-content-title">Selecciona los criterios para explorar el dashboard</span>
+        <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
+      </div>
+      <div class="filter-grid">
       <label>Tipo<select [(ngModel)]="typeFilter"><option value="SALIDA">Salidas</option><option value="ENTRADA">Entradas</option><option value="ALL">Todos</option></select></label>
       <label>Motivo<select [(ngModel)]="reasonFilter"><option value="ALL">Todos los motivos</option><option *ngFor="let reason of reasons" [value]="reason">{{ reason }}</option></select></label>
       <div class="multi-filter">
@@ -50,14 +55,15 @@
       </div>
       <label>Desde<input type="date" [(ngModel)]="dateFrom"></label>
       <label>Hasta<input type="date" [(ngModel)]="dateTo"></label>
+      </div>
+      <div class="chip-row" *ngIf="activeFilterChips.length">
+        <span class="chip-hint">Filtros cruzados activos:</span>
+        <button type="button" class="chip" *ngFor="let chip of activeFilterChips" (click)="chip.onRemove()">
+          <small>{{ chip.group }}</small>{{ chip.label }}<span class="chip-x">×</span>
+        </button>
+      </div>
     </div>
-    <div class="chip-row" *ngIf="activeFilterChips.length">
-      <span class="chip-hint">Filtros cruzados activos:</span>
-      <button type="button" class="chip" *ngFor="let chip of activeFilterChips" (click)="chip.onRemove()">
-        <small>{{ chip.group }}</small>{{ chip.label }}<span class="chip-x">×</span>
-      </button>
-    </div>
-  </section>
+  </details>
 
   <div *ngIf="loading" class="state-box">Cargando información de la tienda...</div>
   <div *ngIf="!loading && errorMessage" class="state-box error">{{ errorMessage }}</div>
@@ -71,7 +77,7 @@
 
     <section class="insight-grid">
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">DIMENSIONES</span><h2>Unidades por etiqueta</h2></div></div>
+        <div class="panel-title"><div><h2>Unidades por etiqueta</h2><p>Consulta cuántas unidades se vendieron por cada categoría.</p></div></div>
         <div *ngIf="categoryBreakdown.length; else emptyCategories" class="bars">
           <button class="bar-row" *ngFor="let item of categoryBreakdown" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">
             <div class="bar-label"><span>{{ item.name }}</span><b>{{ formatUnits(item.units) }}<ng-container *ngIf="item.selectedSegments.length"> · escala {{ formatUnits(item.scale) }} · seleccionados {{ formatUnits(item.selectedUnits) }}</ng-container></b></div>
@@ -85,7 +91,7 @@
         </div>
       </article>
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">TENDENCIA</span><h2>Ventas por día</h2></div></div>
+        <div class="panel-title"><div><h2>Ventas por día</h2><p>Observa cómo varían los ingresos y las unidades vendidas durante el periodo.</p></div></div>
         <div *ngIf="dailySales.length; else emptyTrend" class="daily-metrics">
           <div class="daily-metric">
             <h3>Por dinero</h3>
@@ -117,7 +123,7 @@
 
     <section class="lower-grid">
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">RENDIMIENTO</span><h2>Productos más vendidos</h2></div><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div>
+        <div class="panel-title product-panel-title"><div><h2>Productos más vendidos</h2><p>Identifica los productos con mayor volumen, ingreso o ganancia.</p><label class="product-search"><i class="bx bx-search"></i><input type="search" [(ngModel)]="productSearchTerm" placeholder="Buscar producto..." aria-label="Buscar producto"><button *ngIf="productSearchTerm" type="button" (click)="productSearchTerm = ''" aria-label="Limpiar búsqueda"><i class="bx bx-x"></i></button></label></div><div class="product-panel-controls"><select class="inline-select" [(ngModel)]="sortBy"><option value="units">Por unidades</option><option value="revenue">Por ingresos</option><option value="profit">Por ganancia</option></select></div></div>
         <div *ngIf="productSummaries.length; else emptyProducts" class="product-list">
           <div class="product-group" *ngFor="let item of productSummaries; let index = index">
             <div class="product-row" [class.active-selection]="isProductSelected(item.root.id)">
@@ -138,7 +144,7 @@
         </div>
       </article>
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">COBRANZA</span><h2>Ventas por método de pago</h2></div></div>
+        <div class="panel-title"><div><h2>Ventas por método de pago</h2><p>Revisa cómo se cobraron las ventas y cuál fue el método más utilizado.</p></div></div>
         <div *ngIf="paymentBreakdown.length; else emptyPayments" class="payment-list"><button class="payment-row" *ngFor="let item of paymentBreakdown" type="button" [class.active-selection]="item.active" (click)="togglePayment(item.name)"><div><span class="dot"></span>{{ item.name }}</div><strong>{{ formatUnits(item.units) }}</strong><div class="track"><i [style.width.%]="item.width"></i></div></button></div>
         <div class="payment-foot">Ticket promedio <b>{{ formatMoney(averageTicket) }}</b></div>
       </article>
@@ -146,7 +152,7 @@
 
     <section class="lower-grid">
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">RIESGO</span><h2>Stock crítico</h2></div><span class="panel-note">Según alertas configuradas</span></div>
+        <div class="panel-title"><div><h2>Stock crítico</h2><p>Productos que alcanzaron o están por debajo de su alerta configurada.</p></div><span class="panel-note">Según alertas configuradas</span></div>
         <div *ngIf="stockRisk.length; else emptyRisk" class="risk-list">
           <div class="risk-row" *ngFor="let item of stockRisk" [class.critical]="item.severity === 'critical'">
             <span class="risk-dot"></span>
@@ -157,7 +163,7 @@
         <ng-template #emptyRisk><div class="empty-inline">Ningún producto está bajo su umbral de alerta.</div></ng-template>
       </article>
       <article class="panel">
-        <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Productos con stock bajo</h2></div><span class="panel-note">{{ lowStockProducts.length }} producto(s)</span></div>
+        <div class="panel-title"><div><h2>Productos con stock bajo</h2><p>Productos que necesitan reposición para mantener la operación.</p></div><span class="panel-note">{{ lowStockProducts.length }} producto(s)</span></div>
         <div *ngIf="lowStockProducts.length; else emptyLowStock" class="risk-list low-stock-list">
           <div class="risk-row" *ngFor="let item of lowStockProducts" [class.critical]="item.severity === 'critical'">
             <span class="risk-dot"></span>
@@ -169,8 +175,8 @@
       </article>
     </section>
     <section class="profitability-section">
-      <div class="section-heading"><div><span class="eyebrow">SEGUNDA SECCIÓN · ANÁLISIS FINANCIERO</span><h2>Rentabilidad % y ganancia total</h2><p>Compara margen, ganancia y salidas para descubrir qué categorías rinden más por volumen.</p></div><span class="profitability-total">Ganancia total <b>{{ formatMoney(totalCategoryProfit) }}</b></span></div>
       <article class="panel profitability-panel">
+        <div class="section-heading"><div><h2>Rentabilidad</h2><p>Compara el margen, la ganancia y las salidas de cada categoría.</p></div><span class="profitability-total">Ganancia total <b>{{ formatMoney(totalCategoryProfit) }}</b></span></div>
         <div *ngIf="categoryProfitability.length; else emptyProfitability" class="profitability-line-chart">
           <div class="profitability-legend"><span><i class="margin-legend"></i>Rentabilidad %</span><span><i class="profit-legend"></i>Ganancia total</span><span><i class="volume-legend"></i>Salidas: pasa el cursor por los puntos</span></div>
           <div class="profitability-chart-frame">
@@ -191,8 +197,20 @@
     </section>
 
     <section class="dashboard-reports-section">
-      <div class="section-heading"><div><span class="eyebrow">REPORTES EN PANTALLA</span><h2>Resumen ejecutivo</h2><p>Indicadores principales del periodo seleccionado.</p></div><span class="report-period">{{ executiveSummaryPeriod }}</span></div>
-      <div class="period-controls"><span>Periodo</span><button type="button" [class.active-period]="executivePeriod === 'ALL'" (click)="setExecutivePeriod('ALL')">Todo</button><button type="button" [class.active-period]="executivePeriod === 'TODAY'" (click)="setExecutivePeriod('TODAY')">Hoy</button><button type="button" [class.active-period]="executivePeriod === '7D'" (click)="setExecutivePeriod('7D')">7 días</button><button type="button" [class.active-period]="executivePeriod === '30D'" (click)="setExecutivePeriod('30D')">30 días</button><button type="button" [class.active-period]="executivePeriod === 'CUSTOM'" (click)="setExecutivePeriod('CUSTOM')">Personalizado</button><input type="date" [(ngModel)]="dateFrom" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha inicial"><span>hasta</span><input type="date" [(ngModel)]="dateTo" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></div>
+      <div class="panel reports-header-panel">
+        <div class="section-heading"><div><h2>Resumen ejecutivo</h2><p>Indicadores principales del periodo seleccionado.</p></div></div>
+      </div>
+      <div class="period-controls">
+        <span class="period-controls-title"><i class="bx bx-calendar"></i> Periodo</span>
+        <div class="period-presets">
+          <button type="button" [class.active-period]="executivePeriod === 'ALL'" (click)="setExecutivePeriod('ALL')">Todo</button><button type="button" [class.active-period]="executivePeriod === 'TODAY'" (click)="setExecutivePeriod('TODAY')">Hoy</button><button type="button" [class.active-period]="executivePeriod === '7D'" (click)="setExecutivePeriod('7D')">7 días</button><button type="button" [class.active-period]="executivePeriod === '30D'" (click)="setExecutivePeriod('30D')">30 días</button>
+        </div>
+        <div class="custom-period" [class.active-custom]="executivePeriod === 'CUSTOM'">
+          <label><span>Desde</span><input type="date" [(ngModel)]="dateFrom" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha inicial"></label>
+          <span class="date-separator">hasta</span>
+          <label><span>Hasta</span><input type="date" [(ngModel)]="dateTo" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></label>
+        </div>
+      </div>
       <div class="executive-grid">
         <article class="report-stat report-stat-cost"><i class="report-stat-icon bx bx-wallet"></i><span>Total invertido</span><strong>{{ formatMoney(totalInvested) }}</strong><small>Compras y entradas</small></article>
         <article class="report-stat report-stat-sales"><i class="report-stat-icon bx bx-trending-up"></i><span>Ingresos</span><strong>{{ formatMoney(totalRevenue) }}</strong><small>{{ formatUnits(executiveSalesUnits) }} unidades vendidas</small></article>
@@ -203,7 +221,7 @@
 
       <div class="reports-grid">
         <article class="panel report-card">
-          <div class="panel-title"><div><span class="eyebrow">OPERACIÓN</span><h2>Flujo diario</h2></div><span class="panel-note">Últimos 14 días</span></div>
+          <div class="panel-title"><div><h2>Flujo diario</h2><p>Resumen diario de entradas, ventas, costos y ganancias.</p></div><span class="panel-note">Últimos 14 días</span></div>
           <div *ngIf="dailyFlow.length; else emptyDailyFlow" class="flow-list">
             <div class="flow-row" *ngFor="let item of dailyFlow">
               <span class="flow-date">{{ item.label }}</span>
@@ -218,7 +236,7 @@
           <div class="flow-legend"><span><i class="flow-entry"></i>Entradas</span><span><i class="flow-sale"></i>Ventas</span></div>
         </article>
         <article class="panel report-card">
-          <div class="panel-title"><div><span class="eyebrow">CONTROL FINANCIERO</span><h2>Costos administrativos</h2></div><span class="panel-note">Periodo filtrado</span></div>
+          <div class="panel-title"><div><h2>Costos administrativos</h2><p>Consulta los gastos registrados durante el periodo seleccionado.</p></div><span class="panel-note">Periodo filtrado</span></div>
           <div class="admin-summary"><div><span>Total</span><b>{{ formatMoney(administrativeCostTotal) }}</b></div><div><span>Promedio</span><b>{{ formatMoney(administrativeCostAverage) }}</b></div></div>
           <div *ngIf="administrativeCostRows.length; else emptyAdminCosts" class="admin-cost-list"><div class="admin-cost-row" *ngFor="let item of administrativeCostRows"><div><b>{{ item.description }}</b><small>{{ item.label }}</small></div><strong>{{ formatMoney(item.amount) }}</strong></div></div>
         </article>

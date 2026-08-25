@@ -1,20 +1,24 @@
 package com.inventario.licoreria.modules.inventory.service;
 
-import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.inventario.licoreria.modules.inventory.dto.PaymentMethodDTO;
+import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.products.service.ProductService;
 import com.inventario.licoreria.modules.users.model.User;
 import com.inventario.licoreria.modules.users.service.UserService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.List;
-import org.springframework.lang.NonNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 public class TransactionService {
@@ -152,6 +156,10 @@ public class TransactionService {
     // Buscar transacciones por tienda
     public List<Transaction> findByStoreId(@NonNull Long storeId) {
         return transactionRepository.findByStoreIdOrderByDateTimeDesc(storeId);
+    }
+
+    public Page<Transaction> findPageByStoreId(@NonNull Long storeId, Pageable pageable) {
+        return transactionRepository.findPageByStoreId(storeId, pageable);
     }
 
     @Transactional

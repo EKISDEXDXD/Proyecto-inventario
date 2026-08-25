@@ -486,7 +486,7 @@ export class PaymentMethodModalComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Initialization happens in open()
+    this.loadPaymentMethods();
   }
 
   open() {

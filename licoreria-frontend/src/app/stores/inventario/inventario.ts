@@ -105,7 +105,7 @@ export class InventarioComponent implements OnInit {
   isUploadingImage: boolean = false;
 
   // Collapsible state variables
-  showProductsList: boolean = this.loadCollapsibleState('showProductsList', false);
+  showProductsList: boolean = false;
   showAdminCostsList: boolean = this.loadCollapsibleState('showAdminCostsList', false);
 
   // Form fields

@@ -341,12 +341,12 @@
         <i class="bx" [ngClass]="showHistoryList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
       </div>
 
-      <div *ngIf="showHistoryList" class="history-list-container">
-        <div *ngIf="loading" class="state-message">
+      <div *ngIf="showHistoryList" class="history-list-container" (scroll)="onHistoryScroll($event)">
+        <div *ngIf="historyLoading && !historyLoaded" class="state-message">
           <i class="bx bx-loader bx-spin"></i> Cargando movimientos...
         </div>
 
-        <div *ngIf="!loading">
+        <div *ngIf="historyLoaded">
           <div *ngIf="transactions.length === 0" class="state-message">
             <p><i class="bx bx-inbox"></i> No hay movimientos registrados aún</p>
           </div>
@@ -465,6 +465,12 @@
                       </tr>
                     </tbody>
                   </table>
+                  <div *ngIf="historyLoading && filteredMovimientos.length > 0" class="state-message history-loading-more">
+                    <i class="bx bx-loader bx-spin"></i> Cargando más movimientos...
+                  </div>
+                  <div *ngIf="!historyLoading && !historyHasMore && filteredMovimientos.length > 0" class="history-end-message">
+                    Has llegado al final del historial.
+                  </div>
                 </div>
               </div>
 
@@ -521,6 +527,15 @@
       </div>
     </div>
 
+    <app-description-modal
+      *ngIf="showProductDescriptionModal"
+      [product]="selectedProductForDescription"
+      [products]="products"
+      [storeId]="storeId"
+      (closed)="closeProductDescription()"
+      (lotesUpdated)="refreshProductDescriptionData()">
+    </app-description-modal>
+
 
     <!-- Lista de Productos -->
     <div class="products-section products-card">
@@ -555,7 +570,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let product of filteredProducts">
+            <tr *ngFor="let product of filteredProducts" class="clickable-row" (click)="openProductDescription(product)">
               <td>{{ product.name }}</td>
               
               <td>
@@ -572,8 +587,6 @@
     </div>
 
   </div>
-
-
 
   <!-- ==================== ADMINISTRATIVE COSTS MOVEMENTS SECTION ==================== -->
   <div class="card main-title-card">

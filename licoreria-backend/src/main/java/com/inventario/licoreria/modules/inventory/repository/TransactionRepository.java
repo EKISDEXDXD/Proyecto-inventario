@@ -1,12 +1,15 @@
 package com.inventario.licoreria.modules.inventory.repository;
 
-import com.inventario.licoreria.modules.inventory.model.Transaction;
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.inventario.licoreria.modules.inventory.model.Transaction;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     
@@ -27,6 +30,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // Buscar transacciones por tienda
     @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
     List<Transaction> findByStoreIdOrderByDateTimeDesc(@Param("storeId") Long storeId);
+
+    @Query("SELECT t FROM Transaction t JOIN t.product p WHERE p.store.id = :storeId ORDER BY t.dateTime DESC")
+    Page<Transaction> findPageByStoreId(@Param("storeId") Long storeId, Pageable pageable);
 
     // Contar transacciones de un producto (para validar edición)
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.product.id = :productId")

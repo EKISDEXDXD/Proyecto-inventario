@@ -740,7 +740,11 @@
 
 .history-list-container {
   animation: slideDown 0.3s ease-out;
+  max-height: 620px;
+  overflow-y: auto;
 }
+.history-loading-more { padding: 1rem; }
+.history-end-message { padding: .75rem; color: var(--text-muted); font-size: .8rem; text-align: center; }
 
 .admin-payments-header {
   user-select: none;
@@ -856,6 +860,9 @@
 .products-table tbody tr:hover {
   background-color: #f3f4f6;
 }
+
+.products-table tbody tr.clickable-row { cursor: pointer; transition: background-color .2s ease, transform .2s ease; }
+.products-table tbody tr.clickable-row:hover { background-color: rgba(79, 70, 229, .07); transform: translateX(3px); }
 
 :host-context(.dark) .products-table tbody tr:hover {
   background-color: #2d2d44;

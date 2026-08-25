@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, shareReplay, tap } from 'rxjs';
 import { ApiConfigService } from '../auth/api-config.service';
 
 export interface PaymentMethodConfig {
@@ -18,6 +18,7 @@ export interface PaymentMethodConfig {
 })
 export class PaymentMethodConfigService {
   private apiUrl: string = '';
+  private activeMethods$?: Observable<PaymentMethodConfig[]>;
 
   constructor(
     private http: HttpClient,
@@ -42,7 +43,13 @@ export class PaymentMethodConfigService {
 
   getAllActive(): Observable<PaymentMethodConfig[]> {
     const headers = this.getHeaders();
-    return this.http.get<PaymentMethodConfig[]>(`${this.apiUrl}/active`, { headers });
+    this.activeMethods$ ??= this.http.get<PaymentMethodConfig[]>(`${this.apiUrl}/active`, { headers }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+    return this.activeMethods$;
+  }
+
+  refreshActive(): Observable<PaymentMethodConfig[]> {
+    this.activeMethods$ = undefined;
+    return this.getAllActive();
   }
 
   getById(id: number): Observable<PaymentMethodConfig> {
@@ -58,7 +65,9 @@ export class PaymentMethodConfigService {
       imageUrl: imageUrl || null,
       isActive: true
     };
-    return this.http.post<PaymentMethodConfig>(this.apiUrl, body, { headers });
+    return this.http.post<PaymentMethodConfig>(this.apiUrl, body, { headers }).pipe(
+      tap(() => this.activeMethods$ = undefined)
+    );
   }
 
   update(id: number, name: string, type: string, imageUrl?: string, isActive?: boolean): Observable<PaymentMethodConfig> {
@@ -69,11 +78,15 @@ export class PaymentMethodConfigService {
       imageUrl: imageUrl || null,
       isActive: isActive !== undefined ? isActive : true
     };
-    return this.http.put<PaymentMethodConfig>(`${this.apiUrl}/${id}`, body, { headers });
+    return this.http.put<PaymentMethodConfig>(`${this.apiUrl}/${id}`, body, { headers }).pipe(
+      tap(() => this.activeMethods$ = undefined)
+    );
   }
 
   delete(id: number): Observable<void> {
     const headers = this.getHeaders();
-    return this.http.delete<void>(`${this.apiUrl}/${id}`, { headers });
+    return this.http.delete<void>(`${this.apiUrl}/${id}`, { headers }).pipe(
+      tap(() => this.activeMethods$ = undefined)
+    );
   }
 }

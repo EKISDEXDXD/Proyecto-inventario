@@ -34,4 +34,24 @@ describe('Movimientos', () => {
     expect(component.entradasCount).toBe(1);
     expect(component.salidasCount).toBe(1);
   });
+
+  it('should open today movement modals when the history is collapsed', () => {
+    component.showHistoryList = false;
+    component.historyLoaded = true;
+
+    component.openTodayEntriesModal();
+    expect(component.showHistoryList).toBe(true);
+    expect(component.showTodayEntriesModal).toBe(true);
+
+    component.closeTodayEntriesModal();
+    component.showHistoryList = false;
+
+    component.openTodaySalidasModal();
+    expect(component.showHistoryList).toBe(true);
+    expect(component.showTodaySalidasModal).toBe(true);
+  });
+
+  it('should keep the movement history collapsed by default', () => {
+    expect(component.showHistoryList).toBe(false);
+  });
 });

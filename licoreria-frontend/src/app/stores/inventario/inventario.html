@@ -2,7 +2,7 @@
 
   
   <div class="card main-title-card">
-    <h1 class="main-title"><i class="bx bx-package"></i> Inventario</h1>
+    <h1 class="main-title" role="button" tabindex="0" (click)="goBack()" (keydown.enter)="goBack()" (keydown.space)="$event.preventDefault(); goBack()" aria-label="Volver a la página anterior"><i class="bx bx-package"></i> Inventario</h1>
     <p class="main-subtitle">Gestión completa de productos y stock de tu tienda</p>
   </div>
 

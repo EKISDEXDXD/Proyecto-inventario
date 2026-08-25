@@ -5,6 +5,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { JwtHelper } from '../../core/jwt.helper';
 import { ApiConfigService } from '../../auth/api-config.service';
+import { DescriptionModalComponent } from '../inventario/description-modal.component';
 import { LotesService } from '../../services/lotes.service';
 import { ReportService, Report } from '../../home/dashboard-info/report.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
@@ -17,7 +18,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 @Component({
   selector: 'app-movimientos',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyFormatPipe, ClickOutsideDirective, PaymentMethodModalComponent],
+  imports: [CommonModule, FormsModule, CurrencyFormatPipe, ClickOutsideDirective, PaymentMethodModalComponent, DescriptionModalComponent],
   templateUrl: './movimientos.html',
   styleUrl: './movimientos.css'
 })
@@ -42,7 +43,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   endDate: string = ''; // Para filtro de transacciones
   filterDateStart: string = ''; // Para filtrador de fecha en historial
   filterDateEnd: string = ''; // Para filtrador de fecha en historial
-  loading: boolean = true;
+  loading: boolean = false;
+  historyLoaded = false;
+  historyLoading = false;
+  historyHasMore = true;
+  private historyPage = 0;
+  private readonly historyPageSize = 20;
   
   userId: number | null = null;
   userName: string = '';
@@ -55,11 +61,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   // UI State
   showProductsList: boolean = false;
-  showHistoryList: boolean = true;
+  showHistoryList: boolean = false;
   showAdminMovementsList: boolean = false;
   showTransactionDetailModal: boolean = false;
   showTodayEntriesModal: boolean = false;
   showTodaySalidasModal: boolean = false;
+  showProductDescriptionModal = false;
+  selectedProductForDescription: any = null;
   selectedTransaction: any = null;
   transactionComment: string = '';
   showMovementProductsModal: boolean = false;
@@ -103,7 +111,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   // Form fields
   movement = {
-    type: 'ENTRADA',
+    type: 'SALIDA',
     productId: 0,
     quantity: 1,
     reason: 'VENTA'
@@ -474,6 +482,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     if (initialStoreId > 0) {
       console.log('Cargando datos para storeId:', initialStoreId);
       this.storeId = initialStoreId;
+      this.restoreHistoryState();
       this.loadStoreData();
       this.loadStoreProducts();
       this.loadAdministrativeCosts();
@@ -489,6 +498,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         if (nextStoreId && nextStoreId !== this.storeId) {
           console.log('Cambio de tienda detectado, nuevo storeId:', nextStoreId);
           this.storeId = nextStoreId;
+          this.restoreHistoryState();
           this.loadStoreData();
           this.loadStoreProducts();
           this.loadAdministrativeCosts();
@@ -600,7 +610,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
         this.loadRecentProducts();
         this.cdr.detectChanges();
-        this.loadTransactions();
       },
       error: (err) => {
         console.error('Error cargando productos:', err);
@@ -612,7 +621,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadTransactions() {
+  loadTransactions(page = 0) {
+    if (this.historyLoading || (!this.historyHasMore && page > 0)) return;
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -620,21 +630,23 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       'Authorization': `Bearer ${token}`
     });
 
-    console.log('Cargando transacciones para storeId:', this.storeId);
-    // Usar el nuevo endpoint de transacciones por tienda
+    this.historyLoading = true;
     const endpoint = `${this.apiTransactionsUrl}/store/${this.storeId}`;
     this.http.get<any[]>(endpoint, { headers }).subscribe({
       next: (data) => {
-        console.log('Transacciones cargadas, total:', data?.length);
-        // Las transacciones ya están filtradas por tienda en el backend
-        this.transactions = data.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+        const pageItems = Array.isArray(data) ? data : [];
+        this.transactions = page === 0 ? pageItems : [...this.transactions, ...pageItems];
+        this.historyPage = page;
+        this.historyHasMore = false;
         this.applyTransactionFilters(); // Aplicar filtros después de cargar
-        this.loading = false;
+        this.historyLoaded = true;
+        this.historyLoading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error cargando transacciones:', err);
-        this.loading = false;
+        this.historyLoading = false;
+        this.historyLoaded = true;
         this.cdr.detectChanges();
       }
     });
@@ -1366,6 +1378,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   openTodayEntriesModal() {
+    this.showHistoryList = true;
+    if (!this.historyLoaded) this.loadTransactions();
     this.showTodayEntriesModal = true;
   }
 
@@ -1374,6 +1388,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   openTodaySalidasModal() {
+    this.showHistoryList = true;
+    if (!this.historyLoaded) this.loadTransactions();
     this.showTodaySalidasModal = true;
   }
 
@@ -1381,8 +1397,36 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.showTodaySalidasModal = false;
   }
 
+  openProductDescription(product: any) {
+    this.selectedProductForDescription = product;
+    this.showProductDescriptionModal = true;
+  }
+
+  closeProductDescription() {
+    this.showProductDescriptionModal = false;
+    this.selectedProductForDescription = null;
+  }
+
+  refreshProductDescriptionData() {
+    this.loadStoreProducts();
+  }
+
   toggleHistoryList() {
     this.showHistoryList = !this.showHistoryList;
+    localStorage.setItem(`movimientos-history-open-${this.storeId}`, String(this.showHistoryList));
+    if (this.showHistoryList && !this.historyLoaded) this.loadTransactions();
+  }
+
+  private restoreHistoryState() {
+    this.showHistoryList = false;
+    if (!this.historyLoaded) this.loadTransactions();
+  }
+
+  onHistoryScroll(event: Event) {
+    const element = event.target as HTMLElement;
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 140 && this.historyHasMore) {
+      this.loadTransactions(this.historyPage + 1);
+    }
   }
 
   toggleAdminMovementsList() {
