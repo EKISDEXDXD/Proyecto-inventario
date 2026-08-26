@@ -78,8 +78,8 @@ export class DashboardInfoComponent implements OnInit {
   set dateFrom(value: string) {
     this._dateFrom = value;
     this.bump();
-    // Si piden una fecha anterior a lo ya cargado (o "todo"), hay que traer el histórico completo.
-    if (!this.fullHistoryLoaded && (!value || (this.loadedFrom && value < this.loadedFrom))) {
+    // Solo traer el histórico completo si se solicita una fecha anterior a la ventana inicial.
+    if (value && !this.fullHistoryLoaded && this.loadedFrom && value < this.loadedFrom) {
       this.loadFullHistory();
     }
   }
@@ -127,14 +127,10 @@ export class DashboardInfoComponent implements OnInit {
     forkJoin({
       store: this.http.get<any>(`${this.apiBase}/api/stores/${this.storeId}`, { headers }).pipe(catchError(() => of(null))),
       products: this.http.get<ProductRecord[]>(`${this.apiBase}/api/products/store/${this.storeId}`, { headers }).pipe(catchError(() => of([]))),
-      transactions: this.http.get<TransactionRecord[]>(`${this.apiBase}/api/transactions/store/${this.storeId}?desde=${this.loadedFrom}`, { headers }).pipe(catchError(() => of(null))),
-      movements: this.http.get<any[]>(`${this.apiBase}/api/administrative-cost-movements/store/${this.storeId}`, { headers }).pipe(catchError(() => of([]))),
-      paymentMethods: this.http.get<PaymentMethodConfigRecord[]>(`${this.apiBase}/api/payment-method-configs/active`, { headers }).pipe(catchError(() => of([])))
-    }).subscribe(({ store, products, transactions, movements, paymentMethods }) => {
+      transactions: this.http.get<TransactionRecord[]>(`${this.apiBase}/api/transactions/store/${this.storeId}?desde=${this.loadedFrom}`, { headers }).pipe(catchError(() => of(null)))
+    }).subscribe(({ store, products, transactions }) => {
       this.storeName = store?.name ?? `Tienda #${this.storeId}`;
       this.products = products ?? [];
-      this.adminMovements = movements ?? [];
-      this.paymentMethodConfigs = paymentMethods ?? [];
       if (transactions === null) {
         this.errorMessage = 'No se pudieron cargar los movimientos de la tienda.';
       } else {
@@ -144,6 +140,23 @@ export class DashboardInfoComponent implements OnInit {
       this.bump();
       this.cdr.detectChanges();
     });
+
+    // Datos secundarios no deben bloquear el primer render del dashboard.
+    this.http.get<any[]>(`${this.apiBase}/api/administrative-cost-movements/store/${this.storeId}`, { headers })
+      .pipe(catchError(() => of([])))
+      .subscribe(movements => {
+        this.adminMovements = movements ?? [];
+        this.bump();
+        this.cdr.markForCheck();
+      });
+
+    this.http.get<PaymentMethodConfigRecord[]>(`${this.apiBase}/api/payment-method-configs/active`, { headers })
+      .pipe(catchError(() => of([])))
+      .subscribe(paymentMethods => {
+        this.paymentMethodConfigs = paymentMethods ?? [];
+        this.bump();
+        this.cdr.markForCheck();
+      });
   }
 
   private isoDaysAgo(days: number): string {

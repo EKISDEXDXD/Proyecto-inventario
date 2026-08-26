@@ -651,13 +651,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     });
 
     this.historyLoading = true;
-    const endpoint = `${this.apiTransactionsUrl}/store/${this.storeId}`;
-    this.http.get<any[]>(endpoint, { headers }).subscribe({
+    const endpoint = `${this.apiTransactionsUrl}/store/${this.storeId}/page?page=${page}&size=${this.historyPageSize}`;
+    this.http.get<any>(endpoint, { headers }).subscribe({
       next: (data) => {
-        const pageItems = Array.isArray(data) ? data : [];
+        const pageItems = Array.isArray(data) ? data : (Array.isArray(data?.content) ? data.content : []);
         this.transactions = page === 0 ? pageItems : [...this.transactions, ...pageItems];
         this.historyPage = page;
-        this.historyHasMore = false;
+        this.historyHasMore = Array.isArray(data) ? false : data?.last !== true;
         this.applyTransactionFilters(); // Aplicar filtros después de cargar
         this.historyLoaded = true;
         this.historyLoading = false;
