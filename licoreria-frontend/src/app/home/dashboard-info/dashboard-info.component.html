@@ -10,7 +10,7 @@
         <button type="button" class="filter-toggle-button" [class.active]="filtersOpen" (click)="toggleFilters()" [attr.aria-expanded]="filtersOpen" aria-controls="dashboard-filters">
           <i class="bx bx-filter-alt"></i><span>Filtros</span><i class="bx bx-chevron-down"></i>
         </button>
-        <label class="currency-picker">Moneda
+        <label class="currency-picker">
           <select [(ngModel)]="currency"><option>Bs</option><option>$</option><option>EUR</option><option>S/</option></select>
         </label>
       </div>
@@ -53,8 +53,6 @@
           </div>
         </details>
       </div>
-      <label>Desde<input type="date" [(ngModel)]="dateFrom"></label>
-      <label>Hasta<input type="date" [(ngModel)]="dateTo"></label>
       </div>
       <div class="chip-row" *ngIf="activeFilterChips.length">
         <span class="chip-hint">Filtros cruzados activos:</span>
@@ -64,6 +62,22 @@
       </div>
     </div>
   </details>
+
+  <section *ngIf="!hasLoadedPeriod && !loading" class="period-controls initial-period-controls">
+    <span class="period-controls-title"><i class="bx bx-calendar"></i> Selecciona un periodo</span>
+    <div class="period-presets">
+      <button type="button" (click)="setDashboardPeriod('ALL')">Todo</button>
+      <button type="button" (click)="setDashboardPeriod('TODAY')">Hoy</button>
+      <button type="button" (click)="setDashboardPeriod('7D')">7 días</button>
+      <button type="button" (click)="setDashboardPeriod('30D')">30 días</button>
+    </div>
+    <div class="custom-period">
+      <label><span>Desde</span><input type="date" [(ngModel)]="dateFrom" aria-label="Fecha inicial"></label>
+      <span class="date-separator">hasta</span>
+      <label><span>Hasta</span><input type="date" [(ngModel)]="dateTo" aria-label="Fecha final"></label>
+      <button type="button" class="custom-period-button" [disabled]="!dateFrom || !dateTo || dateFrom > dateTo" (click)="applyDashboardPeriod()">Aplicar periodo</button>
+    </div>
+  </section>
 
   <div *ngIf="loading" class="state-box">Cargando información de la tienda...</div>
   <div *ngIf="!loading && errorMessage" class="state-box error">{{ errorMessage }}</div>
@@ -149,35 +163,12 @@
         <div class="payment-foot">Ticket promedio <b>{{ formatMoney(averageTicket) }}</b></div>
       </article>
     </section>
+  </ng-container>
 
-    <section class="lower-grid">
-      <article class="panel">
-        <div class="panel-title"><div><h2>Stock crítico</h2><p>Productos que alcanzaron o están por debajo de su alerta configurada.</p></div><span class="panel-note">Según alertas configuradas</span></div>
-        <div *ngIf="stockRisk.length; else emptyRisk" class="risk-list">
-          <div class="risk-row" *ngFor="let item of stockRisk" [class.critical]="item.severity === 'critical'">
-            <span class="risk-dot"></span>
-            <span class="risk-name">{{ item.name }}</span>
-            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
-          </div>
-        </div>
-        <ng-template #emptyRisk><div class="empty-inline">Ningún producto está bajo su umbral de alerta.</div></ng-template>
-      </article>
-      <article class="panel">
-        <div class="panel-title"><div><h2>Productos con stock bajo</h2><p>Productos que necesitan reposición para mantener la operación.</p></div><span class="panel-note">{{ lowStockProducts.length }} producto(s)</span></div>
-        <div *ngIf="lowStockProducts.length; else emptyLowStock" class="risk-list low-stock-list">
-          <div class="risk-row" *ngFor="let item of lowStockProducts" [class.critical]="item.severity === 'critical'">
-            <span class="risk-dot"></span>
-            <span class="risk-name">{{ item.name }}</span>
-            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
-          </div>
-        </div>
-        <ng-template #emptyLowStock><div class="empty-inline">Todos los productos tienen stock suficiente.</div></ng-template>
-      </article>
-    </section>
-    <section class="profitability-section">
+    <section *ngIf="hasLoadedPeriod && !loading && !errorMessage" class="profitability-section">
       <article class="panel profitability-panel">
-        <div class="section-heading"><div><h2>Rentabilidad</h2><p>Compara el margen, la ganancia y las salidas de cada categoría.</p></div><span class="profitability-total">Ganancia total <b>{{ formatMoney(totalCategoryProfit) }}</b></span></div>
-        <div *ngIf="categoryProfitability.length; else emptyProfitability" class="profitability-line-chart">
+        <button type="button" class="section-heading profitability-toggle" [attr.aria-expanded]="profitabilityOpen" (click)="toggleProfitability()"><div><h2>Rentabilidad</h2><p>Compara el margen, la ganancia y las salidas de cada categoría.</p></div><span class="profitability-total">{{ profitabilityOpen ? 'Ocultar gráfico' : 'Mostrar gráfico' }} <span aria-hidden="true">{{ profitabilityOpen ? '⌃' : '⌄' }}</span></span></button>
+        <div *ngIf="profitabilityOpen && profitabilityLoaded && categoryProfitability.length; else emptyProfitability" class="profitability-line-chart">
           <div class="profitability-legend"><span><i class="margin-legend"></i>Rentabilidad %</span><span><i class="profit-legend"></i>Ganancia total</span><span><i class="volume-legend"></i>Salidas: pasa el cursor por los puntos</span></div>
           <div class="profitability-chart-frame">
             <div class="profit-axis left-axis"><span>{{ maxCategoryMargin.toFixed(0) }}%</span><span>{{ (maxCategoryMargin / 2).toFixed(0) }}%</span><span>0%</span></div>
@@ -193,9 +184,51 @@
           </div>
           <div class="profit-category-labels"><button *ngFor="let item of categoryProfitability; let index = index" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">{{ item.name }}<small>{{ formatUnits(item.units) }} salidas</small></button></div>
         </div>
+        <ng-template #emptyProfitability><div *ngIf="profitabilityOpen" class="empty-inline">No hay datos de rentabilidad con estos filtros.</div></ng-template>
+      </article>
+    </section>
+    <section *ngIf="!errorMessage" class="lower-grid">
+      <article class="panel">
+        <button type="button" class="panel-title stock-panel-toggle" [attr.aria-expanded]="stockCriticalOpen" (click)="toggleStockPanel('critical')"><div><h2>Stock crítico</h2><p>Productos que alcanzaron o están por debajo de su alerta configurada.</p></div><span class="panel-note">{{ stockCriticalOpen ? 'Ocultar' : 'Mostrar' }} <span aria-hidden="true">{{ stockCriticalOpen ? '⌃' : '⌄' }}</span></span></button>
+        <div *ngIf="stockCriticalOpen && stockCriticalLoaded && stockRisk.length; else emptyRisk" class="risk-list">
+          <div class="risk-row" *ngFor="let item of stockRisk" [class.critical]="item.severity === 'critical'">
+            <span class="risk-dot"></span>
+            <span class="risk-name">{{ item.name }}</span>
+            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
+          </div>
+        </div>
+        <ng-template #emptyRisk><div *ngIf="stockCriticalOpen" class="empty-inline">Ningún producto está bajo su umbral de alerta.</div></ng-template>
+      </article>
+      <article class="panel">
+        <button type="button" class="panel-title stock-panel-toggle" [attr.aria-expanded]="lowStockOpen" (click)="toggleStockPanel('low')"><div><h2>Productos con stock bajo</h2><p>Productos que necesitan reposición para mantener la operación.</p></div><span class="panel-note">{{ lowStockOpen ? 'Ocultar' : 'Mostrar' }} <span aria-hidden="true">{{ lowStockOpen ? '⌃' : '⌄' }}</span></span></button>
+        <div *ngIf="lowStockOpen && lowStockLoaded && lowStockProducts.length; else emptyLowStock" class="risk-list low-stock-list">
+          <div class="risk-row" *ngFor="let item of lowStockProducts" [class.critical]="item.severity === 'critical'">
+            <span class="risk-dot"></span>
+            <span class="risk-name">{{ item.name }}</span>
+            <span class="risk-stock">{{ formatUnits(item.stock) }} / {{ formatUnits(item.threshold) }}</span>
+          </div>
+        </div>
+        <ng-template #emptyLowStock><div *ngIf="lowStockOpen" class="empty-inline">Todos los productos tienen stock suficiente.</div></ng-template>
       </article>
     </section>
 
+    <section *ngIf="!executiveLoaded" class="period-controls executive-period-gate">
+      <span class="period-controls-title"><i class="bx bx-calendar"></i> Resumen ejecutivo: selecciona un periodo</span>
+      <div class="period-presets">
+        <button type="button" (click)="setExecutivePeriod('ALL')">Todo</button>
+        <button type="button" (click)="setExecutivePeriod('TODAY')">Hoy</button>
+        <button type="button" (click)="setExecutivePeriod('7D')">7 días</button>
+        <button type="button" (click)="setExecutivePeriod('30D')">30 días</button>
+      </div>
+      <div class="custom-period">
+        <label><span>Desde</span><input type="date" [(ngModel)]="executiveFromInput" aria-label="Fecha inicial del resumen"></label>
+        <span class="date-separator">hasta</span>
+        <label><span>Hasta</span><input type="date" [(ngModel)]="executiveToInput" aria-label="Fecha final del resumen"></label>
+        <button type="button" class="custom-period-button" [disabled]="!executiveFromInput || !executiveToInput || executiveFromInput > executiveToInput" (click)="applyCustomPeriod()">Cargar resumen</button>
+      </div>
+    </section>
+
+  <ng-container *ngIf="executiveLoaded">
     <section class="dashboard-reports-section">
       <div class="panel reports-header-panel">
         <div class="section-heading"><div><h2>Resumen ejecutivo</h2><p>Indicadores principales del periodo seleccionado.</p></div></div>
@@ -206,27 +239,24 @@
           <button type="button" [class.active-period]="executivePeriod === 'ALL'" (click)="setExecutivePeriod('ALL')">Todo</button><button type="button" [class.active-period]="executivePeriod === 'TODAY'" (click)="setExecutivePeriod('TODAY')">Hoy</button><button type="button" [class.active-period]="executivePeriod === '7D'" (click)="setExecutivePeriod('7D')">7 días</button><button type="button" [class.active-period]="executivePeriod === '30D'" (click)="setExecutivePeriod('30D')">30 días</button>
         </div>
         <div class="custom-period" [class.active-custom]="executivePeriod === 'CUSTOM'">
-          <label><span>Desde</span><input type="date" [(ngModel)]="dateFrom" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha inicial"></label>
+          <label><span>Desde</span><input type="date" [(ngModel)]="executiveFromInput" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha inicial"></label>
           <span class="date-separator">hasta</span>
-          <label><span>Hasta</span><input type="date" [(ngModel)]="dateTo" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></label>
+          <label><span>Hasta</span><input type="date" [(ngModel)]="executiveToInput" (ngModelChange)="executivePeriod = 'CUSTOM'" aria-label="Fecha final"></label>
+          <button type="button" class="custom-period-button" [disabled]="!executiveFromInput || !executiveToInput || executiveFromInput > executiveToInput" (click)="applyCustomPeriod()">Aplicar periodo</button>
         </div>
-        <p *ngIf="!fullHistoryLoaded" class="history-window-note">
-          <i class="bx bx-info-circle"></i> Mostrando los últimos {{ historyWindowDays }} días para cargar más rápido.
-          <button type="button" (click)="loadFullHistory()" [disabled]="historyLoading">{{ historyLoading ? 'Cargando historial completo...' : 'Ver historial completo' }}</button>
-        </p>
       </div>
       <div class="executive-grid">
-        <article class="report-stat report-stat-cost"><i class="report-stat-icon bx bx-wallet"></i><span>Total invertido</span><strong>{{ formatMoney(totalInvested) }}</strong><small>Compras y entradas</small></article>
-        <article class="report-stat report-stat-sales"><i class="report-stat-icon bx bx-trending-up"></i><span>Ingresos</span><strong>{{ formatMoney(totalRevenue) }}</strong><small>{{ formatUnits(executiveSalesUnits) }} unidades vendidas</small></article>
-        <article class="report-stat report-stat-warning"><i class="report-stat-icon bx bx-receipt"></i><span>Costo de venta</span><strong>{{ formatMoney(totalCost) }}</strong><small>Costo de productos vendidos</small></article>
-        <article class="report-stat report-stat-profit"><i class="report-stat-icon bx bx-line-chart"></i><span>Ganancia bruta</span><strong>{{ formatMoney(grossProfit) }}</strong><small>Ingresos menos costo</small></article>
-        <article class="report-stat report-stat-net"><i class="report-stat-icon bx bx-pie-chart-alt-2"></i><span>Margen</span><strong>{{ margin | number:'1.1-1' }}%</strong><small>Rentabilidad sobre ingresos</small></article>
+          <article class="report-stat report-stat-cost"><i class="report-stat-icon bx bx-wallet"></i><span>Total invertido</span><strong>{{ formatMoney(executiveInvested) }}</strong><small>Compras y entradas</small></article>
+          <article class="report-stat report-stat-sales"><i class="report-stat-icon bx bx-trending-up"></i><span>Ingresos</span><strong>{{ formatMoney(executiveTotalRevenue) }}</strong><small>{{ formatUnits(executiveUnits) }} unidades vendidas</small></article>
+          <article class="report-stat report-stat-warning"><i class="report-stat-icon bx bx-receipt"></i><span>Costo de venta</span><strong>{{ formatMoney(executiveTotalCost) }}</strong><small>Costo de productos vendidos</small></article>
+          <article class="report-stat report-stat-profit"><i class="report-stat-icon bx bx-line-chart"></i><span>Ganancia bruta</span><strong>{{ formatMoney(executiveGrossProfit) }}</strong><small>Ingresos menos costo</small></article>
+          <article class="report-stat report-stat-net"><i class="report-stat-icon bx bx-pie-chart-alt-2"></i><span>Margen</span><strong>{{ executiveMargin | number:'1.1-1' }}%</strong><small>Rentabilidad sobre ingresos</small></article>
       </div>
 
       <div class="reports-grid">
         <article class="panel report-card">
           <div class="panel-title"><div><h2>Flujo diario</h2><p>Resumen diario de entradas, ventas, costos y ganancias.</p></div><span class="panel-note">Últimos 14 días</span></div>
-          <div *ngIf="dailyFlow.length; else emptyDailyFlow" class="flow-list">
+          <div *ngIf="dailyFlow.length; else emptyDailyFlow" #dailyFlowList class="flow-list" (scroll)="onDailyFlowScroll($event)">
             <div class="flow-row" *ngFor="let item of dailyFlow">
               <span class="flow-date">{{ item.label }}</span>
               <div class="flow-values">
@@ -247,5 +277,5 @@
       </div>
     </section>
   </ng-container>
-  <ng-template #emptyCategories><div class="empty-inline">No hay ventas por etiqueta con estos filtros.</div></ng-template><ng-template #emptyTrend><div class="empty-inline">No hay ventas en el período seleccionado.</div></ng-template><ng-template #emptyProducts><div class="empty-inline">No hay productos vendidos con estos filtros.</div></ng-template><ng-template #emptyPayments><div class="empty-inline">No hay métodos de pago registrados.</div></ng-template><ng-template #emptyProfitability><div class="empty-inline">No hay datos de rentabilidad con estos filtros.</div></ng-template><ng-template #emptyDailyFlow><div class="empty-inline">No hay movimientos diarios con estos filtros.</div></ng-template><ng-template #emptyAdminCosts><div class="empty-inline">No hay costos administrativos en este periodo.</div></ng-template>
+  <ng-template #emptyCategories><div class="empty-inline">No hay ventas por etiqueta con estos filtros.</div></ng-template><ng-template #emptyTrend><div class="empty-inline">No hay ventas en el período seleccionado.</div></ng-template><ng-template #emptyProducts><div class="empty-inline">No hay productos vendidos con estos filtros.</div></ng-template><ng-template #emptyPayments><div class="empty-inline">No hay métodos de pago registrados.</div></ng-template><ng-template #emptyDailyFlow><div class="empty-inline">No hay movimientos diarios con estos filtros.</div></ng-template><ng-template #emptyAdminCosts><div class="empty-inline">No hay costos administrativos en este periodo.</div></ng-template>
 </main>

@@ -33,7 +33,23 @@
 .profitability-total b { margin-left: 5px; color: var(--ink); }
 .profitability-panel { margin-top: 0; padding: 22px 24px; }
 .profitability-panel > .section-heading { margin-bottom: 18px; padding: 0; }
+.profitability-toggle {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: background-color .25s ease, transform .25s ease;
+}
+.profitability-toggle:hover,
+.profitability-toggle:focus-visible { background: #f8f9ff; }
+.profitability-toggle:focus-visible { outline: 3px solid rgba(99, 102, 241, .2); outline-offset: 3px; }
+.profitability-toggle .profitability-total { transition: color .25s ease, transform .25s ease; }
+.profitability-toggle:hover .profitability-total { color: var(--primary); }
 .profitability-line-chart { margin-top: 4px; }
+.profitability-line-chart { animation: profitability-expand .35s ease both; transform-origin: top; }
+@keyframes profitability-expand { from { opacity: 0; transform: translateY(-8px) scaleY(.96); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
 .profitability-legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: 0 0 14px 8px; color: var(--muted); font-size: 11px; }
 .profitability-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .profitability-legend i { width: 10px; height: 3px; border-radius: 2px; }
@@ -339,6 +355,7 @@
 .period-controls { gap: 10px; padding: 12px 14px; border-radius: 12px; background: #fff; box-shadow: 0 4px 16px rgba(15, 23, 42, .04); }
 .period-controls-title { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .period-controls-title i { color: var(--primary); font-size: 17px; }
+.period-controls-title { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 750; }
 .period-presets { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .custom-period { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 5px 7px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fafbfc; }
 .custom-period.active-custom { border-color: #a5b4fc; background: #f5f6ff; }
@@ -694,6 +711,122 @@
 	color: var(--muted);
 	font-size: 13px;
 	line-height: 1.4;
+}
+.stock-panel-toggle {
+	width: 100%;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.stock-panel-toggle:hover .panel-note,
+.stock-panel-toggle:focus-visible .panel-note { color: var(--primary); }
+.executive-period-gate { margin-top: 22px; }
+.initial-period-controls,
+.executive-period-gate {
+	gap: 14px;
+	min-height: 76px;
+	padding: 16px 18px;
+	font-size: 12px;
+}
+.initial-period-controls .period-controls-title,
+.executive-period-gate .period-controls-title {
+	font-size: 15px;
+	font-weight: 750;
+}
+.initial-period-controls .period-presets,
+.executive-period-gate .period-presets {
+	gap: 9px;
+}
+.initial-period-controls .period-presets button,
+.executive-period-gate .period-presets button {
+	min-height: 40px;
+	padding: 9px 14px;
+	font-size: 12px;
+}
+.initial-period-controls .custom-period,
+.executive-period-gate .custom-period {
+	gap: 10px;
+	padding: 9px 11px;
+}
+.initial-period-controls .custom-period input,
+.executive-period-gate .custom-period input {
+	width: 148px;
+	min-height: 38px;
+	font-size: 12px;
+}
+.initial-period-controls .custom-period-button,
+.executive-period-gate .custom-period-button {
+	min-height: 40px;
+	padding: 9px 14px;
+	font-size: 12px;
+}
+@media (max-width: 560px) {
+	.dashboard-store-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		align-items: end;
+		gap: 12px;
+	}
+	.dashboard-store-actions .filter-toggle-button,
+	.dashboard-store-actions .currency-picker {
+		width: 100%;
+		min-width: 0;
+	}
+	.dashboard-store-actions .currency-picker select {
+		width: 100%;
+		min-width: 0;
+	}
+}
+@media (max-width: 560px) {
+	.initial-period-controls,
+	.executive-period-gate {
+		display: block;
+		padding: 16px;
+	}
+	.initial-period-controls .period-controls-title,
+	.executive-period-gate .period-controls-title {
+		display: flex;
+		margin-bottom: 14px;
+	}
+	.initial-period-controls .period-presets,
+	.executive-period-gate .period-presets {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		width: 100%;
+		margin-bottom: 14px;
+	}
+	.initial-period-controls .period-presets button,
+	.executive-period-gate .period-presets button {
+		width: 100%;
+	}
+	.initial-period-controls .custom-period,
+	.executive-period-gate .custom-period {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		width: 100%;
+		margin: 0;
+	}
+	.initial-period-controls .custom-period label,
+	.executive-period-gate .custom-period label {
+		min-width: 0;
+	}
+	.initial-period-controls .custom-period input,
+	.executive-period-gate .custom-period input {
+		width: 100%;
+		min-width: 0;
+	}
+	.initial-period-controls .date-separator,
+	.executive-period-gate .date-separator {
+		display: none;
+	}
+	.initial-period-controls .custom-period-button,
+	.executive-period-gate .custom-period-button {
+		grid-column: 1 / -1;
+		width: 100%;
+	}
 }
 .panel-title .eyebrow,
 .section-heading .eyebrow {

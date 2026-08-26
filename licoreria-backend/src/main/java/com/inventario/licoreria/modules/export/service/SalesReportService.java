@@ -1,5 +1,31 @@
 package com.inventario.licoreria.modules.export.service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Service;
+
 import com.inventario.licoreria.modules.administrative_costs.model.AdministrativeCostMovement;
 import com.inventario.licoreria.modules.administrative_costs.service.AdministrativeCostMovementService;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
@@ -9,18 +35,6 @@ import com.inventario.licoreria.modules.products.model.ProductTag;
 import com.inventario.licoreria.modules.products.service.ProductService;
 import com.inventario.licoreria.modules.users.model.User;
 import com.inventario.licoreria.modules.users.service.UserService;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.stereotype.Service;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class SalesReportService {
@@ -229,7 +243,7 @@ public class SalesReportService {
             if ("ENTRADA".equalsIgnoreCase(t.getType())) {
                 BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
                 totalEntradas = totalEntradas.add(cost.multiply(new BigDecimal(t.getQuantity())));
-            } else if ("SALIDA".equalsIgnoreCase(t.getType())) {
+            } else if ("SALIDA".equalsIgnoreCase(t.getType()) && "VENTA".equalsIgnoreCase(t.getReason())) {
                 BigDecimal price = product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
                 BigDecimal cost = product.getCost() != null ? product.getCost() : BigDecimal.ZERO;
                 totalSalidas = totalSalidas.add(price.multiply(new BigDecimal(t.getQuantity())));
@@ -315,7 +329,7 @@ public class SalesReportService {
         Map<String, BigDecimal> productRevenue = new HashMap<>();
 
         for (Transaction t : activeTransactions) {
-            if ("SALIDA".equalsIgnoreCase(t.getType()) && !"AJUSTE".equalsIgnoreCase(t.getReason())) {
+            if ("SALIDA".equalsIgnoreCase(t.getType()) && "VENTA".equalsIgnoreCase(t.getReason())) {
                 try {
                     Product product = t.getProduct();
                     if (product != null) {
