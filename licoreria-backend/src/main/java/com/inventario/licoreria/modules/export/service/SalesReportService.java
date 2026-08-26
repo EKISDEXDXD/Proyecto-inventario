@@ -64,6 +64,11 @@ public class SalesReportService {
 
             // Obtener todas las transacciones
             List<Transaction> allTransactions = transactionService.findAll();
+                boolean completePeriod = "all".equalsIgnoreCase(periodMode) || "complete".equalsIgnoreCase(periodMode);
+                LocalDate[] completeRange = completePeriod
+                    ? resolveCompleteRange(allTransactions, storeId) : null;
+                final LocalDate effectiveDateFrom = completeRange != null ? completeRange[0] : dateFrom;
+                final LocalDate effectiveDateTo = completeRange != null ? completeRange[1] : dateTo;
             
             // Filtrar por tienda, rango de fechas y excluir productos desactivados o eliminados
             List<Transaction> transactions = allTransactions.stream()
@@ -79,7 +84,7 @@ public class SalesReportService {
                         }
 
                         LocalDate txDate = t.getDateTime().toLocalDate();
-                        return !txDate.isBefore(dateFrom) && !txDate.isAfter(dateTo);
+                        return !txDate.isBefore(effectiveDateFrom) && !txDate.isAfter(effectiveDateTo);
                     } catch (Exception e) {
                         return false;
                     }
@@ -88,19 +93,19 @@ public class SalesReportService {
 
             boolean isCustomPeriod = "custom".equalsIgnoreCase(periodMode) || "personalizado".equalsIgnoreCase(periodMode);
             if (isCustomPeriod) {
-                createFileMetadataSheet(workbook, storeId, dateFrom, dateTo, reportType, true);
+                createFileMetadataSheet(workbook, storeId, effectiveDateFrom, effectiveDateTo, reportType, true);
             }
 
             // Crear hojas según tipo de reporte
-            createExecutiveSummarySheet(workbook, transactions, storeId, isCustomPeriod, dateFrom, dateTo, reportType);
+            createExecutiveSummarySheet(workbook, transactions, storeId, isCustomPeriod, effectiveDateFrom, effectiveDateTo, reportType);
             createDetailedMovementsSheet(workbook, transactions);
             
             // Si es COMPLETE, agregar hojas adicionales en orden específico
             if ("COMPLETE".equalsIgnoreCase(reportType)) {
                 createDailyCashFlowSheet(workbook, transactions, storeId);
-                createProductAnalysisSheet(workbook, transactions, storeId, dateFrom, dateTo);
-                createStockRotationSheet(workbook, transactions, storeId, dateFrom, dateTo);
-                createAdministrativeCostsSheet(workbook, storeId, dateFrom, dateTo);
+                createProductAnalysisSheet(workbook, transactions, storeId, effectiveDateFrom, effectiveDateTo);
+                createStockRotationSheet(workbook, transactions, storeId, effectiveDateFrom, effectiveDateTo);
+                createAdministrativeCostsSheet(workbook, storeId, effectiveDateFrom, effectiveDateTo);
                 createAnalysisByLabelsSheet(workbook, transactions, storeId);
                 createProductSalesAnalysisSheet(workbook, transactions, storeId);
                 // Se eliminaron las hojas de 'Gráficos y indicaciones' y 'Recomendaciones'
@@ -120,6 +125,20 @@ public class SalesReportService {
         } catch (Exception e) {
             throw new RuntimeException("Error inesperado al generar reporte: " + e.getMessage(), e);
         }
+    }
+
+    public LocalDate[] resolveCompleteRange(Long storeId) {
+        return resolveCompleteRange(transactionService.findAll(), storeId);
+    }
+
+    private LocalDate[] resolveCompleteRange(List<Transaction> allTransactions, Long storeId) {
+        List<LocalDate> storeDates = allTransactions.stream()
+            .filter(t -> t != null && t.getDateTime() != null && isProductEligibleForExport(t.getProduct(), storeId))
+            .map(t -> t.getDateTime().toLocalDate())
+            .collect(Collectors.toList());
+        LocalDate first = storeDates.stream().min(LocalDate::compareTo).orElse(LocalDate.now());
+        LocalDate last = storeDates.stream().max(LocalDate::compareTo).orElse(LocalDate.now());
+        return new LocalDate[] { first, last };
     }
 
     /**

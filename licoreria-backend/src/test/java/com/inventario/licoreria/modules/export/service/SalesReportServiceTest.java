@@ -1,24 +1,5 @@
 package com.inventario.licoreria.modules.export.service;
 
-import com.inventario.licoreria.modules.administrative_costs.service.AdministrativeCostMovementService;
-import com.inventario.licoreria.modules.inventory.model.Transaction;
-import com.inventario.licoreria.modules.inventory.service.TransactionService;
-import com.inventario.licoreria.modules.products.model.Product;
-import com.inventario.licoreria.modules.products.service.ProductService;
-import com.inventario.licoreria.modules.store.model.Store;
-import com.inventario.licoreria.modules.users.service.UserService;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -27,8 +8,30 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.inventario.licoreria.modules.administrative_costs.service.AdministrativeCostMovementService;
+import com.inventario.licoreria.modules.inventory.model.Transaction;
+import com.inventario.licoreria.modules.inventory.service.TransactionService;
+import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.service.ProductService;
+import com.inventario.licoreria.modules.store.model.Store;
+import com.inventario.licoreria.modules.users.service.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class SalesReportServiceTest {
@@ -494,6 +497,50 @@ class SalesReportServiceTest {
 
             assertTrue(values.stream().anyMatch(value -> value.contains("Activo")));
             assertFalse(values.stream().anyMatch(value -> value.contains("Inactivo")));
+        }
+    }
+
+    @Test
+    void generateSalesReport_allPeriodIgnoresFormDatesAndIncludesCompleteStoreHistory() throws IOException {
+        Store store = new Store();
+        store.setId(1L);
+
+        Product product = new Product();
+        product.setId(10L);
+        product.setName("Producto histórico");
+        product.setPrice(new BigDecimal("100"));
+        product.setCost(new BigDecimal("60"));
+        product.setIsActive(true);
+        product.setStore(store);
+
+        Transaction oldSale = new Transaction();
+        oldSale.setId(1L);
+        oldSale.setProduct(product);
+        oldSale.setProductId(10L);
+        oldSale.setType("SALIDA");
+        oldSale.setReason("VENTA");
+        oldSale.setQuantity(2);
+        oldSale.setDateTime(LocalDateTime.of(2024, 1, 15, 10, 0));
+
+        Transaction recentSale = new Transaction();
+        recentSale.setId(2L);
+        recentSale.setProduct(product);
+        recentSale.setProductId(10L);
+        recentSale.setType("SALIDA");
+        recentSale.setReason("VENTA");
+        recentSale.setQuantity(1);
+        recentSale.setDateTime(LocalDateTime.of(2026, 7, 30, 10, 0));
+
+        when(transactionService.findAll()).thenReturn(List.of(oldSale, recentSale));
+
+        byte[] excelBytes = salesReportService.generateSalesReport(
+            1L, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 30), "SUMMARY", "all");
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
+            Sheet summarySheet = workbook.getSheet("Resumen Ejecutivo");
+            assertNotNull(summarySheet);
+            assertEquals(300.0, getMetricValue(summarySheet, "Total Ingresos:"), 0.001);
+            assertEquals(180.0, getMetricValue(summarySheet, "Costo de Venta:"), 0.001);
         }
     }
 

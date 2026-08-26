@@ -102,13 +102,18 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   title: string = '';
   description: string = '';
   reportDate: string = '';
-  reportColor: string = '#4f46e5';
+  reportColor: string = '#5856D6';
   reportColors = [
-    { label: 'Violeta', value: '#4f46e5' },
-    { label: 'Verde', value: '#16a34a' },
-    { label: 'Naranja', value: '#f97316' },
-    { label: 'Rosa', value: '#ec4899' },
-    { label: 'Azul', value: '#2563eb' }
+    { label: 'Violeta', value: '#5856D6' },
+    { label: 'Verde', value: '#34C759' },
+    { label: 'Naranja', value: '#FF9500' },
+    { label: 'Rosa', value: '#E83E8C' },
+    { label: 'Azul', value: '#007AFF' },
+    { label: 'Turquesa', value: '#00A7A0' },
+    { label: 'Rojo', value: '#FF3B30' },
+    { label: 'Cereza', value: '#D92D55' },
+    { label: 'Esmeralda', value: '#149B76' },
+    { label: 'Terracota', value: '#D46A32' }
   ];
   filterStartDate: string = '';
   filterEndDate: string = '';
@@ -1575,7 +1580,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         this.reports = (response.content || response).map((report: any) => ({
           ...report,
-          color: report.color || '#4f46e5'
+          color: report.color || '#5856D6'
         }));
         this.totalPages = response.totalPages || Math.ceil(this.reports.length / this.pageSize);
         this.filteredReports = [...this.reports];
@@ -1601,7 +1606,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.title = '';
     this.description = '';
     this.reportDate = '';
-    this.reportColor = '#4f46e5';
+    this.reportColor = '#5856D6';
     this.editingReportId = null;
   }
 
@@ -1652,8 +1657,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   getReportStyle(report: Report): { [key: string]: string } {
-    const color = report.color || '#4f46e5';
-    const lightColor = this.lightenHexColor(color, 18);
+    const color = /^#[0-9A-Fa-f]{6}$/.test(report.color || '') ? report.color! : '#5856D6';
+    const lightColor = this.lightenHexColor(color, 10);
     return {
       backgroundColor: color,
       backgroundImage: `linear-gradient(135deg, ${color} 0%, ${lightColor} 100%)`,
@@ -1664,15 +1669,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   private lightenHexColor(hex: string, percent: number): string {
     const cleanedHex = hex.replace('#', '');
     const num = parseInt(cleanedHex, 16);
-    let r = (num >> 16) + Math.round(255 * percent / 100);
-    let g = ((num >> 8) & 0x00FF) + Math.round(255 * percent / 100);
-    let b = (num & 0x0000FF) + Math.round(255 * percent / 100);
+    const r = (num >> 16) & 0xFF;
+    const g = (num >> 8) & 0x00FF;
+    const b = num & 0x0000FF;
+    const amount = Math.max(0, Math.min(100, percent)) / 100;
+    const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
 
-    r = Math.min(255, r);
-    g = Math.min(255, g);
-    b = Math.min(255, b);
-
-    return `rgb(${r}, ${g}, ${b})`;
+    return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
   }
 
   deleteReport(reportId: number) {

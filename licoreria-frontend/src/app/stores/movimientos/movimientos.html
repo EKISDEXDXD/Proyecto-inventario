@@ -734,14 +734,17 @@
           </div>
 
           <div class="form-group report-color-group">
-            <label>Color de cabecera *</label>
+            <label>Color de etiqueta *</label>
             <div class="color-palette">
               <button type="button" class="color-swatch"
                 *ngFor="let color of reportColors"
                 [class.selected]="reportColor === color.value"
                 [style.background]="color.value"
                 (click)="reportColor = color.value"
-                [attr.aria-label]="color.label">
+                [attr.aria-label]="color.label"
+                [attr.aria-pressed]="reportColor === color.value"
+                [title]="color.label">
+                <i *ngIf="reportColor === color.value" class="bx bx-check"></i>
               </button>
             </div>
           </div>

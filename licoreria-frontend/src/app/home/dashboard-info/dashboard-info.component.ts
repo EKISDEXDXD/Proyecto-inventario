@@ -23,6 +23,8 @@ interface CategoryProfitability { name: string; revenue: number; cost: number; p
 interface DailyFlow { date: string; label: string; entries: number; entryCost: number; sales: number; salesRevenue: number; salesCost: number; grossProfit: number; width: number; }
 interface FilterChip { group: string; label: string; onRemove: () => void; }
 interface StockRiskItem { id: number; name: string; stock: number; threshold: number; severity: 'critical' | 'warning'; }
+interface DashboardSummaryDay { date: string; entries: number; entryCost: number; salesUnits: number; salesCount: number; salesRevenue: number; salesCost: number; grossProfit: number; losses: number; movements: number; adminCost: number; products: Array<{ productId?: number; name: string; units: number; revenue: number; cost: number; profit: number }>; categories: Array<{ name: string; units: number; revenue: number; cost: number; profit: number }>; payments: Record<string, number>; }
+interface DashboardSummary { ready: boolean; generatedAt?: string; days: DashboardSummaryDay[]; }
 
 @Component({
   selector: 'app-dashboard-info',
@@ -38,6 +40,7 @@ export class DashboardInfoComponent implements OnInit {
   @ViewChild('dailyFlowList') dailyFlowList?: ElementRef<HTMLElement>;
   storeId = 0; storeName = 'Tienda'; loading = true; errorMessage = ''; currency = 'Bs'; filtersOpen = false;
   transactions: TransactionRecord[] = []; products: ProductRecord[] = []; paymentMethodConfigs: PaymentMethodConfigRecord[] = []; adminMovements: Array<{ dateTime: string; amountPaid: number; description?: string; concept?: string; type?: string }> = [];
+  dashboardSummary: DashboardSummary | null = null;
   expandedProductIds = new Set<number>();
   selectedTags = new Set<string>();
   selectedDates = new Set<string>();
@@ -138,6 +141,7 @@ export class DashboardInfoComponent implements OnInit {
       this.transactions = [];
       this.products = [];
       this.adminMovements = [];
+      this.dashboardSummary = null;
       this.paymentMethodConfigs = [];
       this.executiveTransactions = [];
       this.executiveAdminMovements = [];
@@ -194,30 +198,21 @@ export class DashboardInfoComponent implements OnInit {
     this.errorMessage = '';
     this.fullHistoryLoaded = fromDate === null;
     this.loadedFrom = fromDate ?? '';
-    const transactionUrl = fromDate
-      ? `${this.apiBase}/api/transactions/store/${this.storeId}?desde=${fromDate}`
-      : `${this.apiBase}/api/transactions/store/${this.storeId}`;
-
     const transactionCacheKey = fromDate ?? 'ALL';
     forkJoin({
       products: this.productsDataLoaded ? of(this.products) : this.http.get<ProductRecord[]>(`${this.apiBase}/api/products/store/${this.storeId}`, { headers }).pipe(catchError(() => of([]))),
-      transactions: this.transactionCache.has(transactionCacheKey) ? of(this.transactionCache.get(transactionCacheKey)!) : this.http.get<TransactionRecord[]>(transactionUrl, { headers }).pipe(catchError(() => of(null)))
-    }).subscribe(({ products, transactions }) => {
+      summary: this.http.get<DashboardSummary>(`${this.apiBase}/api/transactions/store/${this.storeId}/dashboard-summary`, { headers }).pipe(catchError(() => of({ ready: false, days: [] })))
+    }).subscribe(({ products, summary }) => {
       this.products = products ?? [];
       this.productsDataLoaded = true;
-      if (transactions === null) {
-        this.errorMessage = 'No se pudieron cargar los movimientos de la tienda.';
-      } else {
-        this.transactions = transactions.filter(item => item.product?.isActive !== false);
-        this.transactionCache.set(transactionCacheKey, this.transactions);
-        this.loadedTransactionFrom = fromDate ?? '';
-        this.loadedTransactionAll = fromDate === null;
-      }
+      this.dashboardSummary = summary.ready ? summary : null;
+      this.transactions = [];
       this.hasLoadedPeriod = true;
       this.loading = false;
       this.bump();
       this.cdr.detectChanges();
       this.restoreScrollPosition(scrollY);
+      if (!summary.ready) this.loadDetailedTransactions(fromDate, headers, transactionCacheKey);
     });
 
     // Datos secundarios no deben bloquear el primer render del dashboard.
@@ -237,6 +232,26 @@ export class DashboardInfoComponent implements OnInit {
         this.bump();
         this.cdr.markForCheck();
       });
+  }
+
+  private loadDetailedTransactions(fromDate: string | null, headers: HttpHeaders, cacheKey: string): void {
+    if (this.transactionCache.has(cacheKey)) {
+      this.transactions = this.transactionCache.get(cacheKey)!;
+      this.bump();
+      this.cdr.markForCheck();
+      return;
+    }
+    const url = fromDate
+      ? `${this.apiBase}/api/transactions/store/${this.storeId}?desde=${fromDate}`
+      : `${this.apiBase}/api/transactions/store/${this.storeId}`;
+    this.http.get<TransactionRecord[]>(url, { headers }).pipe(catchError(() => of([]))).subscribe(transactions => {
+      this.transactions = transactions.filter(item => item.product?.isActive !== false);
+      this.transactionCache.set(cacheKey, this.transactions);
+      this.loadedTransactionFrom = fromDate ?? '';
+      this.loadedTransactionAll = fromDate === null;
+      this.bump();
+      this.cdr.markForCheck();
+    });
   }
 
   get reasons(): string[] { return this.memo('reasons', () => [...new Set(this.transactions.map(item => item.reason).filter(Boolean))].sort()); }
@@ -264,13 +279,19 @@ export class DashboardInfoComponent implements OnInit {
     });
   }
   get sales(): TransactionRecord[] { return this.memo('sales', () => this.filteredTransactions.filter(item => item.type === 'SALIDA' && item.reason === 'VENTA')); }
-  get totalRevenue(): number { return this.sales.reduce((sum, item) => sum + this.amount(item, 'price'), 0); }
-  get totalCost(): number { return this.sales.reduce((sum, item) => sum + this.amount(item, 'cost'), 0); }
+  private summaryDaysForPeriod(): DashboardSummaryDay[] {
+    const days = this.dashboardSummary?.days ?? [];
+    return days.filter(day => (!this.dateFrom || day.date >= this.dateFrom) && (!this.dateTo || day.date <= this.dateTo));
+  }
+  private hasDetailedTransactions(): boolean { return this.transactions.length > 0; }
+  get totalRevenue(): number { return this.hasDetailedTransactions() ? this.sales.reduce((sum, item) => sum + this.amount(item, 'price'), 0) : this.summaryDaysForPeriod().reduce((sum, day) => sum + Number(day.salesRevenue), 0); }
+  get totalCost(): number { return this.hasDetailedTransactions() ? this.sales.reduce((sum, item) => sum + this.amount(item, 'cost'), 0) : this.summaryDaysForPeriod().reduce((sum, day) => sum + Number(day.salesCost), 0); }
   get grossProfit(): number { return this.totalRevenue - this.totalCost; }
+  get salesCount(): number { return this.hasDetailedTransactions() ? this.sales.length : this.summaryDaysForPeriod().reduce((sum, day) => sum + Number(day.salesCount), 0); }
   get margin(): number { return this.totalRevenue ? this.grossProfit / this.totalRevenue * 100 : 0; }
-  get adminCost(): number { return this.adminMovements.filter(item => (!this.dateFrom || item.dateTime?.slice(0, 10) >= this.dateFrom) && (!this.dateTo || item.dateTime?.slice(0, 10) <= this.dateTo)).reduce((sum, item) => sum + Number(item.amountPaid ?? 0), 0); }
+  get adminCost(): number { return this.hasDetailedTransactions() ? this.adminMovements.filter(item => (!this.dateFrom || item.dateTime?.slice(0, 10) >= this.dateFrom) && (!this.dateTo || item.dateTime?.slice(0, 10) <= this.dateTo)).reduce((sum, item) => sum + Number(item.amountPaid ?? 0), 0) : this.summaryDaysForPeriod().reduce((sum, day) => sum + Number(day.adminCost), 0); }
   get netProfit(): number { return this.grossProfit - this.adminCost; }
-  get losses(): number { return this.filteredTransactions.filter(item => item.type === 'SALIDA' && item.reason === 'PERDIDA').reduce((sum, item) => sum + item.quantity, 0); }
+  get losses(): number { return this.hasDetailedTransactions() ? this.filteredTransactions.filter(item => item.type === 'SALIDA' && item.reason === 'PERDIDA').reduce((sum, item) => sum + item.quantity, 0) : this.summaryDaysForPeriod().reduce((sum, day) => sum + Number(day.losses), 0); }
   get rootProducts(): ProductRecord[] { return this.products.filter(item => !item.parentId); }
   get lowStockCount(): number { return this.rootProducts.filter(item => this.stockFor(item) <= this.threshold(item)).length; }
   get averageTicket(): number { return this.sales.length ? this.totalRevenue / this.sales.length : 0; }
@@ -419,6 +440,22 @@ export class DashboardInfoComponent implements OnInit {
     return this.memo('productSummaries', () => {
       const key = this.sortBy;
       const search = this.productSearchTerm.trim().toLocaleLowerCase();
+      if (!this.hasDetailedTransactions()) {
+        const totals = new Map<number, { units: number; revenue: number; cost: number; profit: number }>();
+        this.summaryDaysForPeriod().forEach(day => day.products.forEach(item => {
+          if (item.productId == null) return;
+          const product = this.products.find(candidate => candidate.id === item.productId);
+          const rootId = product?.parentId ?? item.productId;
+          const current = totals.get(rootId) ?? { units: 0, revenue: 0, cost: 0, profit: 0 };
+          current.units += Number(item.units); current.revenue += Number(item.revenue); current.cost += Number(item.cost); current.profit += Number(item.profit);
+          totals.set(rootId, current);
+        }));
+        return this.rootProducts.map(root => {
+          const lots = this.products.filter(product => product.parentId === root.id);
+          const value = totals.get(root.id) ?? { units: 0, revenue: 0, cost: 0, profit: 0 };
+          return { root, lots, expanded: this.expandedProductIds.has(root.id), ...value, barWidth: 0 };
+        }).filter(item => item.units > 0 && (!search || item.root.name.toLocaleLowerCase().includes(search) || item.lots.some(lot => lot.name.toLocaleLowerCase().includes(search)))).sort((a, b) => b[key] - a[key]);
+      }
       const lotsByRoot = new Map<number, ProductRecord[]>();
       this.products.filter(product => product.parentId).forEach(lot => {
         const lots = lotsByRoot.get(lot.parentId!) ?? [];
@@ -450,6 +487,12 @@ export class DashboardInfoComponent implements OnInit {
   }
   get categoryBreakdown(): Array<{ name: string; units: number; width: number; scale: number; active: boolean; selectedSegments: CategoryBarSegment[]; selectedUnits: number; remainder: number; remainderWidth: number }> {
     return this.memo('categoryBreakdown', () => {
+      if (!this.hasDetailedTransactions()) {
+        const totals = new Map<string, number>();
+        this.summaryDaysForPeriod().forEach(day => day.categories.forEach(item => totals.set(item.name, (totals.get(item.name) ?? 0) + Number(item.units))));
+        const max = Math.max(...totals.values(), 1);
+        return [...totals.entries()].map(([name, units]) => ({ name, units, scale: Math.max(50, Math.ceil(units / 50) * 50), width: units / max * 100, active: this.selectedTags.has(name), selectedSegments: [], selectedUnits: 0, remainder: units, remainderWidth: 100 })).sort((a, b) => b.units - a.units);
+      }
       const map = new Map<string, number>();
       const selectedMap = new Map<string, Map<number, { name: string; units: number }>>();
       this.matchingTransactions(['tags', 'products']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
@@ -480,6 +523,11 @@ export class DashboardInfoComponent implements OnInit {
   }
   get categoryProfitability(): CategoryProfitability[] {
     return this.memo('categoryProfitability', () => {
+      if (!this.hasDetailedTransactions()) {
+        const totals = new Map<string, { revenue: number; cost: number; units: number }>();
+        this.summaryDaysForPeriod().forEach(day => day.categories.forEach(item => { const current = totals.get(item.name) ?? { revenue: 0, cost: 0, units: 0 }; current.revenue += Number(item.revenue); current.cost += Number(item.cost); current.units += Number(item.units); totals.set(item.name, current); }));
+        return [...totals.entries()].map(([name, value]) => { const profit = value.revenue - value.cost; return { name, ...value, profit, margin: value.revenue ? profit / value.revenue * 100 : 0, active: this.selectedTags.has(name) }; }).sort((a, b) => b.units - a.units);
+      }
       const totals = new Map<string, { revenue: number; cost: number; units: number }>();
       this.matchingTransactions(['tags']).filter(item => this.isAnalyticTransaction(item)).forEach(item => {
         const tags = item.product ? this.productTags(item.product) : [];
@@ -505,12 +553,34 @@ export class DashboardInfoComponent implements OnInit {
   get categoryTotalProfitPoints(): string { return this.categoryProfitability.map((item, index) => `${this.categoryPointX(index)},${this.categoryPointY(item.profit, this.maxCategoryProfit)}`).join(' '); }
   categoryPointX(index: number): number { return this.categoryProfitability.length > 1 ? index * 900 / (this.categoryProfitability.length - 1) : 450; }
   categoryPointY(value: number, max: number): number { return 230 - Math.max(value, 0) / max * 200; }
-  get dailySales(): Array<{ date: string; label: string; units: number; revenue: number; revenueWidth: number; unitsWidth: number; hours: string; active: boolean }> { return this.memo('dailySales', () => { const map = new Map<string, { units: number; revenue: number; hours: Set<string> }>(); this.matchingTransactions(['dates']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const key = item.dateTime?.slice(0, 10) ?? ''; const current = map.get(key) ?? { units: 0, revenue: 0, hours: new Set<string>() }; current.units += item.quantity; current.revenue += this.amount(item, 'price'); const time = item.dateTime?.slice(11, 16); if (time) current.hours.add(time); map.set(key, current); }); const days = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-7); const maxRevenue = Math.max(...days.map(([, value]) => value.revenue), 1); const maxUnits = Math.max(...days.map(([, value]) => value.units), 1); return days.map(([date, value]) => ({ date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short' }), units: value.units, revenue: value.revenue, revenueWidth: value.revenue / maxRevenue * 100, unitsWidth: value.units / maxUnits * 100, hours: [...value.hours].sort().join(', ') || 'Sin hora', active: this.selectedDates.has(date) })); }); }
+  get dailySales(): Array<{ date: string; label: string; units: number; revenue: number; revenueWidth: number; unitsWidth: number; hours: string; active: boolean }> {
+    return this.memo('dailySales', () => {
+      if (!this.hasDetailedTransactions()) {
+        const days = this.summaryDaysForPeriod().slice(-7);
+        const maxRevenue = Math.max(...days.map(day => Number(day.salesRevenue)), 1);
+        const maxUnits = Math.max(...days.map(day => Number(day.salesUnits)), 1);
+        return days.map(day => ({ date: day.date, label: new Date(`${day.date}T12:00:00`).toLocaleDateString('es', { weekday: 'short' }), units: Number(day.salesUnits), revenue: Number(day.salesRevenue), revenueWidth: Number(day.salesRevenue) / maxRevenue * 100, unitsWidth: Number(day.salesUnits) / maxUnits * 100, hours: 'Resumen precalculado', active: this.selectedDates.has(day.date) }));
+      }
+      const map = new Map<string, { units: number; revenue: number; hours: Set<string> }>();
+      this.matchingTransactions(['dates']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const key = item.dateTime?.slice(0, 10) ?? ''; const current = map.get(key) ?? { units: 0, revenue: 0, hours: new Set<string>() }; current.units += item.quantity; current.revenue += this.amount(item, 'price'); const time = item.dateTime?.slice(11, 16); if (time) current.hours.add(time); map.set(key, current); });
+      const days = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-7);
+      const maxRevenue = Math.max(...days.map(([, value]) => value.revenue), 1); const maxUnits = Math.max(...days.map(([, value]) => value.units), 1);
+      return days.map(([date, value]) => ({ date, label: new Date(`${date}T12:00:00`).toLocaleDateString('es', { weekday: 'short' }), units: value.units, revenue: value.revenue, revenueWidth: value.revenue / maxRevenue * 100, unitsWidth: value.units / maxUnits * 100, hours: [...value.hours].sort().join(', ') || 'Sin hora', active: this.selectedDates.has(date) }));
+    });
+  }
   get dailyRevenuePoints(): string { return this.dailySales.map((day, index) => `${this.dailyPointX(index)},${this.dailyPointY(day.revenueWidth)}`).join(' '); }
   get dailyUnitsPoints(): string { return this.dailySales.map((day, index) => `${this.dailyPointX(index)},${this.dailyPointY(day.unitsWidth)}`).join(' '); }
   dailyPointX(index: number): number { return this.dailySales.length > 1 ? index * 700 / (this.dailySales.length - 1) : 350; }
   dailyPointY(width: number): number { return 130 - width * 1.1; }
-  get paymentBreakdown(): Array<{ name: string; units: number; width: number; active: boolean }> { return this.memo('paymentBreakdown', () => { const map = new Map<string, number>(); this.paymentMethodConfigs.filter(item => item.isActive !== false).forEach(item => map.set(item.name, 0)); this.matchingTransactions(['payments']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const name = item.paymentMethod?.paymentMethodConfig?.name ?? 'Sin método'; map.set(name, (map.get(name) ?? 0) + item.quantity); }); const total = Math.max([...map.values()].reduce((sum, units) => sum + units, 0), 1); return [...map.entries()].map(([name, units]) => ({ name, units, width: units / total * 100, active: this.selectedPayments.has(name) })).sort((a, b) => b.units - a.units); }); }
+  get paymentBreakdown(): Array<{ name: string; units: number; width: number; active: boolean }> {
+    return this.memo('paymentBreakdown', () => {
+      const map = new Map<string, number>();
+      if (!this.hasDetailedTransactions()) this.summaryDaysForPeriod().forEach(day => Object.entries(day.payments).forEach(([name, units]) => map.set(name, (map.get(name) ?? 0) + Number(units))));
+      else { this.paymentMethodConfigs.filter(item => item.isActive !== false).forEach(item => map.set(item.name, 0)); this.matchingTransactions(['payments']).filter(item => this.isAnalyticTransaction(item)).forEach(item => { const name = item.paymentMethod?.paymentMethodConfig?.name ?? 'Sin método'; map.set(name, (map.get(name) ?? 0) + item.quantity); }); }
+      const total = Math.max([...map.values()].reduce((sum, units) => sum + units, 0), 1);
+      return [...map.entries()].map(([name, units]) => ({ name, units, width: units / total * 100, active: this.selectedPayments.has(name) })).sort((a, b) => b.units - a.units);
+    });
+  }
   toggleProduct(summary: ProductSummary): void { summary.expanded ? this.expandedProductIds.delete(summary.root.id) : this.expandedProductIds.add(summary.root.id); this.bump(); this.cdr.markForCheck(); }
   lotMetrics(lot: ProductRecord): { units: number; revenue: number; profit: number } {
     const metricsByProduct = this.memo('lotMetricsByProduct', () => {
@@ -537,7 +607,7 @@ export class DashboardInfoComponent implements OnInit {
   isProductSelected(rootId: number): boolean { return this.selectedProductIds.has(rootId); }
   private productColor(index: number): string { const hue = (index * 137.508) % 360; return `hsl(${hue.toFixed(1)} 68% 42%)`; }
   clearFilters(): void { this.typeFilter = 'SALIDA'; this.reasonFilter = 'ALL'; this.dateFrom = ''; this.dateTo = ''; this.executivePeriod = 'ALL'; this.selectedTags.clear(); this.selectedDates.clear(); this.selectedProductIds.clear(); this.selectedPayments.clear(); this.bump(); this.cdr.markForCheck(); }
-  toggleFilters(): void { this.filtersOpen = !this.filtersOpen; this.cdr.markForCheck(); }
+  toggleFilters(): void { this.filtersOpen = !this.filtersOpen; if (this.filtersOpen && !this.hasDetailedTransactions()) { const token = localStorage.getItem('token'); if (token) { const fromDate = this.dateFrom || null; this.loadDetailedTransactions(fromDate, new HttpHeaders({ Authorization: `Bearer ${token}` }), fromDate ?? 'ALL'); } } this.cdr.markForCheck(); }
 
   get activeFilterChips(): FilterChip[] {
     return this.memo('activeFilterChips', () => {

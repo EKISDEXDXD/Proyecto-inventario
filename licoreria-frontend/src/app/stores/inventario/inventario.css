@@ -630,18 +630,21 @@
 
 /* ============ TABLA ============ */
 .table-responsive {
+  max-height: 620px;
   overflow-x: auto;
+  overflow-y: auto;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
 }
 
 .products-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background-color: var(--bg-surface);
   table-layout: fixed;
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
 }
 
@@ -684,18 +687,28 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.products-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 .products-table th {
-  background-color: rgba(0, 0, 0, 0.02);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--bg-surface);
   color: var(--text-muted);
   font-weight: 600;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  box-shadow: 0 2px 0 var(--border-color);
 
 }
 
 :host-context(.dark) .products-table th {
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--bg-surface);
 }
 
 :host-context(.dark) .btn-gallery-white {
@@ -1711,7 +1724,9 @@
 
   /* Tabla compacta - mantener estructura pero reducir tamaño */
   .table-responsive {
+    max-height: 320px;
     overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border: none;
   }

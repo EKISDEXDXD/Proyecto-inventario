@@ -3,7 +3,9 @@
     <button class="menu-toggle-btn" (click)="toggleMenu()" title="Abrir menú">
       <i class="bx" [class.bx-menu]="!(isMenuOpen$ | async)" [class.bx-x]="isMenuOpen$ | async"></i>
     </button>
-    <h1 class="logo-title">BaseStock</h1>
+    <div class="brand-lockup">
+      <h1 class="logo-title">BaseStock</h1>
+    </div>
   </div>
 </header>
 
@@ -15,7 +17,7 @@
     
     <section class="welcome-section surface-card">
       <h2>¡Bienvenido, <span class="highlight">{{ username }}</span>!</h2>
-      <p>Has iniciado sesión correctamente en <strong>BaseStock</strong>.</p>
+      <p>Has iniciado sesión correctamente en <strong>BaseStock</strong>. <span class="welcome-version">Versión {{ appVersion }}</span></p>
       <p class="sub-text">Controla tu inventario, gestiona tus sucursales y optimiza tus ventas desde un solo lugar de forma eficiente.</p>
     </section>
 

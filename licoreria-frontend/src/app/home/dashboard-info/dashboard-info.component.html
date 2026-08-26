@@ -83,7 +83,7 @@
   <div *ngIf="!loading && errorMessage" class="state-box error">{{ errorMessage }}</div>
   <ng-container *ngIf="!loading && !errorMessage">
     <section class="kpi-grid">
-      <article class="kpi-card accent-sales" tabindex="0"><div class="kpi-icon"><i class="bx bx-dollar-circle"></i></div><div class="kpi-content"><strong>{{ formatMoney(totalRevenue) }}</strong><span>INGRESO TOTAL</span><small>{{ formatUnits(sales.length) }} ventas</small></div></article>
+      <article class="kpi-card accent-sales" tabindex="0"><div class="kpi-icon"><i class="bx bx-dollar-circle"></i></div><div class="kpi-content"><strong>{{ formatMoney(totalRevenue) }}</strong><span>INGRESO TOTAL</span><small>{{ formatUnits(salesCount) }} ventas</small></div></article>
       <article class="kpi-card accent-cost" tabindex="0"><div class="kpi-icon"><i class="bx bx-receipt"></i></div><div class="kpi-content"><strong>{{ formatMoney(totalCost) }}</strong><span>COSTO DE VENTA</span><small>Solo ventas confirmadas</small></div></article>
       <article class="kpi-card accent-profit" tabindex="0"><div class="kpi-icon"><i class="bx bx-line-chart"></i></div><div class="kpi-content"><strong>{{ formatMoney(grossProfit) }}</strong><span>GANANCIA BRUTA</span><small>{{ margin | number:'1.1-1' }}% de margen</small></div></article>
       <article class="kpi-card accent-net" tabindex="0"><div class="kpi-icon"><i class="bx bx-wallet"></i></div><div class="kpi-content"><strong>{{ formatMoney(netProfit) }}</strong><span>UTILIDAD NETA</span><small>Después de costos administrativos</small></div></article>

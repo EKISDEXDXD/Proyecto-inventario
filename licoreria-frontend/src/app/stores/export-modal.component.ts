@@ -103,6 +103,10 @@ interface ExportHistory {
                       <span class="radio-label">Últimos 30 días</span>
                     </label>
                     <label class="radio-option">
+                      <input type="radio" name="complete-period" value="all" [(ngModel)]="completeReportPeriod" (change)="onPeriodChange('complete')">
+                      <span class="radio-label">Periodo completo</span>
+                    </label>
+                    <label class="radio-option">
                       <input type="radio" name="complete-period" value="custom" [(ngModel)]="completeReportPeriod" (change)="onPeriodChange('complete')">
                       <span class="radio-label">Personalizar período</span>
                     </label>
@@ -1188,10 +1192,10 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     }
   }
 
-  private getPeriodMode(reportType: 'COMPLETE' | 'SIMPLE'): 'custom' | 'default' {
+  private getPeriodMode(reportType: 'COMPLETE' | 'SIMPLE'): 'custom' | 'default' | 'all' {
     return reportType === 'COMPLETE'
-      ? (this.completeReportPeriod === 'custom' ? 'custom' : 'default')
-      : (this.simpleReportPeriod === 'custom' ? 'custom' : 'default');
+      ? (this.completeReportPeriod === 'custom' ? 'custom' : this.completeReportPeriod === 'all' ? 'all' : 'default')
+      : (this.simpleReportPeriod === 'custom' ? 'custom' : this.simpleReportPeriod === 'all' ? 'all' : 'default');
   }
 
   downloadReport(reportType: 'COMPLETE' | 'SIMPLE'): void {
@@ -1201,7 +1205,8 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     const fromDate = reportType === 'COMPLETE' ? this.completeFromDate : this.simpleFromDate;
     const toDate = reportType === 'COMPLETE' ? this.completeToDate : this.simpleToDate;
 
-    if (!this.validateDates(fromDate, toDate)) {
+    const periodMode = this.getPeriodMode(reportType);
+    if (periodMode !== 'all' && !this.validateDates(fromDate, toDate)) {
       this.errorMessage = 'Por favor, selecciona un rango de fechas válido';
       return;
     }
@@ -1224,7 +1229,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
       dateFrom: fromDate,
       dateTo: toDate,
       reportType: reportType,
-      periodMode: this.getPeriodMode(reportType)
+      periodMode
     };
 
     const baseUrl = this.apiConfig.getBaseUrl();
@@ -1241,7 +1246,7 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (blob) => {
         this.ngZone.run(() => {
-          this.handleDownload(blob, reportType, fromDate, toDate, this.getPeriodMode(reportType));
+          this.handleDownload(blob, reportType, fromDate, toDate, periodMode);
           this.isLoading = false;
           this.successMessage = '✅ Reporte descargado exitosamente';
           this.cdr.detectChanges();
@@ -1409,14 +1414,14 @@ export class ExportModalComponent implements OnInit, OnDestroy {
     });
   }
 
-  handleDownload(blob: Blob, reportType: string, dateFrom: string, dateTo: string, periodMode: 'custom' | 'default' = 'default'): void {
+  handleDownload(blob: Blob, reportType: string, dateFrom: string, dateTo: string, periodMode: 'custom' | 'default' | 'all' = 'default'): void {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
 
     const reportKey = reportType.toLowerCase().replace(/_/g, '-');
-    const periodLabel = periodMode === 'custom' ? 'periodo-personalizado' : 'periodo';
-    const dateSuffix = [dateFrom, dateTo].filter(Boolean).join('_a_');
+    const periodLabel = periodMode === 'custom' ? 'periodo-personalizado' : periodMode === 'all' ? 'periodo-completo' : 'periodo';
+    const dateSuffix = periodMode === 'all' ? '' : [dateFrom, dateTo].filter(Boolean).join('_a_');
     const fileName = dateSuffix
       ? `reporte-${reportKey}-${periodLabel}-${dateSuffix}.xlsx`
       : `reporte-${reportKey}-${periodLabel}.xlsx`;

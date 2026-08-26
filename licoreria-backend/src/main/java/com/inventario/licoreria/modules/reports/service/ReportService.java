@@ -48,7 +48,7 @@ public class ReportService {
         report.setTitle(title);
         report.setDescription(description);
         report.setReportDate(reportDate);
-        report.setColor(color != null ? color : "#4f46e5");
+        report.setColor(color != null && !color.isBlank() ? color : "#5856D6");
         report.setStore(store);
         report.setUser(user);
         report.setActive(true);

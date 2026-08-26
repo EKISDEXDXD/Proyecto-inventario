@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.inventario.licoreria.modules.dashboard.service.DashboardSummaryService;
 import com.inventario.licoreria.modules.inventory.dto.BatchTransactionDTO;
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
@@ -33,9 +35,11 @@ public class TransactionController {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
     private final TransactionService transactionService;
+    private final DashboardSummaryService dashboardSummaryService;
 
-    public TransactionController(TransactionService transactionService) {
+    public TransactionController(TransactionService transactionService, DashboardSummaryService dashboardSummaryService) {
         this.transactionService = transactionService;
+        this.dashboardSummaryService = dashboardSummaryService;
     }
 
     @GetMapping
@@ -106,6 +110,15 @@ public class TransactionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         return transactionService.findByDateRange(start, end);
+    }
+
+    @GetMapping("/store/{storeId}/dashboard-summary")
+    public ResponseEntity<com.fasterxml.jackson.databind.JsonNode> getDashboardSummary(
+            @PathVariable @NonNull Long storeId,
+            Authentication authentication,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        dashboardSummaryService.validateAccess(storeId, authentication.getName(), authorizationHeader);
+        return ResponseEntity.ok(dashboardSummaryService.getSummary(storeId));
     }
 
     @DeleteMapping("/{id}")

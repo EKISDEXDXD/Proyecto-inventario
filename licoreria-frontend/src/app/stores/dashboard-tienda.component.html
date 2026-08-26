@@ -11,15 +11,15 @@
   </header>
 
   <!-- Page Title Section -->
-  <section class="page-title-section">
+  <section class="page-title-section" [ngStyle]="getStoreThemeStyles()">
     <div class="title-header">
-      <i class="bx bx-shop"></i>
+      <i class="bx bx-shop" [style.color]="store?.color || '#667eea'"></i>
       <div class="title-block">
         
         <div *ngIf="store" class="store-details">
-          <div class="store-name">{{ store?.name || 'Tienda' }} <span *ngIf="isExternalMode">(Invitado)</span></div>
+          <div class="store-name" [style.color]="store?.color || '#4f46e5'">{{ store?.name || 'Tienda' }} <span *ngIf="isExternalMode">(Invitado)</span></div>
           <div *ngIf="store.description" class="store-description">{{ store.description }}</div>
-          <div *ngIf="store.address" class="address-info"><i class="bx bx-map-pin"></i> {{ store.address }}</div>
+          <div *ngIf="store.address" class="address-info" [ngStyle]="getStoreAccentStyles()"><i class="bx bx-map-pin"></i> {{ store.address }}</div>
         </div>
       </div>
     </div>

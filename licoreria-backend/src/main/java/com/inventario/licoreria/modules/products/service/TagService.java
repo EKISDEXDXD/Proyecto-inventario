@@ -1,5 +1,14 @@
 package com.inventario.licoreria.modules.products.service;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.inventario.licoreria.modules.dashboard.service.DashboardSummaryService;
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.products.model.ProductTag;
 import com.inventario.licoreria.modules.products.model.Tag;
@@ -7,12 +16,6 @@ import com.inventario.licoreria.modules.products.repository.ProductTagRepository
 import com.inventario.licoreria.modules.products.repository.TagRepository;
 import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.store.service.StoreService;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.lang.NonNull;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class TagService {
@@ -21,13 +24,16 @@ public class TagService {
     private final ProductTagRepository productTagRepository;
     private final StoreService storeService;
     private final ProductService productService;
+    private final DashboardSummaryService dashboardSummaryService;
 
     public TagService(TagRepository tagRepository, ProductTagRepository productTagRepository, 
-                      StoreService storeService, ProductService productService) {
+                      StoreService storeService, ProductService productService,
+                      DashboardSummaryService dashboardSummaryService) {
         this.tagRepository = tagRepository;
         this.productTagRepository = productTagRepository;
         this.storeService = storeService;
         this.productService = productService;
+        this.dashboardSummaryService = dashboardSummaryService;
     }
 
     private void validateUserOwnsStore(@NonNull Long storeId, @NonNull String username) {
@@ -84,7 +90,9 @@ public class TagService {
         }
         
         tag.setName(newName.trim());
-        return tagRepository.save(tag);
+        Tag saved = tagRepository.save(tag);
+        dashboardSummaryService.markStoreDirty(saved.getStore().getId());
+        return saved;
     }
 
     /**
@@ -96,6 +104,7 @@ public class TagService {
         
         validateUserOwnsStore(tag.getStore().getId(), username);
         tagRepository.delete(tag);
+        dashboardSummaryService.markStoreDirty(tag.getStore().getId());
     }
 
     /**
@@ -123,7 +132,9 @@ public class TagService {
         }
         
         ProductTag productTag = new ProductTag(product, tag);
-        return productTagRepository.save(productTag);
+        ProductTag saved = productTagRepository.save(productTag);
+        dashboardSummaryService.markStoreDirty(product.getStore().getId());
+        return saved;
     }
 
     /**
@@ -141,6 +152,7 @@ public class TagService {
             product.getTags().removeIf(pt -> pt.getTag().getId().equals(tagId));
             // Guardar el producto (esto eliminará el ProductTag por orphanRemoval)
             productService.save(product);
+            dashboardSummaryService.markStoreDirty(product.getStore().getId());
         }
     }
 

@@ -1,36 +1,45 @@
 package com.inventario.licoreria.modules.export;
 
-import com.inventario.licoreria.modules.export.service.SalesReportService;
-import com.inventario.licoreria.modules.export.service.ExportedReportService;
-import com.inventario.licoreria.modules.export.model.ExportedReport;
-import com.inventario.licoreria.modules.export.repository.ExportedReportRepository;
-import com.inventario.licoreria.modules.products.service.ProductService;
-import com.inventario.licoreria.modules.products.model.Product;
-import com.inventario.licoreria.modules.users.service.UserService;
-import com.inventario.licoreria.modules.users.model.User;
-import com.inventario.licoreria.modules.inventory.service.TransactionService;
-import com.inventario.licoreria.modules.inventory.model.Transaction;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.inventario.licoreria.modules.export.model.ExportedReport;
+import com.inventario.licoreria.modules.export.repository.ExportedReportRepository;
+import com.inventario.licoreria.modules.export.service.ExportedReportService;
+import com.inventario.licoreria.modules.export.service.SalesReportService;
+import com.inventario.licoreria.modules.inventory.model.Transaction;
+import com.inventario.licoreria.modules.inventory.service.TransactionService;
+import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.service.ProductService;
+import com.inventario.licoreria.modules.users.model.User;
+import com.inventario.licoreria.modules.users.service.UserService;
 
 @RestController
 @RequestMapping("/api/export")
@@ -139,12 +148,18 @@ public class ExportController {
             // Set defaults if not provided
             LocalDate to = dateTo != null ? dateTo : LocalDate.now();
             LocalDate from = dateFrom != null ? dateFrom : to.minusDays(30);
+            boolean completePeriod = "all".equalsIgnoreCase(periodMode) || "complete".equalsIgnoreCase(periodMode);
+            if (completePeriod) {
+                LocalDate[] completeRange = salesReportService.resolveCompleteRange(storeId);
+                from = completeRange[0];
+                to = completeRange[1];
+            }
             
             logger.info("Exportar reporte: storeId={}, dateFrom={}, dateTo={}, reportType={}, periodMode={}", 
                 storeId, from, to, reportType, periodMode);
             
             // Validate date range
-            if (from.isAfter(to)) {
+            if (!completePeriod && from.isAfter(to)) {
                 logger.warn("Fechas inválidas: from={} > to={}", from, to);
                 return ResponseEntity.badRequest().body(Map.of("message", "Fechas inválidas"));
             }

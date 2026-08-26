@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.inventario.licoreria.modules.dashboard.service.DashboardSummaryService;
 import com.inventario.licoreria.modules.inventory.dto.PaymentMethodDTO;
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
@@ -32,12 +33,14 @@ public class TransactionService {
     private final ProductService productService; // Inyectar para actualizar stock
     private final UserService userService;
     private final PaymentMethodService paymentMethodService;
+    private final DashboardSummaryService dashboardSummaryService;
 
-    public TransactionService(TransactionRepository transactionRepository, ProductService productService, UserService userService, PaymentMethodService paymentMethodService) {
+    public TransactionService(TransactionRepository transactionRepository, ProductService productService, UserService userService, PaymentMethodService paymentMethodService, DashboardSummaryService dashboardSummaryService) {
         this.transactionRepository = transactionRepository;
         this.productService = productService;
         this.userService = userService;
         this.paymentMethodService = paymentMethodService;
+        this.dashboardSummaryService = dashboardSummaryService;
     }
 
     public List<Transaction> findAll() {
@@ -103,6 +106,8 @@ public class TransactionService {
                     // No lanzamos excepción para no romper la transacción
                 }
             }
+
+            dashboardSummaryService.markStoreDirty(product.getStore().getId());
             
             return saved;
         } catch (RuntimeException e) {
@@ -177,6 +182,7 @@ public class TransactionService {
     @Transactional
     public Transaction update(@NonNull final Long id, final TransactionDTO dto) {
     final Transaction existing = findById(id);
+    final Long storeId = existing.getProduct().getStore().getId();
 
     final int existingQuantity = existing.getQuantity();
     final int oldDelta = "ENTRADA".equalsIgnoreCase(existing.getType())
@@ -195,18 +201,22 @@ public class TransactionService {
     existing.setQuantity(newQuantity);
     existing.setDateTime(dto.getDateTime() != null ? dto.getDateTime() : existing.getDateTime());
     existing.setUserId(dto.getUserId());
-    return transactionRepository.save(existing);
+    Transaction updated = transactionRepository.save(existing);
+    dashboardSummaryService.markStoreDirty(storeId);
+    return updated;
     }
 
     @Transactional
     public void delete(@NonNull final Long id) {
         final Transaction transaction = findById(id);
+        final Long storeId = transaction.getProduct().getStore().getId();
         final int quantity = transaction.getQuantity();
         int revertDelta = "ENTRADA".equalsIgnoreCase(transaction.getType()) 
             ? -quantity 
             : quantity;
         productService.adjustStock(transaction.getProductId(), revertDelta);
         transactionRepository.delete(transaction);
+        dashboardSummaryService.markStoreDirty(storeId);
     }
 
     @Transactional

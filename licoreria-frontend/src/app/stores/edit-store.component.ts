@@ -20,26 +20,26 @@ export class EditStoreComponent implements OnInit {
   successMessage = '';
   storeId!: number;
   showPasswordField = false;
-  selectedColor = '#00B8FF';
+  selectedColor = '#007AFF';
 
-  // Paleta de colores HD brillante y vibrante
+  // Paleta HD profesional con predominio de verdes, rojos y terracota.
   colorPalette = [
-    { name: 'Azul Brillante HD', hex: '#00B8FF' },
-    { name: 'Azul Marino Vibrante', hex: '#0066FF' },
-    { name: 'Verde Intenso HD', hex: '#22D3EE' },
-    { name: 'Teal Vibrante HD', hex: '#14B8A6' },
-    { name: 'Cyan Brillante HD', hex: '#00FFFF' },
-    { name: 'Púrpura Brillante HD', hex: '#A855F7' },
-    { name: 'Violeta Intenso HD', hex: '#D946EF' },
-    { name: 'Rosa Intenso HD', hex: '#FF1493' },
-    { name: 'Rojo Intenso HD', hex: '#FF0000' },
-    { name: 'Rojo Oscuro Elegante', hex: '#8B0000' },
-    { name: 'Naranja Vibrante HD', hex: '#FF8C00' },
-    { name: 'Amarillo Brillante HD', hex: '#FFD700' },
-    { name: 'Índigo Brillante HD', hex: '#6366F1' },
-    { name: 'Verde Brillante HD', hex: '#10B981' },
-    { name: 'Lima Vibrante', hex: '#32CD32' },
-    { name: 'Turquesa Brillante HD', hex: '#00D9FF' }
+    { name: 'Azul Sistema', hex: '#007AFF' },
+    { name: 'Azul Zafiro', hex: '#2563EB' },
+    { name: 'Turquesa Sistema', hex: '#00A7A0' },
+    { name: 'Verde Eucalipto', hex: '#149B76' },
+    { name: 'Verde Menta', hex: '#2FBF8F' },
+    { name: 'Verde Esmeralda', hex: '#24A66A' },
+    { name: 'Verde Bosque', hex: '#21865B' },
+    { name: 'Verde Lima', hex: '#65B741' },
+    { name: 'Coral Vivo', hex: '#F05A50' },
+    { name: 'Rojo Sistema', hex: '#FF3B30' },
+    { name: 'Rojo Cereza', hex: '#D92D55' },
+    { name: 'Rojo Carmesí', hex: '#C9364B' },
+    { name: 'Borgoña', hex: '#8F3040' },
+    { name: 'Terracota', hex: '#D46A32' },
+    { name: 'Naranja Sistema', hex: '#FF9500' },
+    { name: 'Dorado Cálido', hex: '#E0A52B' }
   ];
 
   get isMenuOpen$() {
@@ -74,7 +74,7 @@ export class EditStoreComponent implements OnInit {
       accessPassword: ['', [Validators.minLength(6), Validators.maxLength(50)]],
       address: ['', [Validators.maxLength(255)]],
       description: ['', [Validators.maxLength(500)]],
-      color: ['#00B8FF']
+      color: ['#007AFF']
     });
   }
 
@@ -89,9 +89,9 @@ export class EditStoreComponent implements OnInit {
           name: store.name,
           address: store.address || '',
           description: store.description || '',
-          color: store.color || '#00B8FF'
+          color: store.color || '#007AFF'
         });
-        this.selectedColor = store.color || '#00B8FF';
+        this.selectedColor = store.color || '#007AFF';
         this.cdr.markForCheck();
       },
       error: (error) => {

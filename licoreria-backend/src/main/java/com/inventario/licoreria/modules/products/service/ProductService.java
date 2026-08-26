@@ -1,19 +1,21 @@
 package com.inventario.licoreria.modules.products.service;
 
-import com.inventario.licoreria.modules.products.dto.ProductDTO;
-import com.inventario.licoreria.modules.products.model.Product;
-import com.inventario.licoreria.modules.products.repository.ProductRepository;
-import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
-import com.inventario.licoreria.modules.store.model.Store;
-import com.inventario.licoreria.modules.store.service.StoreService;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import org.springframework.lang.NonNull;
+import com.inventario.licoreria.modules.dashboard.service.DashboardSummaryService;
+import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
+import com.inventario.licoreria.modules.products.dto.ProductDTO;
+import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.repository.ProductRepository;
+import com.inventario.licoreria.modules.store.model.Store;
+import com.inventario.licoreria.modules.store.service.StoreService;
 
 @Service
 public class ProductService {
@@ -21,11 +23,13 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final StoreService storeService;
     private final TransactionRepository transactionRepository;
+    private final DashboardSummaryService dashboardSummaryService;
 
-    public ProductService(ProductRepository productRepository, StoreService storeService, TransactionRepository transactionRepository) {
+    public ProductService(ProductRepository productRepository, StoreService storeService, TransactionRepository transactionRepository, DashboardSummaryService dashboardSummaryService) {
         this.productRepository = productRepository;
         this.storeService = storeService;
         this.transactionRepository = transactionRepository;
+        this.dashboardSummaryService = dashboardSummaryService;
     }
 
     private void validateUserOwnsStore(@NonNull Long storeId, @NonNull String username) {
@@ -66,7 +70,9 @@ public class ProductService {
         product.setInitialStock(dto.getStock());
         product.setIsActive(true);  // Los productos nuevos siempre se crean activos
         product.setStore(storeService.findStoreEntity(dto.getStoreId()));
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        dashboardSummaryService.markStoreDirty(saved.getStore().getId());
+        return saved;
     }
 
     @org.springframework.lang.NonNull
@@ -123,7 +129,9 @@ public class ProductService {
             if (transactionCount > 0) {
                 System.out.println("  → Desactivando producto (tiene transacciones)");
                 product.setIsActive(false);
-                return productRepository.save(product);
+                Product saved = productRepository.save(product);
+                dashboardSummaryService.markStoreDirty(saved.getStore().getId());
+                return saved;
             }
         } else {
             System.out.println("  → Es LOTE. Parent ID: " + product.getParentId());
@@ -132,6 +140,7 @@ public class ProductService {
             product.setIsActive(false);
             Product saved = productRepository.save(product);
             System.out.println("  ✅ Lote desactivado con isActive: " + saved.getIsActive());
+            dashboardSummaryService.markStoreDirty(saved.getStore().getId());
             return saved;
         }
         
@@ -140,6 +149,7 @@ public class ProductService {
         product.setIsActive(false);  // Marcar como desactivado por si acaso
         productRepository.delete(product);
         System.out.println("  ✅ Producto borrado");
+        dashboardSummaryService.markStoreDirty(product.getStore().getId());
         return product;
     }
 
@@ -341,7 +351,9 @@ public class ProductService {
         
         // Establecer el estado del producto actual
         product.setIsActiveForSale(active);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        dashboardSummaryService.markStoreDirty(saved.getStore().getId());
+        return saved;
 }
 
     public Integer getTotalStockForProduct(@NonNull Long parentId) {
@@ -390,7 +402,9 @@ public class ProductService {
                 .orElse(0);
         lote.setOrderIndex(maxOrderIndex + 1);
         
-        return productRepository.save(lote);
+        Product saved = productRepository.save(lote);
+        dashboardSummaryService.markStoreDirty(saved.getStore().getId());
+        return saved;
     }
 
 }

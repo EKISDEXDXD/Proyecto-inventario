@@ -145,4 +145,35 @@ export class DashboardTiendaComponent implements OnInit {
       error: () => this.loading = false
     });
   }
+
+  getStoreThemeStyles(): Record<string, string> {
+    const color = this.store?.color || '#667eea';
+    const hex = color.replace('#', '');
+    if (hex.length !== 6) {
+      return { background: 'linear-gradient(120deg, #f8fafc 0%, #e0e7ff 100%)' };
+    }
+    const red = parseInt(hex.substring(0, 2), 16);
+    const green = parseInt(hex.substring(2, 4), 16);
+    const blue = parseInt(hex.substring(4, 6), 16);
+    const soften = (value: number) => Math.round(value + (255 - value) * 0.86);
+    const lightColor = `rgb(${soften(red)}, ${soften(green)}, ${soften(blue)})`;
+    return {
+      background: `linear-gradient(120deg, #ffffff 0%, ${lightColor} 100%)`
+    };
+  }
+
+  getStoreAccentStyles(): Record<string, string> {
+    const color = this.store?.color || '#667eea';
+    const hex = color.replace('#', '');
+    if (hex.length !== 6) {
+      return { color: '#6366f1', background: '#eef2ff' };
+    }
+    const red = parseInt(hex.substring(0, 2), 16);
+    const green = parseInt(hex.substring(2, 4), 16);
+    const blue = parseInt(hex.substring(4, 6), 16);
+    return {
+      color,
+      background: `rgba(${red}, ${green}, ${blue}, 0.1)`
+    };
+  }
 }
