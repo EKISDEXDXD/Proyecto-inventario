@@ -1,28 +1,41 @@
 package com.inventario.licoreria.modules.products.controller;
 
-import com.inventario.licoreria.modules.products.dto.AdjustStockDTO;
-import com.inventario.licoreria.modules.products.dto.ProductDTO;
-import com.inventario.licoreria.modules.products.dto.ProductAlertDTO;
-import com.inventario.licoreria.modules.products.model.Product;
-import com.inventario.licoreria.modules.products.model.ProductAlert;
-import com.inventario.licoreria.modules.products.service.ProductService;
-import com.inventario.licoreria.modules.products.service.ProductAlertService;
-import com.inventario.licoreria.modules.inventory.service.TransactionService;
-import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
-import com.inventario.licoreria.security.JwtUtil;
-import jakarta.validation.Valid;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import org.springframework.lang.NonNull;
+import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
+import com.inventario.licoreria.modules.inventory.service.TransactionService;
+import com.inventario.licoreria.modules.products.dto.AdjustStockDTO;
+import com.inventario.licoreria.modules.products.dto.ProductAlertDTO;
+import com.inventario.licoreria.modules.products.dto.ProductDTO;
+import com.inventario.licoreria.modules.products.dto.StockTransformationRequestDTO;
+import com.inventario.licoreria.modules.products.model.Product;
+import com.inventario.licoreria.modules.products.model.ProductAlert;
+import com.inventario.licoreria.modules.products.service.ProductAlertService;
+import com.inventario.licoreria.modules.products.service.ProductService;
+import com.inventario.licoreria.security.JwtUtil;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/products")
@@ -89,20 +102,9 @@ public class ProductController {
             @PathVariable @NonNull Long storeId, 
             Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            validateNotExternal(authHeader);
-            String username = getUsername(authentication);
-            System.out.println("=== getByStore START - storeId: " + storeId + ", user: " + username);
-            List<Product> products = productService.findByStoreId(storeId, username);
-            System.out.println("=== getByStore SUCCESS - productos encontrados: " + (products != null ? products.size() : 0));
-            return products;
-        } catch (Exception e) {
-            System.err.println("=== getByStore ERROR ===");
-            System.err.println("Error type: " + e.getClass().getName());
-            System.err.println("Error message: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
+        validateNotExternal(authHeader);
+        String username = getUsername(authentication);
+        return productService.findByStoreId(storeId, username);
     }
 
     @PostMapping
@@ -135,24 +137,35 @@ public class ProductController {
         @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         validateNotExternal(authHeader);
+
+        final Integer deltaObj = request.getDelta();
+        if (deltaObj == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El delta de stock es obligatorio");
+        }
+        final int delta = deltaObj;
+
         // Ajustar el stock con validación de permisos
-        Product updated = productService.adjustStock(id, request.getDelta(), getUsername(authentication));
+        Product updated = productService.adjustStock(id, delta, getUsername(authentication));
         
         // Registrar la transacción automáticamente
         try {
-            Long userId = request.getUserId() != null ? request.getUserId() : 1L; // Usar ID 1 como usuario por defecto
+            Long userId = request.getUserId();
+            if (userId == null) {
+                userId = 1L;
+            }
+            final String transactionType = delta > 0 ? "ENTRADA" : "SALIDA";
             
             TransactionDTO transactionDTO = new TransactionDTO();
             transactionDTO.setProductId(id);
-            transactionDTO.setType(request.getDelta() > 0 ? "ENTRADA" : "SALIDA");
-            transactionDTO.setQuantity(Math.abs(request.getDelta()));
+            transactionDTO.setType(transactionType);
+            transactionDTO.setQuantity(Math.abs(delta));
             transactionDTO.setUserId(userId);
             transactionDTO.setDateTime(LocalDateTime.now());
             
             transactionService.create(transactionDTO);
         } catch (Exception e) {
-            // Log the error pero no fallar la solicitud de ajuste de stock
-            System.err.println("Error registrando transacción: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Error registrando la transacción del ajuste de stock: " + e.getMessage(), e);
         }
         
         return updated;
@@ -327,5 +340,21 @@ public class ProductController {
         
         Product product = productService.setActiveForSale(id, active, getUsername(authentication));
         return ResponseEntity.ok(product);
+    }
+
+    /**
+     * Ajuste de precio / promo: N salidas (AJUSTE) de productos origen -> 1 entrada (AJUSTE)
+     * de un producto destino (lote nuevo del mismo producto raíz, o producto nuevo independiente).
+     * POST /api/products/transformations
+     */
+    @PostMapping("/transformations")
+    public ResponseEntity<Product> applyTransformation(
+        @NonNull @Valid @RequestBody StockTransformationRequestDTO dto,
+        Authentication authentication,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateNotExternal(authHeader);
+        Product result = transactionService.applyStockTransformation(dto, getUsername(authentication));
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 }

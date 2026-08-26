@@ -98,8 +98,8 @@
           <div class="promo-builder" role="region" aria-label="Selector de productos para promoción">
             <div class="promo-builder-header">
               <div class="promo-builder-title-group">
-                <span class="promo-builder-title"></span>
-                <small class="promo-builder-subtitle"></small>
+                <span class="promo-builder-title">Construye tu promoción</span>
+                <small class="promo-builder-subtitle">Productos que formarán el ajuste</small>
               </div>
               <button
                 type="button"
@@ -118,15 +118,17 @@
 
             <div class="promo-builder-body" [class.active]="promoMode">
               <div class="promo-builder-instructions">
-                
-                <span *ngIf="!promoMode"></span>
-                <span *ngIf="promoMode"></span>
+                <i class="bx bx-info-circle"></i>
+                <span *ngIf="!promoMode">Activa este modo para seleccionar productos.</span>
+                <span *ngIf="promoMode">Selecciona los productos que quieres convertir en una promo.</span>
               </div>
 
               <div class="promo-drop-zone" [class.drag-over]="promoDropActive" (dragover)="onPromoDragOver($event)" (dragleave)="onPromoDragLeave($event)" (drop)="onPromoDrop($event)">
                 <div class="promo-drop-label">
                   <i class="bx bx-drag-handle"></i>
                   <div>
+                    <div class="promo-drop-title">Productos para la promo</div>
+                    <div class="promo-drop-subtitle">Puedes agregar uno o varios productos.</div>
                   </div>
                 </div>
 
@@ -280,6 +282,7 @@
           <app-promotion-design-modal *ngIf="promoConfigOpen"
             [isOpen]="promoConfigOpen"
             [products]="promoProducts"
+            [storeId]="storeId"
             (onConfirm)="onPromotionConfirmed($event)"
             (onClose)="onPromotionClosed()">
           </app-promotion-design-modal>

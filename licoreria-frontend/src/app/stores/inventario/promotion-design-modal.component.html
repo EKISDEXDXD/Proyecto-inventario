@@ -3,7 +3,6 @@
     <div class="promo-config-header">
       <div>
         <h3>Configurar venta</h3>
-        <p>Define el nombre del nuevo producto y ajusta su precio final a partir de los productos seleccionados.</p>
       </div>
       <button type="button" class="btn-close" (click)="close()" aria-label="Cerrar modal">
         <i class="bx bx-x"></i>
@@ -31,11 +30,33 @@
             ></textarea>
           </div>
           <div>
+            <label class="field-label">Modo destino</label>
+            <select class="form-control" [(ngModel)]="mode">
+              <option value="LOTE">Crear lote del mismo producto</option>
+              <option value="PRODUCTO_NUEVO">Crear nuevo producto</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Cantidad destino</label>
+            <input type="number" class="form-control" [(ngModel)]="targetQuantity" min="1" step="1" />
+          </div>
+          <div>
             <label class="field-label">Costo total</label>
             <input type="text" class="form-control" [value]="'S/ ' + (totalCost | number:'1.2-2')" readonly />
           </div>
           <div>
-            <label class="field-label">Precio final</label>
+            <label class="field-label">Costo final manual</label>
+            <input
+              type="number"
+              class="form-control"
+              [(ngModel)]="targetCost"
+              min="0"
+              step="0.01"
+              (ngModelChange)="updateCostOverride()"
+            />
+          </div>
+          <div>
+            <label class="field-label">Precio final por unidad</label>
             <input
               type="number"
               class="form-control"
@@ -44,6 +65,10 @@
               step="0.01"
               (ngModelChange)="updateFinalPrice()"
             />
+          </div>
+          <div *ngIf="warningMessage" class="promo-warning promo-full-width">
+            <i class="bx bx-error-circle"></i>
+            <span>{{ warningMessage }}</span>
           </div>
         </div>
       </div>
@@ -59,7 +84,13 @@
             <div class="promo-product-header">
               <div>
                 <div class="promo-product-name">{{ product.name }}</div>
-                <div class="promo-product-meta">Costo base: S/ {{ product.cost | number:'1.2-2' }}</div>
+                <div class="promo-product-meta">
+                  Costo base: S/ {{ product.cost | number:'1.2-2' }}
+                  <span class="promo-stock-indicator" [class.out-of-stock]="product.stock === 0">
+                    <i class="bx" [ngClass]="product.stock === 0 ? 'bx-x-circle' : 'bx-package'"></i>
+                    {{ product.stock === 0 ? 'Sin stock' : 'Disponible: ' + product.stock + ' und.' }}
+                  </span>
+                </div>
               </div>
               <div class="promo-product-badge">{{ product.quantity }} und.</div>
             </div>
@@ -72,7 +103,7 @@
                 <label class="field-label">Cantidad</label>
                 <div class="promo-quantity-control">
                   <button type="button" class="promo-quantity-btn" (click)="adjustQuantity(product, -1)">−</button>
-                  <input type="number" class="form-control promo-quantity-input" [(ngModel)]="product.quantity" min="1" step="1" (ngModelChange)="updateProduct(product)" />
+                  <input type="number" class="form-control promo-quantity-input" [(ngModel)]="product.quantity" min="1" [max]="product.stock > 0 ? product.stock : null" step="1" (ngModelChange)="updateProduct(product)" />
                   <button type="button" class="promo-quantity-btn" (click)="adjustQuantity(product, 1)">+</button>
                 </div>
               </div>

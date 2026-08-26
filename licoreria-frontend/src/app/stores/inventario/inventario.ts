@@ -314,6 +314,10 @@ export class InventarioComponent implements OnInit {
     return alert?.isEnabled === true || alert?.isEnabled === 'true' || alert?.isEnabled === 1;
   }
 
+  private hasActiveAlert(product: any): boolean {
+    return this.isAlertEnabled(this.getEffectiveAlert(product));
+  }
+
   private updateProductCaches(updatedProductId?: number) {
     const displayed = this.displayProducts.length > 0 ? this.displayProducts : this.products;
     const low: any[] = [];
@@ -337,7 +341,7 @@ export class InventarioComponent implements OnInit {
         normal.push(product);
       }
 
-      if (this.isAlertEnabled(alert)) {
+      if (this.hasActiveAlert(product)) {
         activeAlerts.push(product);
         if (status === 'low') {
           low.push(product);
@@ -717,11 +721,11 @@ export class InventarioComponent implements OnInit {
   }
 
   getLowStockProducts() {
-    return this.lowStockProducts;
+    return this.lowStockProducts.filter(product => this.hasActiveAlert(product));
   }
 
   getOutOfStockProducts() {
-    return this.outOfStockProducts;
+    return this.outOfStockProducts.filter(product => this.hasActiveAlert(product));
   }
 
   getNormalStockProducts() {
@@ -1214,10 +1218,10 @@ export class InventarioComponent implements OnInit {
   // Obtener productos con alertas activas que están en estado bajo
   getAlertsWithStatus(status: 'low' | 'out') {
     if (status === 'low') {
-      return this.lowStockProducts.filter(p => this.isAlertEnabled(this.getEffectiveAlert(p)));
+      return this.lowStockProducts;
     }
     if (status === 'out') {
-      return this.outOfStockProducts.filter(p => this.isAlertEnabled(this.getEffectiveAlert(p)));
+      return this.outOfStockProducts;
     }
     return [];
   }

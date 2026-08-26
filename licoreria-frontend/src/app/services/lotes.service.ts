@@ -114,4 +114,17 @@ export class LotesService {
       })
     );
   }
+
+  applyStockTransformation(payload: any): Observable<any> {
+    return this.http.post<any>(
+      `${this.apiUrl}/transformations`,
+      payload,
+      { headers: this.getHeaders() }
+    ).pipe(
+      catchError(error => {
+        console.error('Error al aplicar la transformación de stock:', error);
+        return throwError(() => error);
+      })
+    );
+  }
 }

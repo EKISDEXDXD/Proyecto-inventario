@@ -985,6 +985,302 @@
   }
 }
 
+/* Promotion builder card */
+.promo-builder {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column; /* Agrega esta línea */
+  gap: 12px;
+  padding: 14px;
+  margin: 14px 0 18px;
+  border: 1px solid rgba(244, 63, 94, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fff7f8 0%, #ffffff 58%, #fff1f2 100%);
+  box-shadow: 0 8px 22px rgba(244, 63, 94, 0.08);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.promo-builder::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  content: '';
+  background: linear-gradient(180deg, #fb7185, #e11d48);
+}
+
+.promo-builder:hover {
+  border-color: rgba(244, 63, 94, 0.34);
+  box-shadow: 0 12px 28px rgba(244, 63, 94, 0.13);
+  transform: translateY(-2px);
+}
+
+.promo-builder-header {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.promo-builder-title-group {
+  display: none;
+}
+
+.promo-toggle-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  justify-content: center;
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 7px 16px rgba(225, 29, 72, 0.2);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+.promo-toggle-btn:hover {
+  filter: brightness(1.04);
+  transform: translateY(-2px);
+  box-shadow: 0 11px 22px rgba(225, 29, 72, 0.28);
+}
+
+.promo-toggle-btn.active {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  box-shadow: 0 9px 20px rgba(190, 18, 60, 0.27);
+}
+
+.promo-toggle-btn i {
+  font-size: 17px;
+  transition: transform 0.25s ease;
+}
+
+.promo-toggle-btn:hover i {
+  transform: rotate(8deg) scale(1.08);
+}
+
+.promo-builder-body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: min(60vh, 420px);
+  min-height: 0;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.62);
+  animation: promoBuilderReveal 0.25s ease-out both;
+}
+
+.promo-builder-body.active {
+  border-color: rgba(244, 63, 94, 0.3);
+  background: rgba(255, 241, 242, 0.72);
+}
+
+.promo-drop-zone {
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: hidden;
+  gap: 8px;
+  padding: 9px;
+  border: 1px dashed rgba(225, 29, 72, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.promo-drop-label {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px 8px;
+}
+
+.promo-drop-label i {
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(244, 63, 94, 0.1);
+  color: #e11d48;
+  font-size: 16px;
+}
+
+.promo-drop-title {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.promo-drop-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.promo-products-list {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 220px;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.promo-product-item {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  column-gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid #fbcfe8;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 3px 9px rgba(190, 24, 93, 0.06);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.promo-product-item:hover {
+  border-color: #f9a8d4;
+  box-shadow: 0 7px 15px rgba(190, 24, 93, 0.1);
+  transform: translateX(2px);
+}
+
+.promo-product-item span {
+  min-width: 0;
+  overflow: hidden;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.promo-product-item .btn-danger {
+  /* Layout y Alineación */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Dimensiones fijas para que no se deforme */
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0; /* Evita que el botón se reduzca si el texto es muy largo */
+  
+  /* Estilos visuales */
+  border-radius: 8px;
+  padding: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.promo-product-item .btn-danger:hover {
+  transform: scale(1.08) rotate(4deg);
+}
+
+.promo-builder-actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.promo-builder-actions .btn.btn-success {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #34b77a 0%, #159957 100%);
+  box-shadow: 0 7px 15px rgba(21, 153, 87, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.promo-builder-instructions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 4px 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.promo-builder-instructions i {
+  flex: 0 0 auto;
+  color: #e11d48;
+  font-size: 14px;
+}
+
+@media (max-width: 500px) {
+  .promo-builder {
+    padding: 12px;
+  }
+
+  .promo-builder-body {
+    max-height: 56vh;
+  }
+
+  .promo-drop-zone {
+    padding: 8px;
+  }
+
+  .promo-product-item {
+    align-items: center;
+  }
+}
+
+.promo-builder-actions .btn.btn-success:hover {
+  filter: brightness(1.04);
+  transform: translateY(-2px);
+  box-shadow: 0 11px 21px rgba(21, 153, 87, 0.28);
+}
+
+@keyframes promoBuilderReveal {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+:host-context(.dark) .promo-builder {
+  border-color: rgba(251, 113, 133, 0.28);
+  background: linear-gradient(145deg, #321b2a 0%, #202038 58%, #3a1d2d 100%);
+}
+
+:host-context(.dark) .promo-builder-body,
+:host-context(.dark) .promo-drop-zone,
+:host-context(.dark) .promo-product-item {
+  background: #202038;
+  border-color: #55304b;
+}
+
+:host-context(.dark) .promo-product-item span {
+  color: #f1f5f9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-builder,
+  .promo-toggle-btn,
+  .promo-toggle-btn i,
+  .promo-builder-body,
+  .promo-product-item,
+  .promo-product-item .btn-danger,
+  .promo-builder-actions .btn.btn-success {
+    animation: none;
+    transition: none;
+  }
+}
+
   .product-card {
     border-radius: 12px;
   }

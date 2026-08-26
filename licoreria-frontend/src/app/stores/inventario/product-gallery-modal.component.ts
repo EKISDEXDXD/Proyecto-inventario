@@ -464,9 +464,47 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
   onPromotionConfirmed(result: any) {
     console.log('[Gallery Modal] Promotion configured', result);
-    this.promoConfigOpen = false;
-    this.promoMode = false;
-    this.cdr.markForCheck();
+
+    const rawSources = Array.isArray(result?.sources)
+      ? result.sources
+      : Array.isArray(result?.sourceProducts)
+        ? result.sourceProducts
+        : [];
+
+    const target = result?.target ?? {};
+    const mode = target?.mode ?? result?.mode ?? 'LOTE';
+
+    const payload = {
+      sources: rawSources.map((item: any) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity) || 1
+      })),
+      target: {
+        mode,
+        parentProductId: mode === 'LOTE' ? (target?.parentProductId ?? result?.parentProductId ?? null) : null,
+        storeId: mode === 'PRODUCTO_NUEVO' ? this.storeId : null,
+        name: target?.name ?? result?.name ?? 'Promo automática',
+        description: target?.description ?? result?.description ?? '',
+        cost: Number(target?.cost ?? result?.cost ?? 0),
+        price: Number(target?.price ?? result?.price ?? 0),
+        quantity: Number(target?.quantity ?? result?.targetQuantity ?? 1)
+      }
+    };
+
+    this.lotesService.applyStockTransformation(payload).subscribe({
+      next: () => {
+        this.promoConfigOpen = false;
+        this.promoMode = false;
+        this.promoProducts = [];
+        this.loadProducts();
+        this.cdr.markForCheck();
+      },
+      error: (err: any) => {
+        console.error('[Gallery Modal] Error aplicando transformación:', err);
+        const message = err?.error?.message || err?.message || 'No se pudo guardar la promoción';
+        alert(message);
+      }
+    });
   }
 
   onPromotionClosed() {

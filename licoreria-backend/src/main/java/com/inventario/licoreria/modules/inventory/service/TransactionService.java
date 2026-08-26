@@ -7,14 +7,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.inventario.licoreria.modules.inventory.dto.PaymentMethodDTO;
 import com.inventario.licoreria.modules.inventory.dto.TransactionDTO;
 import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
+import com.inventario.licoreria.modules.products.dto.ProductDTO;
+import com.inventario.licoreria.modules.products.dto.StockTransformationRequestDTO;
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.products.service.ProductService;
 import com.inventario.licoreria.modules.users.model.User;
@@ -174,19 +178,21 @@ public class TransactionService {
     public Transaction update(@NonNull final Long id, final TransactionDTO dto) {
     final Transaction existing = findById(id);
 
+    final int existingQuantity = existing.getQuantity();
     final int oldDelta = "ENTRADA".equalsIgnoreCase(existing.getType())
-        ? existing.getQuantity()
-        : -existing.getQuantity();
+        ? existingQuantity
+        : -existingQuantity;
 
+    final int newQuantity = dto.getQuantity();
     final int newDelta = "ENTRADA".equalsIgnoreCase(dto.getType())
-        ? dto.getQuantity()
-        : -dto.getQuantity();
+        ? newQuantity
+        : -newQuantity;
 
     final int delta = newDelta - oldDelta;
     productService.adjustStock(existing.getProductId(), delta);
 
     existing.setType(dto.getType().toUpperCase());
-    existing.setQuantity(dto.getQuantity());
+    existing.setQuantity(newQuantity);
     existing.setDateTime(dto.getDateTime() != null ? dto.getDateTime() : existing.getDateTime());
     existing.setUserId(dto.getUserId());
     return transactionRepository.save(existing);
@@ -195,9 +201,10 @@ public class TransactionService {
     @Transactional
     public void delete(@NonNull final Long id) {
         final Transaction transaction = findById(id);
+        final int quantity = transaction.getQuantity();
         int revertDelta = "ENTRADA".equalsIgnoreCase(transaction.getType()) 
-            ? -transaction.getQuantity() 
-            : transaction.getQuantity();
+            ? -quantity 
+            : quantity;
         productService.adjustStock(transaction.getProductId(), revertDelta);
         transactionRepository.delete(transaction);
     }
@@ -220,5 +227,109 @@ public class TransactionService {
             logger.error("❌ [CREATE BATCH TRANSACTIONS] Error al crear transacciones en lote: {}", e.getMessage());
             throw new RuntimeException("Error al crear transacciones en lote: " + e.getMessage());
         }
+    }
+
+    /**
+     * Ajuste de precio / promo: saca (SALIDA-AJUSTE) uno o varios productos origen y mete
+     * (ENTRADA-AJUSTE) un producto destino (lote nuevo del mismo producto raíz, o producto
+     * nuevo independiente). Todo en una sola transacción: si algo falla, no queda nada aplicado.
+     */
+    @Transactional
+    public Product applyStockTransformation(@NonNull final StockTransformationRequestDTO dto, @NonNull final String username) {
+        final User user = userService.findByUsername(username);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
+        }
+
+        final List<StockTransformationRequestDTO.SourceItemDTO> sources = dto.getSources();
+        if (sources == null || sources.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe indicar al menos un producto de origen");
+        }
+
+        // 1) Salidas: documentan y descuentan stock de cada producto origen
+        for (StockTransformationRequestDTO.SourceItemDTO source : sources) {
+            if (source == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hay un producto origen vacío");
+            }
+
+            final Long sourceProductId = source.getProductId();
+            final Integer sourceQuantity = source.getQuantity();
+            if (sourceProductId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El ID del producto origen es obligatorio");
+            }
+            if (sourceQuantity == null || sourceQuantity <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad del producto origen debe ser mayor a 0");
+            }
+
+            productService.validateUserOwnsProduct(sourceProductId, username);
+            final Product sourceProduct = productService.findById(sourceProductId);
+            if (sourceProduct.getStock() == null || sourceProduct.getStock() < sourceQuantity) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Stock insuficiente en " + sourceProduct.getName() + " (disponible: " + sourceProduct.getStock() + ")");
+            }
+
+            final TransactionDTO salida = new TransactionDTO();
+            salida.setProductId(sourceProductId);
+            salida.setType("SALIDA");
+            salida.setReason("AJUSTE");
+            salida.setQuantity(sourceQuantity);
+            salida.setUserId(user.getId());
+            salida.setDateTime(LocalDateTime.now());
+            create(salida);
+        }
+
+        // 2) Producto destino: lote nuevo del mismo producto raíz, o producto nuevo independiente
+        final StockTransformationRequestDTO.TargetDTO target = dto.getTarget();
+        if (target == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe indicar el producto destino");
+        }
+
+        final ProductDTO targetDto = new ProductDTO();
+        final String targetMode = target.getMode();
+        if (targetMode == null || targetMode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El modo del destino es obligatorio");
+        }
+
+        targetDto.setName(target.getName());
+        targetDto.setDescription(target.getDescription());
+        targetDto.setCost(target.getCost());
+        targetDto.setPrice(target.getPrice());
+        targetDto.setStock(0);
+
+        final Product targetProduct;
+        if ("LOTE".equalsIgnoreCase(targetMode)) {
+            final Long parentProductId = target.getParentProductId();
+            if (parentProductId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el producto raíz para crear el lote");
+            }
+            targetProduct = productService.createLote(parentProductId, targetDto, username);
+        } else if ("PRODUCTO_NUEVO".equalsIgnoreCase(targetMode)) {
+            final Long storeId = target.getStoreId();
+            if (storeId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta la tienda para crear el producto nuevo");
+            }
+            targetDto.setStoreId(storeId);
+            targetProduct = productService.create(targetDto, username);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modo de destino inválido: " + targetMode);
+        }
+
+        // 3) Entrada: documenta el ingreso de stock al producto destino
+        final Integer targetQuantity = target.getQuantity();
+        if (targetQuantity == null || targetQuantity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad del producto destino debe ser mayor a 0");
+        }
+
+        final TransactionDTO entrada = new TransactionDTO();
+        entrada.setProductId(targetProduct.getId());
+        entrada.setType("ENTRADA");
+        entrada.setReason("AJUSTE");
+        entrada.setQuantity(targetQuantity);
+        entrada.setUserId(user.getId());
+        entrada.setDateTime(LocalDateTime.now());
+        create(entrada);
+
+        // El producto destino queda activo para venta de inmediato
+        return productService.setActiveForSale(targetProduct.getId(), true, username);
     }
 }

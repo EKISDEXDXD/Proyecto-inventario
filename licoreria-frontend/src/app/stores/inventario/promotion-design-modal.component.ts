@@ -4,9 +4,11 @@ import { FormsModule } from '@angular/forms';
 
 interface PromoProduct {
   id: number;
+  parentId?: number | null;
   name: string;
   cost: number;
   price: number;
+  stock: number;
   quantity: number;
   finalPrice: number;
   originalTotal: number;
@@ -23,17 +25,22 @@ interface PromoProduct {
 export class PromotionDesignModalComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() products: any[] = [];
+  @Input() storeId = 0;
   @Output() onConfirm = new EventEmitter<any>();
   @Output() onClose = new EventEmitter<void>();
 
   promotionName: string = '';
   promotionDescription: string = '';
+  mode: 'LOTE' | 'PRODUCTO_NUEVO' = 'LOTE';
+  targetQuantity = 1;
+  targetCost: number | null = null;
+  customFinalPrice: number | null = null;
+  warningMessage: string | null = null;
 
   promoProducts: PromoProduct[] = [];
   totalOriginal = 0;
   totalCost = 0;
   totalFinal = 0;
-  customFinalPrice: number | null = null;
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['products'] && this.products && this.products.length) {
@@ -43,18 +50,25 @@ export class PromotionDesignModalComponent implements OnChanges {
 
   private initPromoProducts() {
     this.customFinalPrice = null;
+    this.targetCost = null;
+    this.targetQuantity = 1;
+    this.mode = 'LOTE';
+    this.warningMessage = null;
     this.promoProducts = this.products.map(product => {
       const price = Number(product.displayPrice ?? product.price ?? 0);
       const cost = Number(product.displayCost ?? product.cost ?? 0);
+      const stock = Math.max(0, Number(product.displayStock ?? product.stock ?? 0));
       const quantity = 1;
       const originalTotal = price * quantity;
       const costTotal = cost * quantity;
       const finalPrice = price * quantity;
       return {
         id: product.id,
+        parentId: product.parentId ?? product.id ?? null,
         name: product.name,
         cost,
         price,
+        stock,
         quantity,
         finalPrice,
         originalTotal,
@@ -65,12 +79,12 @@ export class PromotionDesignModalComponent implements OnChanges {
   }
 
   adjustQuantity(product: PromoProduct, delta: number) {
-    product.quantity = Math.max(1, Number(product.quantity) + delta);
+    product.quantity = Math.min(product.stock || 1, Math.max(1, Number(product.quantity) + delta));
     this.updateProduct(product);
   }
 
   updateProduct(product: PromoProduct) {
-    product.quantity = Math.max(1, Number(product.quantity) || 1);
+    product.quantity = Math.min(product.stock || 1, Math.max(1, Number(product.quantity) || 1));
     product.originalTotal = product.price * product.quantity;
     product.costTotal = product.cost * product.quantity;
     product.finalPrice = product.price * product.quantity;
@@ -80,6 +94,19 @@ export class PromotionDesignModalComponent implements OnChanges {
   updateFinalPrice() {
     const parsed = Number(this.customFinalPrice ?? this.totalFinal);
     this.totalFinal = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    this.updateWarnings();
+  }
+
+  updateCostOverride() {
+    const parsed = Number(this.targetCost ?? this.totalCost);
+    this.targetCost = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    this.updateWarnings();
+  }
+
+  private updateWarnings() {
+    const costValue = Number(this.targetCost ?? this.totalCost ?? 0);
+    const priceValue = Number(this.customFinalPrice ?? this.totalFinal ?? 0);
+    this.warningMessage = priceValue < costValue ? 'El precio final es menor que el costo. Revisa la operación antes de guardar.' : null;
   }
 
   private recalculateSummary() {
@@ -93,19 +120,55 @@ export class PromotionDesignModalComponent implements OnChanges {
     } else {
       this.totalFinal = Number(this.customFinalPrice);
     }
+    this.targetCost = this.targetCost ?? this.totalCost;
+    this.updateWarnings();
+  }
+
+  private getParentProductId(): number | null {
+    if (!this.promoProducts.length) {
+      return null;
+    }
+    const first = this.promoProducts[0];
+    return first.parentId ?? first.id ?? null;
   }
 
   confirm() {
-    this.onConfirm.emit({
-      name: this.promotionName,
+    const sourceProducts = this.promoProducts.map(item => ({
+      productId: item.id,
+      quantity: Math.max(1, Number(item.quantity) || 1)
+    }));
+
+    const computedMode = this.mode ?? 'LOTE';
+
+    const payload = {
+      name: this.promotionName || 'Promo automática',
       description: this.promotionDescription,
-      products: this.promoProducts,
+      mode: computedMode,
+      parentProductId: computedMode === 'LOTE' ? this.getParentProductId() : null,
+      storeId: computedMode === 'PRODUCTO_NUEVO' ? this.storeId : null,
+      targetQuantity: Math.max(1, Number(this.targetQuantity) || 1),
+      cost: Number(this.targetCost ?? this.totalCost ?? 0),
+      price: Number(this.customFinalPrice ?? this.totalFinal ?? 0),
+      sourceProducts,
+      sources: sourceProducts,
+      target: {
+        mode: computedMode,
+        parentProductId: computedMode === 'LOTE' ? this.getParentProductId() : null,
+        storeId: computedMode === 'PRODUCTO_NUEVO' ? this.storeId : null,
+        name: this.promotionName || 'Promo automática',
+        description: this.promotionDescription,
+        cost: Number(this.targetCost ?? this.totalCost ?? 0),
+        price: Number(this.customFinalPrice ?? this.totalFinal ?? 0),
+        quantity: Math.max(1, Number(this.targetQuantity) || 1)
+      },
       summary: {
         originalTotal: this.totalOriginal,
         totalCost: this.totalCost,
         finalTotal: this.totalFinal
       }
-    });
+    };
+
+    this.onConfirm.emit(payload);
   }
 
   close() {

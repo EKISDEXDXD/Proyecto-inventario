@@ -29,6 +29,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   store: any = null;
   products: any[] = [];
   filteredProducts: any[] = [];
+  private displayProducts: any[] = [];
+  private lotesMap: Map<number, any[]> = new Map();
   // Cache para mapa id -> nombre de producto (mejora rendimiento en filtros)
   private productNameMap: { [id: number]: string } = {};
   // Propiedades del selector de lotes
@@ -255,7 +257,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private filterProductsForAutocomplete() {
-    const inventoryProducts = this.getInventoryDisplayProducts();
+    const inventoryProducts = this.displayProducts;
     const searchLower = this.productSearchTerm.trim().toLowerCase();
 
     if (searchLower === '') {
@@ -274,7 +276,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   openProductDropdown() {
     this.productSearchTerm = this.productSearchTerm || '';
-    this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
+    this.filteredProductsForAutocomplete = [...this.displayProducts];
     this.showProductDropdown = true;
     this.cdr.detectChanges();
   }
@@ -527,6 +529,35 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     return 0;
   }
 
+  private isVisibleRootProduct(product: any): boolean {
+    if (!product || !product.id || product.parentId) {
+      return false;
+    }
+
+    return (product.isActive ?? true) && !(product.isDeleted ?? false);
+  }
+
+  private getLotesForProduct(productId: number): any[] {
+    return this.lotesMap.get(productId) ?? [];
+  }
+
+  private getActiveLoteForProduct(productId: number): any | null {
+    const lotes = this.getLotesForProduct(productId);
+    return lotes.find(lote => lote?.isActive && lote?.isActiveForSale)
+      ?? lotes.find(lote => lote?.isActive)
+      ?? null;
+  }
+
+  private calculateDisplayStock(product: any): number {
+    const rootStock = Number(product?.stock ?? 0);
+    return this.getLotesForProduct(product?.id).reduce((total, lote) => {
+      if (!lote || lote.isActive === false || lote.isDeleted === true) {
+        return total;
+      }
+      return total + Number(lote.stock ?? 0);
+    }, rootStock);
+  }
+
   loadStoreData() {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -548,49 +579,20 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   private getInventoryDisplayProducts(): any[] {
     const inventoryProducts = Array.isArray(this.products) ? this.products : [];
-    const visibleRootProducts = inventoryProducts.filter(product => {
-      if (!product || !product.id) {
-        return false;
-      }
-      return product.parentId == null && (product.isActive === true || product.isActive === null || product.isActive === undefined);
-    });
+    const visibleRootProducts = inventoryProducts.filter(product => this.isVisibleRootProduct(product));
 
     return visibleRootProducts.map(rootProduct => {
-      if (!rootProduct) {
-        return rootProduct;
-      }
-
-      let displayProduct = rootProduct;
-      if (!rootProduct.isActiveForSale) {
-        const activeLote = inventoryProducts.find(product =>
-          product &&
-          product.parentId === rootProduct.id &&
-          product.isActive !== false &&
-          product.isActiveForSale === true
-        );
-
-        if (activeLote) {
-          displayProduct = activeLote;
-        } else {
-          const firstActiveLote = inventoryProducts.find(product =>
-            product &&
-            product.parentId === rootProduct.id &&
-            product.isActive !== false
-          );
-
-          displayProduct = firstActiveLote || rootProduct;
-        }
-      }
-
-      const relatedProducts = inventoryProducts.filter(product =>
-        product && product.id && (product.id === rootProduct.id || product.parentId === rootProduct.id)
-      );
-      const totalStock = relatedProducts.reduce((sum, product) => sum + (Number(product?.stock) || 0), 0);
+      const activeLote = this.getActiveLoteForProduct(rootProduct.id);
+      const displayProduct = rootProduct.isActiveForSale ? rootProduct : (activeLote || rootProduct);
 
       return {
         ...displayProduct,
-        stock: totalStock,
-        displayStock: totalStock
+        name: rootProduct.name,
+        displayName: rootProduct.name,
+        price: Number(displayProduct.price ?? rootProduct.price ?? 0),
+        displayPrice: Number(displayProduct.price ?? rootProduct.price ?? 0),
+        stock: this.calculateDisplayStock(rootProduct),
+        displayStock: this.calculateDisplayStock(rootProduct)
       };
     });
   }
@@ -608,19 +610,30 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       next: (data) => {
         console.log('Productos cargados, total:', data?.length);
         this.products = data || [];
+        this.lotesMap = new Map();
+        this.products
+          .filter(product => product?.parentId)
+          .forEach(lote => {
+            const lotes = this.lotesMap.get(lote.parentId) ?? [];
+            lotes.push(lote);
+            this.lotesMap.set(lote.parentId, lotes);
+          });
         // Construir cache de nombres para búsquedas rápidas
         this.productNameMap = {};
         this.products.forEach(p => {
           if (p && p.id) this.productNameMap[p.id] = p.name || ('Producto ' + p.id);
         });
-        this.filteredProducts = this.getInventoryDisplayProducts();
-        this.filteredProductsForAutocomplete = this.getInventoryDisplayProducts();
+        this.displayProducts = this.getInventoryDisplayProducts();
+        this.filteredProducts = [...this.displayProducts];
+        this.filteredProductsForAutocomplete = [...this.displayProducts];
         this.loadRecentProducts();
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error cargando productos:', err);
         this.products = [];
+          this.displayProducts = [];
+          this.lotesMap = new Map();
         this.filteredProducts = [];
         this.filteredProductsForAutocomplete = [];
         this.cdr.detectChanges();
@@ -674,11 +687,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   onSearch() {
     if (this.searchTerm.trim() === '') {
-      this.filteredProducts = this.products;
+      this.filteredProducts = [...this.displayProducts];
     } else {
-      this.filteredProducts = this.products.filter(product =>
-        product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(this.searchTerm.toLowerCase())
+      const search = this.searchTerm.toLowerCase().trim();
+      this.filteredProducts = this.displayProducts.filter(product =>
+        (product.name || '').toLowerCase().includes(search) ||
+        (product.description || '').toLowerCase().includes(search)
       );
     }
   }
@@ -1395,7 +1409,25 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   openProductDescription(product: any) {
-    this.selectedProductForDescription = product;
+    if (!product?.id) {
+      return;
+    }
+
+    const rootProduct = product.parentId
+      ? this.products.find(item => item?.id === product.parentId)
+      : product;
+
+    this.selectedProductForDescription = rootProduct
+      ? {
+          ...rootProduct,
+          displayName: rootProduct.name,
+          displayStock: product.displayStock ?? product.stock,
+          displayCost: product.displayCost ?? product.cost,
+          displayPrice: product.displayPrice ?? product.price,
+          cost: product.displayCost ?? product.cost ?? rootProduct.cost,
+          price: product.displayPrice ?? product.price ?? rootProduct.price
+        }
+      : product;
     this.showProductDescriptionModal = true;
   }
 
