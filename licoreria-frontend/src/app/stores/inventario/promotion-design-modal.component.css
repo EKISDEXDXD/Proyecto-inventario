@@ -1,21 +1,28 @@
 .promo-config-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(5px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .promo-config-modal {
-  width: min(96vw, 960px);
-  max-height: 90vh;
+  width: min(88vw, 700px);
+  max-height: 82vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: white;
-  border-radius: 24px;
-  padding: 28px;
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+  -webkit-overflow-scrolling: touch;
+  margin: 1rem auto;
 }
 
 .promo-product-fields {
@@ -41,14 +48,15 @@
 .promo-config-header {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .promo-config-header h3 {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .promo-config-header p {
@@ -179,6 +187,69 @@
   gap: 10px;
 }
 
+.promo-lotes-selection {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #f8faff;
+}
+
+.promo-lotes-header,
+.promo-lote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.promo-lotes-header strong,
+.promo-lote-name {
+  display: block;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.promo-lotes-header span,
+.promo-lote-stock,
+.promo-lotes-loading {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.promo-lotes-total {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534 !important;
+  font-weight: 700;
+}
+
+.promo-lotes-total.invalid {
+  background: #fee2e2;
+  color: #b91c1c !important;
+}
+
+.promo-lotes-list {
+  display: grid;
+  gap: 8px;
+}
+
+.promo-lote-row {
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.promo-lote-quantity {
+  width: 78px;
+  min-height: 36px;
+  padding: 7px 8px;
+  text-align: center;
+}
+
 .promo-quantity-control {
   display: grid;
   grid-template-columns: 36px 1fr 36px;
@@ -287,7 +358,7 @@
 
 /* Visual treatment aligned with the Movimientos panels */
 .promo-config-overlay {
-  padding: 1.5rem;
+  padding: 1rem;
   background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(5px);
   animation: promoOverlayIn 0.24s ease-out both;
@@ -301,7 +372,11 @@
   background: #f8fafc;
   box-shadow: 0 28px 75px rgba(15, 23, 42, 0.24);
   animation: promoModalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
-  
+  overflow: auto !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  max-height: 82vh;
 }
 
 .promo-config-header {
@@ -309,7 +384,7 @@
   top: 0;
   z-index: 2;
   margin: 0;
-  padding: 1.5rem 1.75rem;
+  padding: 0.9rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   background: rgba(248, 250, 252, 0.94);
   backdrop-filter: blur(12px);
@@ -317,7 +392,7 @@
 
 .promo-config-header h3 {
   color: #0f172a;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   letter-spacing: -0.02em;
 }
 
@@ -358,14 +433,14 @@
 }
 
 .promo-config-body {
-  padding: 1.5rem 1.75rem;
+  padding: 0.9rem 1rem;
 }
 
 .promo-section-card {
   border-radius: 12px;
-  padding: 1.25rem;
+  padding: 0.9rem 1rem;
   background: #fff;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 3px 16px rgba(15, 23, 42, 0.04);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
@@ -484,9 +559,12 @@ textarea.form-control {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  padding: 1rem 1.75rem 1.5rem;
+  padding: 0.8rem 1rem 1rem;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .promo-config-actions .btn {
@@ -580,21 +658,24 @@ textarea.form-control {
 
 @media (max-width: 640px) {
   .promo-config-overlay {
-    align-items: flex-end;
-    padding: 0;
+    align-items: flex-start;
+    padding: 0.5rem;
   }
 
   .promo-config-modal {
     width: 100%;
-    max-height: 94vh;
-    border-radius: 16px 16px 0 0;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 16px;
+    margin: 0.5rem auto;
+    overflow: auto !important;
   }
 
   .promo-config-header,
   .promo-config-body,
   .promo-config-actions {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
   }
 
   .promo-config-header h3 {

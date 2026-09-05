@@ -48,12 +48,48 @@ public class StockTransformationRequestDTO {
         @Positive(message = "La cantidad debe ser mayor a 0")
         private Integer quantity;
 
+        @Valid
+        private List<LoteAllocationDTO> loteAllocations;
+
         public Long getProductId() {
             return productId;
         }
 
         public void setProductId(Long productId) {
             this.productId = productId;
+        }
+
+        public Integer getQuantity() {
+            return quantity;
+        }
+
+        public void setQuantity(Integer quantity) {
+            this.quantity = quantity;
+        }
+
+        public List<LoteAllocationDTO> getLoteAllocations() {
+            return loteAllocations;
+        }
+
+        public void setLoteAllocations(List<LoteAllocationDTO> loteAllocations) {
+            this.loteAllocations = loteAllocations;
+        }
+    }
+
+    public static class LoteAllocationDTO {
+        @NotNull(message = "El ID del lote es obligatorio")
+        private Long loteId;
+
+        @NotNull(message = "La cantidad del lote es obligatoria")
+        @Positive(message = "La cantidad del lote debe ser mayor a 0")
+        private Integer quantity;
+
+        public Long getLoteId() {
+            return loteId;
+        }
+
+        public void setLoteId(Long loteId) {
+            this.loteId = loteId;
         }
 
         public Integer getQuantity() {

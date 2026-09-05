@@ -180,6 +180,26 @@
               />
             </div>
 
+            <div class="mobile-gallery-actions" aria-label="Acciones de inventario">
+              <button
+                type="button"
+                class="mobile-gallery-action promo-action"
+                [class.active]="promoMode"
+                (click)="togglePromoMode(); $event.stopPropagation()">
+                <i class="bx" [ngClass]="promoMode ? 'bx-x-circle' : 'bx-gift'"></i>
+                <span>{{ promoMode ? 'Cancelar promo' : 'Crear promo' }}</span>
+              </button>
+
+              <button
+                *ngIf="promoMode && promoProducts.length > 0"
+                type="button"
+                class="mobile-gallery-action promo-confirm-action"
+                (click)="openPromotionConfig(); $event.stopPropagation()">
+                <i class="bx bx-check-circle"></i>
+                <span>Ajustar venta</span>
+              </button>
+            </div>
+
             <!-- Active Filters Display -->
             <div *ngIf="selectedTagIds.length > 0" class="active-filters" role="status" aria-live="polite">
               <span class="filters-label">Filtros activos:</span>

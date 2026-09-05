@@ -32,27 +32,29 @@
           <div>
             <label class="field-label">Modo destino</label>
             <select class="form-control" [(ngModel)]="mode">
-              <option value="LOTE">Crear lote del mismo producto</option>
-              <option value="PRODUCTO_NUEVO">Crear nuevo producto</option>
+              <option value="LOTE">Ajuste del producto</option>
+              <option value="PRODUCTO_NUEVO">Crear promo, oferta o producto con descuento</option>
             </select>
           </div>
           <div>
             <label class="field-label">Cantidad destino</label>
-            <input type="number" class="form-control" [(ngModel)]="targetQuantity" min="1" step="1" />
+            <input type="number" class="form-control" [(ngModel)]="targetQuantity" min="1" step="1" (ngModelChange)="updateTargetQuantity()" />
           </div>
           <div>
             <label class="field-label">Costo total</label>
             <input type="text" class="form-control" [value]="'S/ ' + (totalCost | number:'1.2-2')" readonly />
           </div>
           <div>
-            <label class="field-label">Costo final manual</label>
+            <label class="field-label">Costo final manual (editable)</label>
             <input
               type="number"
               class="form-control"
               [(ngModel)]="targetCost"
               min="0"
               step="0.01"
-              (ngModelChange)="updateCostOverride()"
+              inputmode="decimal"
+              placeholder="Ingresa el costo final"
+              (ngModelChange)="updateCostOverride($event)"
             />
           </div>
           <div>
@@ -92,7 +94,7 @@
                   </span>
                 </div>
               </div>
-              <div class="promo-product-badge">{{ product.quantity }} und.</div>
+              <div class="promo-product-badge">{{ getRequiredSourceQuantity(product) }} und. salida</div>
             </div>
             <div class="promo-product-controls">
               <div>
@@ -100,7 +102,7 @@
                 <input type="number" class="form-control" [(ngModel)]="product.price" min="0" step="0.01" (ngModelChange)="updateProduct(product)" />
               </div>
               <div>
-                <label class="field-label">Cantidad</label>
+                <label class="field-label">Cantidad por promo</label>
                 <div class="promo-quantity-control">
                   <button type="button" class="promo-quantity-btn" (click)="adjustQuantity(product, -1)">−</button>
                   <input type="number" class="form-control promo-quantity-input" [(ngModel)]="product.quantity" min="1" [max]="product.stock > 0 ? product.stock : null" step="1" (ngModelChange)="updateProduct(product)" />
@@ -114,6 +116,40 @@
               <div>
                 <label class="field-label">Precio total</label>
                 <input type="text" class="form-control" [value]="'S/ ' + (product.originalTotal | number:'1.2-2')" readonly />
+              </div>
+            </div>
+            <div class="promo-lotes-selection" *ngIf="product.lotesLoading || product.lotes.length > 0">
+              <div class="promo-lotes-header">
+                <div>
+                  <strong>Origen de las unidades</strong>
+                  <span>Elige de qué lote saldrán las {{ getRequiredSourceQuantity(product) }} unidad(es).</span>
+                </div>
+                <span class="promo-lotes-total" [class.invalid]="getAllocatedQuantity(product) !== getRequiredSourceQuantity(product)">
+                  {{ getAllocatedQuantity(product) }}/{{ getRequiredSourceQuantity(product) }} asignadas
+                </span>
+              </div>
+              <div *ngIf="product.lotesLoading" class="promo-lotes-loading">Cargando lotes...</div>
+              <div *ngIf="!product.lotesLoading && product.lotes.length > 0" class="promo-lotes-list">
+                <div *ngFor="let lote of product.lotes" class="promo-lote-row">
+                  <div>
+                    <span class="promo-lote-name">{{ lote.name }}</span>
+                    <span class="promo-lote-stock">
+                      Disponible: {{ lote.stock }} und. · Costo: S/ {{ lote.cost | number:'1.2-2' }} · Precio: S/ {{ lote.price | number:'1.2-2' }}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    class="form-control promo-lote-quantity"
+                    [(ngModel)]="product.loteAllocations[lote.id]"
+                    min="0"
+                    [max]="lote.stock"
+                    step="1"
+                    (ngModelChange)="onLoteAllocationChange(product, lote)"
+                    aria-label="Unidades del lote" />
+                </div>
+              </div>
+              <div *ngIf="!product.lotesLoading && product.lotes.length === 0" class="promo-lotes-loading">
+                No hay lotes disponibles; se usará el stock general del producto.
               </div>
             </div>
           </div>

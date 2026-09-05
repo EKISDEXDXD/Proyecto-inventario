@@ -273,19 +273,67 @@ public class TransactionService {
 
             productService.validateUserOwnsProduct(sourceProductId, username);
             final Product sourceProduct = productService.findById(sourceProductId);
-            if (sourceProduct.getStock() == null || sourceProduct.getStock() < sourceQuantity) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Stock insuficiente en " + sourceProduct.getName() + " (disponible: " + sourceProduct.getStock() + ")");
-            }
+            final List<StockTransformationRequestDTO.LoteAllocationDTO> allocations = source.getLoteAllocations();
 
-            final TransactionDTO salida = new TransactionDTO();
-            salida.setProductId(sourceProductId);
-            salida.setType("SALIDA");
-            salida.setReason("AJUSTE");
-            salida.setQuantity(sourceQuantity);
-            salida.setUserId(user.getId());
-            salida.setDateTime(LocalDateTime.now());
-            create(salida);
+            if (allocations != null && !allocations.isEmpty()) {
+                int allocatedQuantity = 0;
+                final List<Product> allocatedLotes = new java.util.ArrayList<>();
+                for (StockTransformationRequestDTO.LoteAllocationDTO allocation : allocations) {
+                    if (allocation == null || allocation.getLoteId() == null || allocation.getQuantity() == null
+                        || allocation.getQuantity() <= 0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Cada asignación de lote debe indicar un lote y una cantidad mayor a 0");
+                    }
+
+                    final Product lote = productService.findById(allocation.getLoteId());
+                    productService.validateUserOwnsProduct(lote.getId(), username);
+                    final Long expectedParentId = sourceProduct.getParentId() == null
+                        ? sourceProduct.getId()
+                        : sourceProduct.getParentId();
+                    if (!lote.getId().equals(sourceProduct.getId())
+                        && !expectedParentId.equals(lote.getParentId())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "El lote seleccionado no pertenece a " + sourceProduct.getName());
+                    }
+                    if (lote.getStock() == null || lote.getStock() < allocation.getQuantity()) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Stock insuficiente en el lote " + lote.getName() + " (disponible: " + lote.getStock() + ")");
+                    }
+
+                    allocatedQuantity += allocation.getQuantity();
+                    allocatedLotes.add(lote);
+                }
+                if (allocatedQuantity != sourceQuantity) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "La suma de unidades asignadas a los lotes debe ser exactamente " + sourceQuantity);
+                }
+                for (int index = 0; index < allocations.size(); index++) {
+                    final StockTransformationRequestDTO.LoteAllocationDTO allocation = allocations.get(index);
+                    final Product lote = allocatedLotes.get(index);
+                    final TransactionDTO salida = new TransactionDTO();
+                    salida.setProductId(lote.getId());
+                    salida.setType("SALIDA");
+                    salida.setReason("AJUSTE");
+                    salida.setQuantity(allocation.getQuantity());
+                    salida.setUserId(user.getId());
+                    salida.setDateTime(LocalDateTime.now());
+                    create(salida);
+                }
+            } else {
+                if (sourceProduct.getStock() == null || sourceProduct.getStock() < sourceQuantity) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Stock insuficiente en " + sourceProduct.getName() + " (disponible: " + sourceProduct.getStock() + ")");
+                }
+
+                final TransactionDTO salida = new TransactionDTO();
+                salida.setProductId(sourceProductId);
+                salida.setType("SALIDA");
+                salida.setReason("AJUSTE");
+                salida.setQuantity(sourceQuantity);
+                salida.setUserId(user.getId());
+                salida.setDateTime(LocalDateTime.now());
+                create(salida);
+            }
         }
 
         // 2) Producto destino: lote nuevo del mismo producto raíz, o producto nuevo independiente

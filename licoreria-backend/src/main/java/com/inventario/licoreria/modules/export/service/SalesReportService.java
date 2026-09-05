@@ -145,11 +145,15 @@ public class SalesReportService {
      * Filtra transacciones de productos ACTIVOS para análisis y resúmenes
      */
     private List<Transaction> filterActiveProductTransactions(List<Transaction> transactions) {
+        return filterActiveProductTransactions(transactions, null);
+    }
+
+    private List<Transaction> filterActiveProductTransactions(List<Transaction> transactions, Long storeId) {
         return transactions.stream()
             .filter(t -> {
                 try {
                     Product product = t.getProduct();
-                    return isProductEligibleForExport(product);
+                    return isProductEligibleForExport(product, storeId);
                 } catch (Exception e) {
                     return false;
                 }
@@ -186,7 +190,7 @@ public class SalesReportService {
         Sheet sheet = workbook.createSheet("Resumen Ejecutivo");
         
         // Solo incluir productos activos y de la tienda correcta en resumen ejecutivo
-        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
+        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions, storeId);
         
         CellStyle titleStyle = createTitleStyle(workbook);
         CellStyle subtitleStyle = createSubtitleStyle(workbook);
@@ -651,7 +655,7 @@ public class SalesReportService {
 
     private void createProductAnalysisSheet(Workbook workbook, List<Transaction> transactions, Long storeId, LocalDate dateFrom, LocalDate dateTo) {
         // Filtrar solo productos activos y elegibles
-        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
+        List<Transaction> activeTransactions = filterActiveProductTransactions(transactions, storeId);
         
         Sheet sheet = workbook.createSheet("Análisis por Producto");
         
@@ -1710,7 +1714,7 @@ public class SalesReportService {
         try {
             // Filtrar solo productos activos y elegibles
             List<Product> eligibleProducts = new ArrayList<>();
-            List<Transaction> activeTransactions = filterActiveProductTransactions(transactions);
+            List<Transaction> activeTransactions = filterActiveProductTransactions(transactions, storeId);
             
             for (Transaction t : activeTransactions) {
                 Product product = t.getProduct();

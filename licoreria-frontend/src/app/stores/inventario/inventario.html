@@ -615,7 +615,8 @@
     [isOpen]="showGalleryModal" 
     [storeId]="storeId"
     (onClose)="closeGalleryModal()"
-    (onProductSelect)="openDescriptionModalFromGallery($event)">
+    (onProductSelect)="openDescriptionModalFromGallery($event)"
+    (onCreateLote)="openLotesModalFromGallery($event)">
   </app-product-gallery-modal>
 
   <!-- Lotes Modal Component -->

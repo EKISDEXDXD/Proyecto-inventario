@@ -23,6 +23,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   @Input() storeId: number = 0;
   @Output() onClose = new EventEmitter<void>();
   @Output() onProductSelect = new EventEmitter<any>();
+  @Output() onCreateLote = new EventEmitter<any>();
 
   // Products
   products: any[] = [];
@@ -207,6 +208,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
       const displayLote = this.getGalleryDisplayLote(product, lotes);
       const displayStock = this.getGalleryDisplayStock(product, lotes);
+      const rootStock = Number(product.stock ?? 0);
       const displayCost = displayLote ? (displayLote.cost ?? product.cost) : product.cost;
       const displayPrice = displayLote ? (displayLote.price ?? product.price) : product.price;
       const displayProduct = {
@@ -217,6 +219,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
         displayCost,
         displayPrice,
         displayStock,
+        rootStock,
         activeLote: displayLote
       };
 
@@ -477,7 +480,15 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     const payload = {
       sources: rawSources.map((item: any) => ({
         productId: item.productId,
-        quantity: Number(item.quantity) || 1
+        quantity: Number(item.quantity) || 1,
+        loteAllocations: Array.isArray(item.loteAllocations)
+          ? item.loteAllocations
+            .map((allocation: any) => ({
+              loteId: Number(allocation.loteId),
+              quantity: Number(allocation.quantity) || 0
+            }))
+            .filter((allocation: any) => allocation.loteId > 0 && allocation.quantity > 0)
+          : []
       })),
       target: {
         mode,

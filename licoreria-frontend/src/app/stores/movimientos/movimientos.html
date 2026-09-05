@@ -588,14 +588,351 @@
 
   </div>
 
-  <!-- ==================== ADMINISTRATIVE COSTS MOVEMENTS SECTION ==================== -->
+  <!-- ==================== CASH CONTROL SECTION ==================== -->
   <div class="card main-title-card">
+    <h1 class="main-title"><i class="bx bx-wallet"></i> Control de Caja y Gastos Manuales</h1>
+    <p class="main-subtitle">Registro manual de gastos, dinero real, dinero físico y flujo diario</p>
+  </div>
+
+  <div class="stats-grid cash-control-summary-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-store"></i></div>
+      <div class="stat-content">
+        <h3>{{ cashControlSummary.storeMoney || 0 | currencyFormat }}</h3>
+        <p>Dinero de la tienda</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warning"><i class="bx bx-trending-up"></i></div>
+      <div class="stat-content">
+        <h3>{{ cashControlSummary.grossProfitMoney || 0 | currencyFormat }}</h3>
+        <p>Ganancia bruta</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="bx bx-coin-stack"></i></div>
+      <div class="stat-content">
+        <h3>{{ cashControlSummary.moneyPhysical || 0 | currencyFormat }}</h3>
+        <p>Dinero físico</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-money"></i></div>
+      <div class="stat-content">
+        <h3>{{ cashControlSummary.moneyReal || 0 | currencyFormat }}</h3>
+        <p>Dinero digital</p>
+      </div>
+    </div>
+    <div class="stat-card danger-card">
+      <div class="stat-icon danger"><i class="bx bx-store-alt"></i></div>
+      <div class="stat-content">
+        <h3>{{ storeExpensesForPeriod | currencyFormat }}</h3>
+        <p>Gastos de la tienda</p>
+      </div>
+    </div>
+    <div class="stat-card danger-card">
+      <div class="stat-icon danger"><i class="bx bx-trending-down"></i></div>
+      <div class="stat-content">
+        <h3>{{ grossProfitExpensesForPeriod | currencyFormat }}</h3>
+        <p>Gastos de ganancia</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="bx bx-store"></i></div>
+      <div class="stat-content">
+        <h3>{{ storeMoneyAvailable | currencyFormat }}</h3>
+        <p>Saldo de la tienda</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="bx bx-wallet-alt"></i></div>
+      <div class="stat-content">
+        <h3>{{ availableProfitBalance | currencyFormat }}</h3>
+        <p>Saldo disponible</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cash-flow-banner" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+    <div>
+      <h3>Flujo diario</h3>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <button class="btn btn-primary" type="button" (click)="openManualSummaryEditor()">
+        <i class="bx bx-edit-alt"></i> Editar dinero manual
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="showManualSummaryEditor" class="modal-backdrop cash-control-modal-backdrop" style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 2000;">
+    <div class="card cash-control-modal-card cash-control-summary-modal" style="width: min(640px, 92vw); padding: 1.5rem;">
+      <h3 style="margin-top: 0; margin-bottom: 0.75rem;">Editar dinero manual</h3>
+      <p style="margin: 0 0 1rem;">Ajusta el dinero de la tienda, ganancia bruta, efectivo y digital. Se guarda como valor manual del día.</p>
+      <div class="movement-grid" style="grid-template-columns: repeat(2, minmax(220px, 1fr));">
+        <div class="form-group">
+          <label>Dinero de la tienda</label>
+          <input type="number" [(ngModel)]="manualSummaryForm.storeMoney" name="manualStoreMoney" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Ganancia bruta</label>
+          <input type="number" [(ngModel)]="manualSummaryForm.grossProfitMoney" name="manualGrossProfitMoney" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Dinero físico</label>
+          <input type="number" [(ngModel)]="manualSummaryForm.moneyPhysical" name="manualMoneyPhysical" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Dinero digital</label>
+          <input type="number" [(ngModel)]="manualSummaryForm.moneyReal" name="manualMoneyReal" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group full-width">
+          <label>Contraseña de la tienda</label>
+          <input type="password" [(ngModel)]="manualSummaryForm.verificationPassword" name="manualSummaryPassword" class="form-control" placeholder="••••••••">
+        </div>
+      </div>
+      <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+        <button type="button" class="btn btn-secondary" (click)="closeManualSummaryEditor()">Cancelar</button>
+        <button type="button" class="btn btn-success" (click)="saveManualSummary()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="showDailyFlowPasswordModal" class="modal-backdrop cash-control-modal-backdrop" style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 2000;">
+    <div class="card cash-control-modal-card cash-flow-modal" style="width: min(420px, 92vw); padding: 1.5rem;">
+      <h3 style="margin-top: 0; margin-bottom: 0.75rem;">Confirmar cierre del flujo</h3>
+      <p style="margin: 0 0 1rem;">Escribe la contraseña de la tienda para cerrar el flujo del día.</p>
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Contraseña de la tienda</label>
+        <input type="password" [(ngModel)]="dailyFlowPassword" name="dailyFlowPassword" class="form-control" placeholder="••••••••" (keydown.enter)="confirmDailyFlowClosure()" autofocus>
+      </div>
+      <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary" (click)="cancelDailyFlowClosure()">Cancelar</button>
+        <button type="button" class="btn btn-success" (click)="confirmDailyFlowClosure()">Cerrar flujo</button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="showDailyFlowHistoryModal" class="modal-backdrop cash-control-modal-backdrop" style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 2000;">
+    <div class="card cash-control-modal-card daily-flow-history-modal" style="padding: 1.5rem;">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <h3 style="margin: 0;">Historial del flujo diario</h3>
+          <p style="margin: 0.35rem 0 0; color: var(--text-muted);">El día actual queda al final y el scroll abre desde abajo hacia arriba.</p>
+        </div>
+        <button type="button" class="icon-btn modal-close-btn" (click)="closeDailyFlowHistory()" aria-label="Cerrar historial del flujo">
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
+
+      <div *ngIf="historyLoading" class="state-message" style="padding: 1.5rem;">
+        <i class="bx bx-loader bx-spin"></i>
+        <p>Cargando flujo diario...</p>
+      </div>
+
+      <div *ngIf="!historyLoading && dailyFlowHistory.length === 0" class="state-message" style="padding: 1.5rem;">
+        <i class="bx bx-inbox"></i>
+        <p>No hay flujo diario registrado todavía.</p>
+      </div>
+
+      <div *ngIf="!historyLoading && dailyFlowHistory.length > 0" #dailyFlowHistoryList class="daily-flow-history-list">
+        <!-- Botón para cargar más días anteriores si los hay -->
+        <div *ngIf="allDailyFlowHistory.length > dailyFlowHistory.length" class="daily-flow-load-more" style="text-align: center; padding: 1rem; margin-bottom: 1rem;">
+          <button type="button" class="btn btn-sm btn-outline" (click)="loadMoreDailyFlowDays()" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 0 auto;">
+            <i class="bx bx-chevron-up"></i>
+            Ver {{ allDailyFlowHistory.length - dailyFlowHistory.length }} días anteriores
+          </button>
+        </div>
+
+        <div *ngFor="let day of dailyFlowHistory" class="daily-flow-history-row">
+          <div class="daily-flow-history-date">{{ day.label }}</div>
+          <div class="daily-flow-history-metrics">
+            <div class="daily-flow-history-metric daily-flow-history-entry">
+              <small>Entradas</small>
+              <strong>{{ day.entries }} un.</strong>
+              <span>{{ day.entryCost | currencyFormat }}</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-sale">
+              <small>Ventas</small>
+              <strong>{{ day.salesRevenue | currencyFormat }}</strong>
+              <span>{{ day.sales }} un.</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-cost">
+              <small>Costo</small>
+              <strong>{{ day.salesCost | currencyFormat }}</strong>
+              <span>venta</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-profit">
+              <small>Ganancia</small>
+              <strong>{{ day.grossProfit | currencyFormat }}</strong>
+              <span>bruta</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions" style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+        <button type="button" class="btn btn-secondary" (click)="closeDailyFlowHistory()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-column-layout">
+    <!-- Historial de caja manual -->
+    <div class="card history-card">
+      <div class="flex-between admin-payments-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; font-size: 1.25rem;">Historial manual</h2>
+        <button type="button" class="btn btn-sm btn-outline expense-filter-button"
+          (click)="toggleManualExpenseDateFilter($event)"
+          [attr.aria-expanded]="showManualExpenseDateFilter" aria-controls="manualExpenseDateFilter">
+          <i class="bx bx-calendar"></i> Filtrar fechas
+        </button>
+      </div>
+
+      <div *ngIf="showManualExpenseDateFilter" id="manualExpenseDateFilter" class="compact-filters expense-date-filter" aria-label="Filtrar gastos por fecha">
+        <div class="filter-row">
+          <div class="filter-item">
+            <label for="expenseFilterStartDate">Desde</label>
+            <input id="expenseFilterStartDate" type="date" class="compact-filter-input date"
+              [(ngModel)]="expenseFilterStartDate">
+          </div>
+          <div class="filter-item">
+            <label for="expenseFilterEndDate">Hasta</label>
+            <input id="expenseFilterEndDate" type="date" class="compact-filter-input date"
+              [(ngModel)]="expenseFilterEndDate">
+          </div>
+          <div class="filter-item expense-type-filter-item">
+            <label for="expenseFilterType">Tipo de registro</label>
+            <select id="expenseFilterType" class="compact-filter-input" [(ngModel)]="expenseFilterType">
+              <option value="TODOS">Todos</option>
+              <option value="GASTO_TIENDA">Gasto de la tienda</option>
+              <option value="GASTO_USUARIO">Gasto de usuario</option>
+              <option value="AJUSTE_MANUAL">Cambio de dinero manual</option>
+            </select>
+          </div>
+          <button type="button" class="compact-btn-reset" (click)="clearExpenseDateFilter()"
+            aria-label="Limpiar filtro de gastos" title="Limpiar filtro">
+            <i class="bx bx-x"></i>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingCashControl" class="state-message">
+        <i class="bx bx-loader bx-spin"></i> Cargando historial manual...
+      </div>
+
+      <div *ngIf="!loadingCashControl">
+        <div *ngIf="cashControlEntries.length === 0" class="state-message">
+          <p><i class="bx bx-inbox"></i> No hay registros manuales todavía.</p>
+        </div>
+
+        <div *ngIf="cashControlEntries.length > 0 && filteredManualExpenseEntries.length === 0" class="state-message">
+          <p><i class="bx bx-calendar-x"></i> No hay gastos en el periodo seleccionado.</p>
+        </div>
+
+        <div *ngIf="filteredManualExpenseEntries.length > 0" class="manual-history-table-wrapper">
+          <table class="manual-history-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Nombre</th>
+                <th>Costo</th>
+                <th>Detalle</th>
+                <th>Usuario</th>
+                <th class="table-actions-column"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let entry of filteredManualExpenseEntries">
+                <td>{{ entry.entryDate || entry.createdAt | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <span class="manual-history-name" [ngClass]="isManualSummaryHistoryEntry(entry) ? 'is-adjustment' : (entry.expenseType === 'GASTO_TIENDA' ? 'is-store' : 'is-user')">
+                    {{ isManualSummaryHistoryEntry(entry) ? 'Cambio de dinero manual' : (entry.expenseType === 'GASTO_TIENDA' ? 'Gasto de la tienda' : 'Gasto de usuario') }}
+                  </span>
+                  <div class="manual-history-concept">{{ entry.concept }}</div>
+                </td>
+                <td class="manual-history-cost">{{ entry.amount | currencyFormat }}</td>
+                <td>{{ entry.detail || 'Sin detalle' }}</td>
+                <td>{{ entry.responsibleName || 'Sistema' }}</td>
+                <td class="table-actions-column">
+                  <button class="btn btn-danger btn-icon compact-btn" (click)="deleteCashControlEntry(entry.id)" title="Eliminar">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario manual de caja -->
+    <div class="card movement-card">
+      <div class="movement-card-header">
+        <div>
+          <h2 class="movement-title">Registrar gasto manual</h2>
+          <p class="movement-subtitle">Registra egresos y ajusta el dinero manual del negocio.</p>
+        </div>
+      </div>
+
+      <div *ngIf="!showCashControlForm">
+        <button class="btn btn-primary btn-sm" type="button" (click)="toggleCashControlForm()">
+          <i class="bx bx-plus"></i> Nuevo gasto manual
+        </button>
+      </div>
+
+      <form *ngIf="showCashControlForm" (ngSubmit)="createCashControlEntry()" class="movement-form">
+        <div class="movement-grid">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" [(ngModel)]="cashControlForm.entryDate" name="entryDate" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Concepto</label>
+            <input type="text" [(ngModel)]="cashControlForm.concept" name="concept" class="form-control" placeholder="Ej. gasolina, pago, caja" required>
+          </div>
+          <div class="form-group">
+            <label>Monto</label>
+            <input type="number" [(ngModel)]="cashControlForm.amount" name="amount" class="form-control" step="0.01" min="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Tipo de gasto</label>
+            <select [(ngModel)]="cashControlForm.expenseType" name="expenseType" class="form-control">
+              <option value="GASTO_USUARIO">Gasto de usuario</option>
+              <option value="GASTO_TIENDA">Gasto de la tienda</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Origen del dinero</label>
+            <select [(ngModel)]="cashControlForm.moneyOrigin" name="moneyOrigin" class="form-control">
+              <option value="TIENDA">Dinero de la tienda</option>
+              <option value="GANANCIA_BRUTA">Ganancia bruta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Responsable</label>
+            <input type="text" [(ngModel)]="cashControlForm.responsibleName" name="responsibleName" class="form-control" placeholder="Nombre del usuario">
+          </div>
+          <div class="form-group full-width">
+            <label>Detalle</label>
+            <textarea [(ngModel)]="cashControlForm.detail" name="detail" class="form-control" rows="3" placeholder="Descripción del gasto"></textarea>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary" (click)="toggleCashControlForm()">Cancelar</button>
+          <button type="submit" class="btn btn-success">Guardar gasto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="admin-reports-group">
+  <!-- ==================== ADMINISTRATIVE COSTS MOVEMENTS SECTION ==================== -->
+  <div class="card main-title-card" style="margin-top: 0;">
     <h1 class="main-title"><i class="bx bx-receipt"></i> Movimientos de Costos Administrativos</h1>
     <p class="main-subtitle">Registra los pagos de gastos operativos de tu tienda</p>
   </div>
   <div class="two-column-layout">
-    <!-- Lista de Movimientos Administrativos -->
-    <div class="card history-card">
+    <div class="card admin-payment-history-card">
       <div class="flex-between admin-payments-header" (click)="toggleAdminMovementsList()"
         style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <h2 style="margin: 0; font-size: 1.25rem;">Registro de Pagos</h2>
@@ -701,13 +1038,9 @@
   </div>
 
   <section class="expandable-card reports-card">
-    <div class="expandable-header">
-      <div class="header-left">
-        <div class="header-text">
-          <h2>Reportes de Información</h2>
-          <p>Crea y gestiona reportes descriptivos</p>
-        </div>
-      </div>
+    <div class="card main-title-card reports-main-title">
+      <h1 class="main-title"><i class="bx bx-file"></i> Reportes de Información</h1>
+      <p class="main-subtitle">Crea y gestiona reportes descriptivos</p>
     </div>
 
     <div class="expandable-content expanded">
@@ -760,47 +1093,43 @@
         </div>
       </div>
 
-      <!-- Botón Nuevo Reporte (cuando no hay formulario) -->
-      <div *ngIf="!showReportForm" style="display: flex; gap: 1rem; align-items: center;">
-        <button class="btn btn-primary" (click)="toggleReportForm()">
-          + Nuevo Reporte
-        </button>
-        <button class="btn btn-filter-toggle" (click)="toggleFilters()" [class.active]="showFilters">
-          <i class="bx" [class.bx-chevron-down]="showFilters" [class.bx-chevron-right]="!showFilters"></i>
-          Filtros
-        </button>
-      </div>
-
-      <!-- Filtros Compactos (Collapsible) -->
-      <div class="compact-filters" [class.expanded]="showFilters" *ngIf="!showReportForm">
-        <!-- Buscador -->
-        <div class="filter-item">
-          <input type="text" [(ngModel)]="searchQuery" (input)="onSearchChange()" placeholder="Buscar reportes..."
-            class="form-input compact-search" />
+      <div *ngIf="!showReportForm" class="card movement-card report-actions-card">
+        <div class="movement-card-header">
+          <div>
+            <h2 class="movement-title">Registrar Reporte</h2>
+            <p class="movement-subtitle">Crea un nuevo reporte o consulta los existentes.</p>
+          </div>
         </div>
 
-        <!-- Filtro Fecha Desde -->
-        <div class="filter-item">
-          <label for="compact-start-date">Desde:</label>
-          <input type="date" id="compact-start-date" [(ngModel)]="filterStartDate" (change)="applyDateFilter()"
-            class="form-input compact-input" />
-        </div>
-
-        <!-- Filtro Fecha Hasta -->
-        <div class="filter-item">
-          <label for="compact-end-date">Hasta:</label>
-          <input type="date" id="compact-end-date" [(ngModel)]="filterEndDate" (change)="applyDateFilter()"
-            class="form-input compact-input" />
-        </div>
-
-        <!-- Botones Acciones -->
-        <div class="filter-actions-compact">
-          <button class="btn btn-sm btn-success" (click)="applyDateFilter()">
-            Aplicar
+        <div class="report-actions-toolbar">
+          <button class="btn btn-primary" (click)="toggleReportForm()">
+            + Nuevo Reporte
           </button>
-          <button class="btn btn-sm btn-secondary" (click)="resetFilters()">
-            Limpiar
+          <button class="btn btn-filter-toggle" (click)="toggleFilters()" [class.active]="showFilters">
+            <i class="bx" [class.bx-chevron-down]="showFilters" [class.bx-chevron-right]="!showFilters"></i>
+            Filtros
           </button>
+        </div>
+
+        <div *ngIf="showFilters" class="compact-filters expanded">
+          <div class="filter-item">
+            <input type="text" [(ngModel)]="searchQuery" (input)="onSearchChange()" placeholder="Buscar reportes..."
+              class="form-input compact-search" />
+          </div>
+          <div class="filter-item">
+            <label for="compact-start-date">Desde:</label>
+            <input type="date" id="compact-start-date" [(ngModel)]="filterStartDate" (change)="applyDateFilter()"
+              class="form-input compact-input" />
+          </div>
+          <div class="filter-item">
+            <label for="compact-end-date">Hasta:</label>
+            <input type="date" id="compact-end-date" [(ngModel)]="filterEndDate" (change)="applyDateFilter()"
+              class="form-input compact-input" />
+          </div>
+          <div class="filter-actions-compact">
+            <button class="btn btn-sm btn-success" (click)="applyDateFilter()">Aplicar</button>
+            <button class="btn btn-sm btn-secondary" (click)="resetFilters()">Limpiar</button>
+          </div>
         </div>
       </div>
 
@@ -853,3 +1182,4 @@
       </div>
     </div>
   </section>
+  </div>

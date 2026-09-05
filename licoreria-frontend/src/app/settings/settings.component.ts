@@ -1,5 +1,5 @@
 import { Component, OnInit, NgZone, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { SettingsService } from './settings.service';
 import { PaymentMethodConfigService, PaymentMethodConfig } from './payment-method-config.service';
@@ -47,6 +47,7 @@ export class SettingsComponent implements OnInit {
     private userService: UserService,
     private apiConfig: ApiConfigService,
     private router: Router,
+    private location: Location,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {
@@ -56,6 +57,10 @@ export class SettingsComponent implements OnInit {
   ngOnInit() {
     this.loadCurrentUsername();
     this.loadPaymentMethods();
+  }
+
+  goBack() {
+    this.location.back();
   }
 
 

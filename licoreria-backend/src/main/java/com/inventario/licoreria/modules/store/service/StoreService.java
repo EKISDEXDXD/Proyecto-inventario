@@ -163,7 +163,10 @@ public class StoreService {
 
     public StoreResponseDTO accessExternal(String storeName, String password) {
         Store store = storeRepository.findByName(storeName);
-        if (store == null || !passwordEncoder.matches(password, store.getAccessPassword())) {
+        if (store == null || store.getAccessPassword() == null || store.getAccessPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tienda no encontrada o contraseña incorrecta");
+        }
+        if (!passwordEncoder.matches(password, store.getAccessPassword())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tienda no encontrada o contraseña incorrecta");
         }
         StoreResponseDTO dto = convertToResponseDTO(store);
@@ -179,6 +182,20 @@ public class StoreService {
         User user = userService.findByUsername(username);
         if (user == null || !store.getManager().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para acceder a esta tienda");
+        }
+    }
+
+    public void validateAccessPassword(Long storeId, String rawPassword) {
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere la contraseña de la tienda para modificar el dinero manual");
+        }
+        Store store = findStoreById(storeId);
+        String encodedPassword = store.getAccessPassword();
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La tienda no tiene contraseña configurada");
+        }
+        if (!passwordEncoder.matches(rawPassword, encodedPassword)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Contraseña incorrecta");
         }
     }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -12,6 +12,7 @@ import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { ClickOutsideDirective } from '../../core/directives/click-outside.directive';
 import { PaymentMethodModalComponent } from './payment-method-modal.component';
 import { PaymentMethodConfig } from '../../settings/payment-method-config.service';
+import { CashControlService } from '../../services/cash-control.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
@@ -52,12 +53,16 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   endDate: string = ''; // Para filtro de transacciones
   filterDateStart: string = ''; // Para filtrador de fecha en historial
   filterDateEnd: string = ''; // Para filtrador de fecha en historial
+  expenseFilterStartDate: string = '';
+  expenseFilterEndDate: string = '';
+  expenseFilterType: 'TODOS' | 'GASTO_TIENDA' | 'GASTO_USUARIO' | 'AJUSTE_MANUAL' = 'TODOS';
+  showManualExpenseDateFilter = false;
   loading: boolean = false;
   historyLoaded = false;
   historyLoading = false;
   historyHasMore = true;
   private historyPage = 0;
-  private readonly historyPageSize = 20;
+  private readonly historyPageSize = 200;
   
   userId: number | null = null;
   userName: string = '';
@@ -67,6 +72,45 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   adminCostMovements: any[] = [];
   loadingAdminCosts: boolean = false;
   showAdminCostMovementForm: boolean = false;
+
+  // Cash control manual properties
+  cashControlEntries: any[] = [];
+  cashControlSummary: any = {
+    moneyReal: 0,
+    moneyPhysical: 0,
+    storeMoney: 0,
+    grossProfitMoney: 0,
+    totalExpenses: 0,
+    balanceAvailable: 0,
+    dailyFlowClosed: false
+  };
+  loadingCashControl: boolean = false;
+  showCashControlForm: boolean = false;
+  showDailyFlowPasswordModal: boolean = false;
+  showDailyFlowHistoryModal: boolean = false;
+  showManualSummaryEditor: boolean = false;
+  dailyFlowPassword: string = '';
+  dailyFlowHistory: Array<{ date: string; label: string; entries: number; entryCost: number; sales: number; salesRevenue: number; salesCost: number; grossProfit: number }> = [];
+  allDailyFlowHistory: Array<{ date: string; label: string; entries: number; entryCost: number; sales: number; salesRevenue: number; salesCost: number; grossProfit: number }> = [];
+  private dailyFlowDaysToShow = 3;
+  @ViewChild('dailyFlowHistoryList') dailyFlowHistoryList?: ElementRef<HTMLElement>;
+  manualSummaryForm = {
+    storeMoney: 0,
+    grossProfitMoney: 0,
+    moneyPhysical: 0,
+    moneyReal: 0,
+    verificationPassword: ''
+  };
+  cashControlForm = {
+    concept: '',
+    amount: 0,
+    expenseType: 'GASTO_USUARIO',
+    moneyOrigin: 'TIENDA',
+    detail: '',
+    responsibleName: '',
+    entryDate: new Date().toISOString().slice(0, 10),
+    verificationPassword: ''
+  };
 
   // UI State
   showProductsList: boolean = false;
@@ -181,7 +225,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private apiConfig: ApiConfigService,
     public reportService: ReportService,
-    private lotesService: LotesService
+    private lotesService: LotesService,
+    private cashControlService: CashControlService
   ) { }
 
   ngOnInit() {
@@ -501,6 +546,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       this.loadStoreProducts();
       this.loadAdministrativeCosts();
       this.loadAdministrativeCostMovements();
+      this.loadCashControlData();
     }
   }
 
@@ -517,6 +563,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.loadStoreProducts();
           this.loadAdministrativeCosts();
           this.loadAdministrativeCostMovements();
+          this.loadCashControlData();
         }
       });
     }
@@ -666,6 +713,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         this.applyTransactionFilters(); // Aplicar filtros después de cargar
         this.historyLoaded = true;
         this.historyLoading = false;
+        // Si el modal de flujo diario está abierto, hacer scroll al final
+        if (this.showDailyFlowHistoryModal) {
+          this.scrollDailyFlowHistoryToBottom();
+        }
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -742,13 +793,17 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       return matchesSearch && matchesDateFilter && matchesCompactDateRange;
     });
     this.recomputeTodayStats();
+    this.updateDailyFlowHistory();
   }
 
   // Con historiales grandes, filtrar this.transactions dentro de un getter se ejecutaba en cada ciclo
   // de detección de cambios. Ahora se calcula una sola vez aquí, cada vez que cambian las transacciones.
   private recomputeTodayStats(): void {
-    const today = this.startOfToday;
-    this.todayTransactions = this.transactions.filter(t => new Date(t.dateTime) >= today);
+    const todayKey = this.getLocalDateKey(new Date());
+    this.todayTransactions = this.transactions.filter(t => {
+      const dateKey = this.getLocalDateKey(t?.dateTime ?? t?.date ?? null);
+      return dateKey === todayKey;
+    });
     this.todayEntradas = this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'ENTRADA' && this.isCountableStatsMovement(t));
     this.todaySalidas = this.todayTransactions.filter(t => this.normalizeTransactionType(t) === 'SALIDA' && this.isCountableStatsMovement(t));
     this.todayCount = this.todayTransactions.length;
@@ -1305,6 +1360,104 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       .toUpperCase();
   }
 
+  private getLocalDateKey(value: string | Date | null | undefined): string {
+    if (!value) {
+      return '';
+    }
+
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  get totalExpensesForPeriod(): number {
+    const matchesDateRange = (value: string | Date | null | undefined): boolean => {
+      const dateKey = this.getLocalDateKey(value);
+      return !!dateKey &&
+        (!this.expenseFilterStartDate || dateKey >= this.expenseFilterStartDate) &&
+        (!this.expenseFilterEndDate || dateKey <= this.expenseFilterEndDate);
+    };
+
+    return this.cashControlEntries
+      .filter(entry => !entry.deleted && Number(entry.amount || 0) > 0 && matchesDateRange(entry.entryDate || entry.createdAt))
+      .reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  }
+
+  get storeExpensesForPeriod(): number {
+    return this.expensesForOrigin('TIENDA');
+  }
+
+  get grossProfitExpensesForPeriod(): number {
+    return this.expensesForOrigin('GANANCIA_BRUTA');
+  }
+
+  get availableProfitBalance(): number {
+    return Number(this.cashControlSummary?.grossProfitMoney || 0) - this.grossProfitExpensesForPeriod;
+  }
+
+  private expensesForOrigin(origin: string): number {
+    const matchesDateRange = (value: string | Date | null | undefined): boolean => {
+      const dateKey = this.getLocalDateKey(value);
+      return !!dateKey &&
+        (!this.expenseFilterStartDate || dateKey >= this.expenseFilterStartDate) &&
+        (!this.expenseFilterEndDate || dateKey <= this.expenseFilterEndDate);
+    };
+
+    return this.cashControlEntries
+      .filter(entry => !entry.deleted && Number(entry.amount || 0) > 0 &&
+        String(entry.moneyOrigin || '').toUpperCase() === origin &&
+        matchesDateRange(entry.entryDate || entry.createdAt))
+      .reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  }
+
+  get storeMoneyAvailable(): number {
+    const storeExpenses = this.cashControlEntries
+      .filter(entry => !entry.deleted && String(entry.moneyOrigin || '').toUpperCase() === 'TIENDA')
+      .reduce((total, entry) => total + Number(entry.amount || 0), 0);
+    return Number(this.cashControlSummary?.storeMoney || 0) - storeExpenses;
+  }
+
+  get filteredManualExpenseEntries(): any[] {
+    return this.cashControlEntries.filter(entry => {
+      const dateKey = this.getLocalDateKey(entry.entryDate || entry.createdAt);
+      const status = String(entry.status || '').trim().toUpperCase();
+      const concept = String(entry.concept || '').trim().toUpperCase();
+      const isManualSummaryChange = status === 'ACTUALIZACION_MANUAL' || concept === 'ACTUALIZACIÓN DE DINERO MANUAL' || concept === 'ACTUALIZACION DE DINERO MANUAL';
+      const entryType = isManualSummaryChange ? 'AJUSTE_MANUAL' : String(entry.expenseType || '').trim().toUpperCase();
+      return !entry.deleted && (Number(entry.amount || 0) > 0 || isManualSummaryChange) &&
+        (this.expenseFilterType === 'TODOS' || entryType === this.expenseFilterType) &&
+        (!this.expenseFilterStartDate || dateKey >= this.expenseFilterStartDate) &&
+        (!this.expenseFilterEndDate || dateKey <= this.expenseFilterEndDate);
+    });
+  }
+
+  isManualSummaryHistoryEntry(entry: any): boolean {
+    const status = String(entry?.status || '').trim().toUpperCase();
+    const concept = String(entry?.concept || '').trim().toUpperCase();
+    return status === 'ACTUALIZACION_MANUAL' || concept === 'ACTUALIZACIÓN DE DINERO MANUAL' || concept === 'ACTUALIZACION DE DINERO MANUAL';
+  }
+
+  clearExpenseDateFilter(): void {
+    this.expenseFilterStartDate = '';
+    this.expenseFilterEndDate = '';
+    this.expenseFilterType = 'TODOS';
+  }
+
+  toggleManualExpenseDateFilter(event: Event): void {
+    event.stopPropagation();
+    this.showManualExpenseDateFilter = !this.showManualExpenseDateFilter;
+  }
+
   private normalizeTransactionType(transaction: any): string {
     return String(transaction?.type ?? transaction?.transactionType ?? '').trim().toUpperCase();
   }
@@ -1330,6 +1483,326 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   // ===================== ADMINISTRATIVE COSTS METHODS =====================
+
+  loadCashControlData() {
+    if (!this.storeId) {
+      return;
+    }
+
+    this.loadingCashControl = true;
+    this.cashControlService.getEntries(this.storeId).subscribe({
+      next: (entries) => {
+        this.cashControlEntries = (entries || []).filter((entry) => !entry.deleted).sort((a, b) => {
+          const dateA = new Date(a.entryDate || a.createdAt || 0).getTime();
+          const dateB = new Date(b.entryDate || b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+        this.cashControlService.getSummary(this.storeId).subscribe({
+          next: (summary) => {
+            this.cashControlSummary = summary || {
+              moneyReal: 0,
+              moneyPhysical: 0,
+              storeMoney: 0,
+              grossProfitMoney: 0,
+              totalExpenses: 0,
+              balanceAvailable: 0,
+              dailyFlowClosed: false
+            };
+            this.loadingCashControl = false;
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.loadingCashControl = false;
+            this.cashControlSummary = {
+              moneyReal: 0,
+              moneyPhysical: 0,
+              storeMoney: 0,
+              grossProfitMoney: 0,
+              totalExpenses: 0,
+              balanceAvailable: 0,
+              dailyFlowClosed: false
+            };
+            this.cdr.detectChanges();
+          }
+        });
+      },
+      error: (err) => {
+        console.error('Error cargando control de caja:', err);
+        this.loadingCashControl = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  toggleCashControlForm() {
+    this.showCashControlForm = !this.showCashControlForm;
+    if (!this.showCashControlForm) {
+      this.cashControlForm = {
+        concept: '',
+        amount: 0,
+        expenseType: 'GASTO_USUARIO',
+        moneyOrigin: 'TIENDA',
+        detail: '',
+        responsibleName: '',
+        entryDate: new Date().toISOString().slice(0, 10),
+        verificationPassword: ''
+      };
+    }
+  }
+
+  createCashControlEntry() {
+    if (!this.storeId) {
+      alert('No se pudo identificar la tienda.');
+      return;
+    }
+    if (!this.cashControlForm.concept || !this.cashControlForm.concept.trim()) {
+      alert('Escribe el concepto del gasto.');
+      return;
+    }
+    if (!this.cashControlForm.amount || Number(this.cashControlForm.amount) <= 0) {
+      alert('El monto debe ser mayor que cero.');
+      return;
+    }
+    const payload = {
+      storeId: this.storeId,
+      concept: this.cashControlForm.concept.trim(),
+      amount: Number(this.cashControlForm.amount),
+      expenseType: this.cashControlForm.expenseType,
+      moneyOrigin: this.cashControlForm.moneyOrigin,
+      detail: this.cashControlForm.detail?.trim() || '',
+      responsibleName: this.cashControlForm.responsibleName?.trim() || this.userName || 'Usuario',
+      entryDate: this.cashControlForm.entryDate,
+      status: 'PAGADO'
+    };
+
+    this.cashControlService.createEntry(payload).subscribe({
+      next: () => {
+        this.toggleCashControlForm();
+        this.loadCashControlData();
+        alert('Gasto registrado correctamente.');
+      },
+      error: (err) => {
+        const message = err?.error?.message || 'No se pudo guardar el gasto.';
+        alert(message);
+      }
+    });
+  }
+
+  deleteCashControlEntry(entryId: number) {
+    const confirmed = confirm('¿Seguro que quieres eliminar este registro manual?');
+    if (!confirmed) {
+      return;
+    }
+
+    this.cashControlService.deleteEntry(entryId).subscribe({
+      next: () => {
+        this.loadCashControlData();
+        alert('Registro eliminado correctamente.');
+      },
+      error: (err) => {
+        const message = err?.error?.message || 'No se pudo eliminar el registro.';
+        alert(message);
+      }
+    });
+  }
+
+  openManualSummaryEditor() {
+    this.manualSummaryForm = {
+      storeMoney: Number(this.cashControlSummary?.storeMoney || 0),
+      grossProfitMoney: Number(this.cashControlSummary?.grossProfitMoney || 0),
+      moneyPhysical: Number(this.cashControlSummary?.moneyPhysical || 0),
+      moneyReal: Number(this.cashControlSummary?.moneyReal || 0),
+      verificationPassword: ''
+    };
+    this.showManualSummaryEditor = true;
+  }
+
+  closeManualSummaryEditor() {
+    this.showManualSummaryEditor = false;
+    this.manualSummaryForm.verificationPassword = '';
+  }
+
+  saveManualSummary() {
+    if (!this.storeId) {
+      alert('No se pudo identificar la tienda.');
+      return;
+    }
+    if (!this.manualSummaryForm.verificationPassword || !this.manualSummaryForm.verificationPassword.trim()) {
+      alert('Debes ingresar la contraseña de la tienda para guardar este dinero manual.');
+      return;
+    }
+
+    this.cashControlService.updateSummary({
+      storeId: this.storeId,
+      storeMoney: Number(this.manualSummaryForm.storeMoney || 0),
+      grossProfitMoney: Number(this.manualSummaryForm.grossProfitMoney || 0),
+      moneyPhysical: Number(this.manualSummaryForm.moneyPhysical || 0),
+      moneyReal: Number(this.manualSummaryForm.moneyReal || 0),
+      verificationPassword: this.manualSummaryForm.verificationPassword.trim()
+    }).subscribe({
+      next: () => {
+        this.closeManualSummaryEditor();
+        this.loadCashControlData();
+        this.cdr.detectChanges();
+        alert('Dinero manual actualizado correctamente.');
+      },
+      error: (err) => {
+        const message = err?.error?.message || 'No se pudo actualizar el dinero manual.';
+        alert(message);
+      }
+    });
+  }
+
+  openDailyFlowHistory() {
+    this.showDailyFlowHistoryModal = true;
+    // Resetear a 3 días cuando se abre el modal
+    this.dailyFlowDaysToShow = 3;
+    // Siempre recarga las transacciones para asegurar que los movimientos nuevos se reflejen
+    this.historyLoading = true;
+    this.loadTransactions(0);
+    this.cdr.detectChanges();
+  }
+
+  closeDailyFlowHistory() {
+    this.showDailyFlowHistoryModal = false;
+  }
+
+  private updateDailyFlowHistory(): void {
+    const map = new Map<string, {
+      date: string;
+      label: string;
+      entries: number;
+      entryCost: number;
+      sales: number;
+      salesRevenue: number;
+      salesCost: number;
+      grossProfit: number;
+    }>();
+
+    this.transactions.forEach((transaction) => {
+      const reason = this.normalizeReason(transaction?.reason ?? transaction?.transactionReason);
+      const date = this.getLocalDateKey(transaction?.dateTime ?? null);
+      if (!date || reason === 'AJUSTE') {
+        return;
+      }
+
+      const type = this.normalizeTransactionType(transaction);
+      const quantity = Number(transaction?.quantity ?? 0);
+      const unitCost = Number(transaction?.cost ?? 0);
+      const unitPrice = Number(transaction?.price ?? 0);
+      const current = map.get(date) ?? {
+        date,
+        label: new Date(`${date}T12:00:00`).toLocaleDateString('es', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short'
+        }),
+        entries: 0,
+        entryCost: 0,
+        sales: 0,
+        salesRevenue: 0,
+        salesCost: 0,
+        grossProfit: 0
+      };
+
+      if (type === 'ENTRADA') {
+        current.entries += quantity;
+        current.entryCost += quantity * unitCost;
+      }
+
+      if (type === 'SALIDA' && reason === 'VENTA') {
+        current.sales += quantity;
+        current.salesRevenue += quantity * unitPrice;
+        current.salesCost += quantity * unitCost;
+        current.grossProfit += quantity * (unitPrice - unitCost);
+      }
+
+      map.set(date, current);
+    });
+
+    // Guardar todos los días ordenados
+    this.allDailyFlowHistory = [...map.values()].sort((first, second) => first.date.localeCompare(second.date));
+
+    // Mostrar solo los últimos N días
+    this.updateDisplayedDailyFlow();
+
+    if (this.showDailyFlowHistoryModal) {
+      this.scrollDailyFlowHistoryToBottom();
+    }
+  }
+
+  private updateDisplayedDailyFlow(): void {
+    const totalDays = this.allDailyFlowHistory.length;
+    const startIndex = Math.max(0, totalDays - this.dailyFlowDaysToShow);
+    this.dailyFlowHistory = this.allDailyFlowHistory.slice(startIndex);
+  }
+
+  loadMoreDailyFlowDays(): void {
+    this.dailyFlowDaysToShow += 3;
+    this.updateDisplayedDailyFlow();
+    // Esperar un frame para que Angular renderice antes de hacer scroll
+    setTimeout(() => {
+      this.scrollDailyFlowHistoryToBottom();
+    }, 0);
+  }
+
+  private scrollDailyFlowHistoryToBottom(): void {
+    setTimeout(() => {
+      const element = this.dailyFlowHistoryList?.nativeElement;
+      if (!element) {
+        return;
+      }
+      element.scrollTop = element.scrollHeight;
+    }, 0);
+  }
+
+  closeDailyFlow() {
+    this.dailyFlowPassword = '';
+    this.showDailyFlowPasswordModal = true;
+  }
+
+  cancelDailyFlowClosure() {
+    this.showDailyFlowPasswordModal = false;
+    this.dailyFlowPassword = '';
+  }
+
+  confirmDailyFlowClosure() {
+    const password = this.dailyFlowPassword?.trim() || '';
+    if (!password) {
+      alert('Se requiere la contraseña para cerrar el flujo diario.');
+      return;
+    }
+
+    const finalDate = new Date().toISOString().slice(0, 10);
+    this.showDailyFlowPasswordModal = false;
+
+    this.cashControlService.createEntry({
+      storeId: this.storeId,
+      concept: 'Cierre de flujo diario',
+      amount: 0,
+      expenseType: 'GASTO_USUARIO',
+      moneyOrigin: 'TIENDA',
+      detail: `Cierre de flujo de ${finalDate}`,
+      responsibleName: this.userName || 'Usuario',
+      entryDate: finalDate,
+      verificationPassword: password,
+      status: 'CERRADO'
+    }).subscribe({
+      next: () => {
+        this.cashControlSummary.dailyFlowClosed = true;
+        this.dailyFlowPassword = '';
+        this.loadTransactions(0);
+        this.loadCashControlData();
+        this.updateDailyFlowHistory();
+        alert('Flujo del día cerrado correctamente.');
+      },
+      error: (err) => {
+        this.dailyFlowPassword = '';
+        const message = err?.error?.message || 'No se pudo cerrar el flujo diario.';
+        alert(message);
+      }
+    });
+  }
 
   loadAdministrativeCosts() {
     const token = localStorage.getItem('token');

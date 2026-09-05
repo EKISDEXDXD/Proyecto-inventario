@@ -1411,6 +1411,11 @@ export class InventarioComponent implements OnInit {
     this.showGalleryModal = false;
   }
 
+  openLotesModalFromGallery(product: any) {
+    this.closeGalleryModal();
+    this.openLotesModal(product);
+  }
+
   /**
    * Lotes Modal methods
    */

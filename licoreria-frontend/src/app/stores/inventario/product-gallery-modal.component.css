@@ -516,6 +516,47 @@
   background: #ffffff;
 }
 
+.mobile-gallery-actions {
+  display: none;
+}
+
+.mobile-gallery-action {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #c7d2fe;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mobile-gallery-action i {
+  font-size: 16px;
+}
+
+.mobile-gallery-action.promo-action.active {
+  background: #e11d48;
+  border-color: #be123c;
+  color: #fff;
+}
+
+.mobile-gallery-action.promo-confirm-action {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.mobile-gallery-action.lote-action.active {
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+}
+
 .search-input-group {
   display: flex;
   align-items: center;
@@ -938,6 +979,27 @@
     width: 100%;
   }
 
+  .mobile-gallery-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .mobile-gallery-action {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+  }
+
+  .promo-confirm-action {
+    background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+    border-color: #15803d;
+  }
+
   .gallery-search .search-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1061,6 +1123,30 @@
   font-weight: 700;
   box-shadow: 0 7px 16px rgba(225, 29, 72, 0.2);
   transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+.lote-selection-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #c7d2fe;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lote-selection-btn.active {
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+}
+
+.lote-selection-btn i {
+  font-size: 16px;
 }
 
 .promo-toggle-btn:hover {

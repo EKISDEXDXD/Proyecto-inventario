@@ -234,6 +234,7 @@ class SalesReportServiceTest {
         activeTransaction.setProduct(activeProduct);
         activeTransaction.setProductId(10L);
         activeTransaction.setType("SALIDA");
+        activeTransaction.setReason("VENTA");
         activeTransaction.setQuantity(2);
         activeTransaction.setDateTime(LocalDateTime.now());
 
@@ -242,6 +243,7 @@ class SalesReportServiceTest {
         inactiveTransaction.setProduct(inactiveProduct);
         inactiveTransaction.setProductId(11L);
         inactiveTransaction.setType("SALIDA");
+        inactiveTransaction.setReason("VENTA");
         inactiveTransaction.setQuantity(1);
         inactiveTransaction.setDateTime(LocalDateTime.now());
 
@@ -250,6 +252,7 @@ class SalesReportServiceTest {
         otherStoreTransaction.setProduct(otherStoreProduct);
         otherStoreTransaction.setProductId(12L);
         otherStoreTransaction.setType("SALIDA");
+        otherStoreTransaction.setReason("VENTA");
         otherStoreTransaction.setQuantity(1);
         otherStoreTransaction.setDateTime(LocalDateTime.now());
 
