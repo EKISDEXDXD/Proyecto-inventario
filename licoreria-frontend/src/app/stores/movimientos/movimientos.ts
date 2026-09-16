@@ -15,6 +15,7 @@ import { PaymentMethodConfig } from '../../settings/payment-method-config.servic
 import { CashControlService } from '../../services/cash-control.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import Fuse from 'fuse.js';
 
 @Component({
   selector: 'app-movimientos',
@@ -184,6 +185,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   private productSearchSubject = new Subject<string>();
   private readonly RECENT_PRODUCTS_KEY = 'recent_products_movement';
   private readonly MAX_RECENT_PRODUCTS = 5;
+  // Índice de búsqueda difusa (tolerante a errores de tipeo) sobre los productos del inventario
+  private productSearchIndex: Fuse<any> | null = null;
 
   // Lotes del producto seleccionado
   availableLotes: any[] = [];
@@ -306,20 +309,63 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.openProductDropdown();
   }
 
+  // Quita tildes/mayúsculas para que la búsqueda ignore acentos ("cerveza" === "cervéza")
+  private normalizeSearchText(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  // Reconstruye el índice de búsqueda difusa cada vez que cambia el inventario mostrado
+  private buildProductSearchIndex() {
+    this.displayProducts = this.displayProducts.map(product => ({
+      ...product,
+      normalizedName: this.normalizeSearchText(product?.name),
+      normalizedDescription: this.normalizeSearchText(product?.description)
+    }));
+
+    this.productSearchIndex = new Fuse(this.displayProducts, {
+      keys: [
+        { name: 'normalizedName', weight: 0.7 },
+        { name: 'normalizedDescription', weight: 0.3 }
+      ],
+      threshold: 0.35, // tolerancia a errores de tipeo (0 = exacto, 1 = todo coincide)
+      ignoreLocation: true,
+      minMatchCharLength: 2
+    });
+  }
+
   private filterProductsForAutocomplete() {
     const inventoryProducts = this.displayProducts;
-    const searchLower = this.productSearchTerm.trim().toLowerCase();
+    const rawSearch = this.productSearchTerm.trim();
 
-    if (searchLower === '') {
+    if (rawSearch === '' || !this.productSearchIndex) {
       this.filteredProductsForAutocomplete = inventoryProducts;
-    } else {
-      this.filteredProductsForAutocomplete = inventoryProducts.filter(product => {
-        const name = (product?.name || '').toLowerCase();
-        const description = (product?.description || '').toLowerCase();
-        return name.includes(searchLower) || description.includes(searchLower);
-      });
+      this.showProductDropdown = true;
+      this.cdr.detectChanges();
+      return;
     }
 
+    const normalizedSearch = this.normalizeSearchText(rawSearch);
+
+    // Coincidencias directas (substring, sin tildes) primero, con el nombre que empieza igual arriba de todo
+    const exactMatches = inventoryProducts.filter(product =>
+      (product.normalizedName || '').includes(normalizedSearch) ||
+      (product.normalizedDescription || '').includes(normalizedSearch)
+    ).sort((a, b) => {
+      const aStarts = (a.normalizedName || '').startsWith(normalizedSearch) ? 0 : 1;
+      const bStarts = (b.normalizedName || '').startsWith(normalizedSearch) ? 0 : 1;
+      return aStarts - bStarts;
+    });
+
+    // Coincidencias difusas para completar cuando hay errores de tipeo (ej. "cervesa")
+    const exactIds = new Set(exactMatches.map(product => product.id));
+    const fuzzyMatches = this.productSearchIndex.search(normalizedSearch)
+      .map(result => result.item)
+      .filter(product => !exactIds.has(product.id));
+
+    this.filteredProductsForAutocomplete = [...exactMatches, ...fuzzyMatches];
     this.showProductDropdown = true;
     this.cdr.detectChanges();
   }
@@ -676,6 +722,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           if (p && p.id) this.productNameMap[p.id] = p.name || ('Producto ' + p.id);
         });
         this.displayProducts = this.getInventoryDisplayProducts();
+        this.buildProductSearchIndex();
         this.filteredProducts = [...this.displayProducts];
         this.filteredProductsForAutocomplete = [...this.displayProducts];
         this.loadRecentProducts();
