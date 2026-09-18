@@ -13,6 +13,8 @@ import { ClickOutsideDirective } from '../../core/directives/click-outside.direc
 import { PaymentMethodModalComponent } from './payment-method-modal.component';
 import { PaymentMethodConfig } from '../../settings/payment-method-config.service';
 import { CashControlService } from '../../services/cash-control.service';
+import { PaymentNotificationsService } from '../../services/payment-notifications.service';
+import { PaymentNotificationsSocketService } from '../../services/payment-notifications-socket.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import Fuse from 'fuse.js';
@@ -138,6 +140,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   pendingQuickPurchase: boolean = false;
   quickPurchaseMovement: any | null = null;
 
+  // Notificaciones de pago (webhook MacroDroid/Automate + WebSocket en tiempo real)
+  showPaymentNotificationsPanel: boolean = false;
+  paymentNotifications: any[] = [];
+  loadingPaymentNotifications: boolean = false;
+  notificationBeingLinked: any | null = null;
+
   // Reports Properties
   reports: Report[] = [];
   filteredReports: Report[] = [];
@@ -229,7 +237,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     private apiConfig: ApiConfigService,
     public reportService: ReportService,
     private lotesService: LotesService,
-    private cashControlService: CashControlService
+    private cashControlService: CashControlService,
+    private paymentNotificationsService: PaymentNotificationsService,
+    private paymentNotificationsSocket: PaymentNotificationsSocketService
   ) { }
 
   ngOnInit() {
@@ -250,6 +260,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       clearInterval(this.refreshInterval);
     }
     this.productSearchSubject.complete();
+    this.paymentNotificationsSocket.disconnect();
   }
 
   onTitleClick() {
@@ -337,14 +348,18 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private filterProductsForAutocomplete() {
+    this.filteredProductsForAutocomplete = this.computeAutocompleteMatches(this.productSearchTerm);
+    this.showProductDropdown = true;
+    this.cdr.detectChanges();
+  }
+
+  // Lógica pura de matching, reutilizada para refrescar resultados sin forzar la apertura del dropdown
+  private computeAutocompleteMatches(rawTerm: string): any[] {
     const inventoryProducts = this.displayProducts;
-    const rawSearch = this.productSearchTerm.trim();
+    const rawSearch = rawTerm.trim();
 
     if (rawSearch === '' || !this.productSearchIndex) {
-      this.filteredProductsForAutocomplete = inventoryProducts;
-      this.showProductDropdown = true;
-      this.cdr.detectChanges();
-      return;
+      return inventoryProducts;
     }
 
     const normalizedSearch = this.normalizeSearchText(rawSearch);
@@ -365,8 +380,17 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       .map(result => result.item)
       .filter(product => !exactIds.has(product.id));
 
-    this.filteredProductsForAutocomplete = [...exactMatches, ...fuzzyMatches];
-    this.showProductDropdown = true;
+    return [...exactMatches, ...fuzzyMatches];
+  }
+
+  // Reconstruye displayProducts/filteredProducts/autocomplete/índice de búsqueda a partir de products+lotesMap.
+  // Debe llamarse después de cualquier mutación de stock para que la UI deje de mostrar datos obsoletos.
+  private refreshProductDisplayCaches() {
+    this.displayProducts = this.getInventoryDisplayProducts();
+    this.buildProductSearchIndex();
+    this.onSearch();
+    this.filteredProductsForAutocomplete = this.computeAutocompleteMatches(this.productSearchTerm);
+    this.loadRecentProducts();
     this.cdr.detectChanges();
   }
 
@@ -528,6 +552,81 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.updateAvailableReasons(); // Actualizar motivos disponibles
   }
 
+  // =============== NOTIFICACIONES DE PAGO (webhook + WebSocket) ===============
+
+  private initPaymentNotifications() {
+    this.loadPaymentNotifications();
+    this.paymentNotificationsSocket.subscribeToStore(this.storeId, (notification) => {
+      this.paymentNotifications.unshift(notification);
+      this.cdr.detectChanges();
+    }).catch(err => console.error('No se pudo conectar al WebSocket de notificaciones de pago:', err));
+  }
+
+  private loadPaymentNotifications() {
+    this.loadingPaymentNotifications = true;
+    this.paymentNotificationsService.getByStore(this.storeId, 'PENDING').subscribe({
+      next: (notifications) => {
+        this.paymentNotifications = notifications;
+        this.loadingPaymentNotifications = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error cargando notificaciones de pago:', err);
+        this.loadingPaymentNotifications = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  togglePaymentNotificationsPanel() {
+    this.showPaymentNotificationsPanel = !this.showPaymentNotificationsPanel;
+  }
+
+  // Últimas transacciones (más recientes primero) sugeridas para vincular a una notificación
+  getSuggestedTransactionsForLink(): any[] {
+    return this.transactions.slice(0, 15);
+  }
+
+  startLinkingNotification(notification: any) {
+    this.notificationBeingLinked = notification;
+  }
+
+  cancelLinkingNotification() {
+    this.notificationBeingLinked = null;
+  }
+
+  confirmLinkNotification(transactionId: number) {
+    if (!this.notificationBeingLinked) return;
+    const notificationId = this.notificationBeingLinked.id;
+
+    this.paymentNotificationsService.reconcile(notificationId, transactionId).subscribe({
+      next: () => {
+        this.paymentNotifications = this.paymentNotifications.filter(n => n.id !== notificationId);
+        this.notificationBeingLinked = null;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error vinculando notificación de pago:', err);
+        alert('No se pudo vincular la notificación a la venta. Inténtalo de nuevo.');
+      }
+    });
+  }
+
+  discardPaymentNotification(notification: any) {
+    if (!confirm('¿Descartar esta notificación de pago?')) return;
+
+    this.paymentNotificationsService.discard(notification.id).subscribe({
+      next: () => {
+        this.paymentNotifications = this.paymentNotifications.filter(n => n.id !== notification.id);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error descartando notificación de pago:', err);
+        alert('No se pudo descartar la notificación. Inténtalo de nuevo.');
+      }
+    });
+  }
+
   private checkExternalAccess() {
     const externalStore = sessionStorage.getItem('externalStore');
 
@@ -593,6 +692,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       this.loadAdministrativeCosts();
       this.loadAdministrativeCostMovements();
       this.loadCashControlData();
+      this.initPaymentNotifications();
     }
   }
 
@@ -610,6 +710,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.loadAdministrativeCosts();
           this.loadAdministrativeCostMovements();
           this.loadCashControlData();
+          this.initPaymentNotifications();
         }
       });
     }
@@ -1072,7 +1173,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.products[productIndex].stock += item.type === 'ENTRADA' ? item.quantity : -item.quantity;
         }
       });
-      this.cdr.detectChanges();
+      this.refreshProductDisplayCaches();
 
       const batchRequest = { transactions: transactionsToRegister };
 
@@ -1095,9 +1196,15 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.isRegisteringAllMovements = false;
           this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
-          this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
+          this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
           this.updateAvailableReasons();
           this.clearProductSearch();
+
+          // Resincroniza con el servidor (stock autoritativo por lotes + historial ordenado/paginado)
+          this.loadStoreProducts();
+          if (this.historyLoaded) {
+            this.loadTransactions(0);
+          }
 
           this.cdr.detectChanges();
         },
@@ -1113,6 +1220,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
               this.products[productIndex].stock = originalStocks[productId];
             }
           });
+          this.applyTransactionFilters();
+          this.refreshProductDisplayCaches();
 
           this.isRegisteringAllMovements = false;
           this.selectedPaymentMethodConfigId = null;
@@ -1151,7 +1260,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       this.transactions.unshift(optimisticTransaction);
       this.applyTransactionFilters();
-      this.cdr.detectChanges();
+      this.refreshProductDisplayCaches();
 
       this.http.post(`${this.apiTransactionsUrl}`, transactionToRegister, { headers }).subscribe({
         next: (createdTransaction: any) => {
@@ -1165,9 +1274,16 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
           this.quickPurchaseMovement = null;
-          this.movement = { type: 'ENTRADA', productId: 0, quantity: 0, reason: 'COMPRA' };
+          this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
           this.updateAvailableReasons();
           this.clearProductSearch();
+
+          // Resincroniza con el servidor (stock autoritativo por lotes + historial ordenado/paginado)
+          this.loadStoreProducts();
+          if (this.historyLoaded) {
+            this.loadTransactions(0);
+          }
+
           this.cdr.detectChanges();
         },
         error: (err) => {
@@ -1177,6 +1293,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           if (productIndex !== -1) {
             this.products[productIndex].stock = originalStocks[this.quickPurchaseMovement.productId];
           }
+          this.refreshProductDisplayCaches();
+
           this.isRegisteringQuickPurchase = false;
           this.selectedPaymentMethod = null;
           this.selectedPaymentMethodConfigId = null;
@@ -1387,6 +1505,26 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     }
     const product = this.products.find(p => p.id === productId);
     return product ? product.name : 'Producto desconocido';
+  }
+
+  getTransactionPaymentMethodLabel(transaction: any): string {
+    const config = transaction?.paymentMethod?.paymentMethodConfig;
+    if (!config?.name) {
+      return 'No especificado';
+    }
+    return config.type ? `${config.name} (${config.type})` : config.name;
+  }
+
+  getTransactionUnitPrice(transaction: any): number {
+    return Number(transaction?.product?.price ?? 0);
+  }
+
+  getTransactionTotal(transaction: any): number {
+    return this.getTransactionUnitPrice(transaction) * Number(transaction?.quantity ?? 0);
+  }
+
+  getTransactionUserName(transaction: any): string {
+    return transaction?.user?.username || '-';
   }
 
   private get startOfToday(): Date {

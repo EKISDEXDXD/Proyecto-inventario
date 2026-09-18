@@ -82,8 +82,10 @@
     </div>
   </div>
 
+  <!-- Formulario de Movimiento y Carrito lado a lado -->
+  <div class="movement-cart-layout">
   <!-- Formulario de Movimiento -->
-  <div class="card movement-card">
+  <div class="card movement-card movement-form-card">
     <div class="movement-card-header">
       <div>
         <h2 class="movement-title">Registrar movimiento rápido</h2>
@@ -246,8 +248,8 @@
           </select>
         </div>
         <div class="form-group action-block">
-          <button type="submit" class="submit-btn">Agregar al carrito</button>
           <button type="button" class="submit-btn quick-purchase-btn" (click)="quickPurchase()">Compra rápida</button>
+          <button type="submit" class="submit-btn">Agregar al carrito</button>
         </div>
       </div>
       <div class="payment-method-row">
@@ -261,6 +263,7 @@
 
   <!-- CARRITO DE MOVIMIENTOS -->
   <div class="card movement-card cart-card">
+
     <div class="cart-header" (click)="toggleCart()">
       <div>
         <h3>
@@ -328,6 +331,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- Historial y Lista de Productos -->
@@ -410,6 +414,22 @@
                   <div class="modal-section">
                     <div class="modal-label">Motivo</div>
                     <div class="modal-value">{{ selectedTransaction?.reason || '-' }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Método de pago</div>
+                    <div class="modal-value">{{ getTransactionPaymentMethodLabel(selectedTransaction) }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Precio unitario</div>
+                    <div class="modal-value">{{ getTransactionUnitPrice(selectedTransaction) | currencyFormat }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Total</div>
+                    <div class="modal-value">{{ getTransactionTotal(selectedTransaction) | currencyFormat }}</div>
+                  </div>
+                  <div class="modal-section">
+                    <div class="modal-label">Registrado por</div>
+                    <div class="modal-value">{{ getTransactionUserName(selectedTransaction) }}</div>
                   </div>
                   <div class="modal-section full-width">
                     <div class="modal-label">ID del movimiento</div>

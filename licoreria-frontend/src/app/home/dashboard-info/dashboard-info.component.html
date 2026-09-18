@@ -170,19 +170,21 @@
         <button type="button" class="section-heading profitability-toggle" [attr.aria-expanded]="profitabilityOpen" (click)="toggleProfitability()"><div><h2>Rentabilidad</h2><p>Compara el margen, la ganancia y las salidas de cada categoría.</p></div><span class="profitability-total">{{ profitabilityOpen ? 'Ocultar gráfico' : 'Mostrar gráfico' }} <span aria-hidden="true">{{ profitabilityOpen ? '⌃' : '⌄' }}</span></span></button>
         <div *ngIf="profitabilityOpen && profitabilityLoaded && categoryProfitability.length; else emptyProfitability" class="profitability-line-chart">
           <div class="profitability-legend"><span><i class="margin-legend"></i>Rentabilidad %</span><span><i class="profit-legend"></i>Ganancia total</span><span><i class="volume-legend"></i>Salidas: pasa el cursor por los puntos</span></div>
-          <div class="profitability-chart-frame">
-            <div class="profit-axis left-axis"><span>{{ maxCategoryMargin.toFixed(0) }}%</span><span>{{ (maxCategoryMargin / 2).toFixed(0) }}%</span><span>0%</span></div>
-            <svg viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="Rentabilidad porcentual y ganancia total por categoría">
-              <line class="profit-grid-line" x1="0" y1="30" x2="900" y2="30"></line><line class="profit-grid-line" x1="0" y1="130" x2="900" y2="130"></line><line class="profit-grid-line" x1="0" y1="230" x2="900" y2="230"></line>
-              <polyline class="profit-line margin-line" [attr.points]="categoryMarginPoints"></polyline><polyline class="profit-line total-profit-line" [attr.points]="categoryTotalProfitPoints"></polyline>
-                <g *ngFor="let item of categoryProfitability; let index = index" class="category-point-group" [class.active-point-group]="item.active" (click)="toggleTag(item.name)">
-                <circle class="category-point margin-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.margin, maxCategoryMargin)" r="5"><title>{{ item.name }} | Rentabilidad: {{ item.margin.toFixed(2) }}% | Salidas: {{ formatUnits(item.units) }}</title></circle>
-                <circle class="category-point profit-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.profit, maxCategoryProfit)" r="5"><title>{{ item.name }} | Ganancia: {{ formatMoney(item.profit) }} | Salidas: {{ formatUnits(item.units) }}</title></circle>
-              </g>
-            </svg>
-            <div class="profit-axis right-axis"><span>{{ formatMoney(maxCategoryProfit) }}</span><span>{{ formatMoney(maxCategoryProfit / 2) }}</span><span>{{ formatMoney(0) }}</span></div>
+          <div class="profitability-chart-scroll">
+            <div class="profitability-chart-frame" [style.min-width.px]="profitabilityChartWidth">
+              <div class="profit-axis left-axis"><span>{{ maxCategoryMargin.toFixed(0) }}%</span><span>{{ (maxCategoryMargin / 2).toFixed(0) }}%</span><span>0%</span></div>
+              <svg viewBox="0 0 900 260" preserveAspectRatio="none" role="img" aria-label="Rentabilidad porcentual y ganancia total por categoría">
+                <line class="profit-grid-line" x1="0" y1="30" x2="900" y2="30"></line><line class="profit-grid-line" x1="0" y1="130" x2="900" y2="130"></line><line class="profit-grid-line" x1="0" y1="230" x2="900" y2="230"></line>
+                <polyline class="profit-line margin-line" [attr.points]="categoryMarginPoints"></polyline><polyline class="profit-line total-profit-line" [attr.points]="categoryTotalProfitPoints"></polyline>
+                  <g *ngFor="let item of categoryProfitability; let index = index" class="category-point-group" [class.active-point-group]="item.active" (click)="toggleTag(item.name)">
+                  <circle class="category-point margin-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.margin, maxCategoryMargin)" r="5"><title>{{ item.name }} | Rentabilidad: {{ item.margin.toFixed(2) }}% | Salidas: {{ formatUnits(item.units) }}</title></circle>
+                  <circle class="category-point profit-point" [attr.cx]="categoryPointX(index)" [attr.cy]="categoryPointY(item.profit, maxCategoryProfit)" r="5"><title>{{ item.name }} | Ganancia: {{ formatMoney(item.profit) }} | Salidas: {{ formatUnits(item.units) }}</title></circle>
+                </g>
+              </svg>
+              <div class="profit-axis right-axis"><span>{{ formatMoney(maxCategoryProfit) }}</span><span>{{ formatMoney(maxCategoryProfit / 2) }}</span><span>{{ formatMoney(0) }}</span></div>
+            </div>
+            <div class="profit-category-labels" [style.min-width.px]="profitabilityChartWidth"><button *ngFor="let item of categoryProfitability; let index = index" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">{{ item.name }}<small>{{ formatUnits(item.units) }} salidas</small></button></div>
           </div>
-          <div class="profit-category-labels"><button *ngFor="let item of categoryProfitability; let index = index" type="button" [class.active-selection]="item.active" (click)="toggleTag(item.name)">{{ item.name }}<small>{{ formatUnits(item.units) }} salidas</small></button></div>
         </div>
         <ng-template #emptyProfitability><div *ngIf="profitabilityOpen" class="empty-inline">No hay datos de rentabilidad con estos filtros.</div></ng-template>
       </article>

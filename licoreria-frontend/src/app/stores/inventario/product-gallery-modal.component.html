@@ -248,6 +248,8 @@
                   [src]="getImagePath(product)" 
                   [alt]="'Imagen de ' + product.name"
                   class="product-image"
+                  loading="lazy"
+                  decoding="async"
                   (error)="onImageError($event)"
                 />
               </div>

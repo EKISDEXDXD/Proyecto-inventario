@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, NgZone, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -20,6 +20,8 @@ import { ModalStackService } from './modal-stack.service';
   styleUrl: './inventario.css'
 })
 export class InventarioComponent implements OnInit {
+  @ViewChild(ProductGalleryModalComponent) productGalleryModal?: ProductGalleryModalComponent;
+
   storeId: number = 0;
   store: any = null;
   products: any[] = [];
@@ -1036,7 +1038,9 @@ export class InventarioComponent implements OnInit {
 
   getProductImageUrl(productId: number | undefined): string {
     if (!productId) return '';
-    return `${this.apiProductImagesUrl}/file/${productId}`;
+    const imageVersion = this.productImage?.updatedAt || this.productImage?.createdAt || this.productImage?.id;
+    const cacheBust = imageVersion ? `?v=${encodeURIComponent(String(imageVersion))}` : '';
+    return `${this.apiProductImagesUrl}/file/${productId}${cacheBust}`;
   }
 
   onFileSelected(event: any) {
@@ -1102,6 +1106,14 @@ export class InventarioComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.productImage = response.image;
+          this.selectedProductForDescription = {
+            ...this.selectedProductForDescription,
+            image: response.image
+          };
+          this.productGalleryModal?.updateProductImage(
+            this.selectedProductForDescription.id,
+            response.image
+          );
           this.showImageMessage(response.message, 'success');
           this.isUploadingImage = false;
           this.cdr.markForCheck();

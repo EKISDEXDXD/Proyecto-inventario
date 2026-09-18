@@ -1,4 +1,4 @@
-import { Component, Host, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from './auth.service';
@@ -16,16 +16,18 @@ export class LoginComponent implements OnInit {
   username = '';
   password = '';
   error = '';
+  quickLogin = false;
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnLoad(e: BeforeUnloadEvent) {}
   constructor(private authService: AuthService, private router: Router) {}
 
   ngOnInit() {
-    // Limpiar campos de login cada vez que se cargue el componente
-    this.username = '';
+    const savedUsername = localStorage.getItem('lastLoginUsername');
+    this.username = savedUsername ?? '';
     this.password = '';
     this.error = '';
+    this.quickLogin = !!savedUsername;
     // Hacer scroll hacia el inicio de la página
     window.scrollTo(0, 0);
   }
@@ -43,6 +45,7 @@ export class LoginComponent implements OnInit {
         console.log('Login result:', success);
         console.log('Token en localStorage:', localStorage.getItem('token'));
         if (success) {
+          localStorage.setItem('lastLoginUsername', this.username);
           console.log('Navegando al home...');
           this.router.navigate(['/']);
         } else {
@@ -62,5 +65,11 @@ export class LoginComponent implements OnInit {
   this.router.navigate(['/register']);
 }
 
+  useAnotherAccount() {
+    this.username = '';
+    this.password = '';
+    this.error = '';
+    this.quickLogin = false;
+  }
 
 }

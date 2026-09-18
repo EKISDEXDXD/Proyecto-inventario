@@ -396,7 +396,7 @@
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
-  margin-bottom: 2rem;
+  margin-bottom: 0rem;
 }
 
 @media (max-width: 992px) {
@@ -1701,7 +1701,7 @@
 
   .main-title-card {
     padding: 1rem !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: 0.75rem !important;
   }
 
   .main-title {

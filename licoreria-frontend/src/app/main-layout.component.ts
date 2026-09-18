@@ -1,16 +1,18 @@
 import { Component, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { AuthService } from './auth/auth.service';
 import { MenuService } from './core/menu.service';
 import { UserService } from './core/user.service';
 import { ExternalStoreService } from './core/external-store.service';
 import { HasUnsavedChanges } from './common/without-unsaved-changes-guard.spec';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { ExportModalComponent } from './stores/export-modal.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, RouterOutlet],
+  imports: [CommonModule, RouterModule, RouterOutlet, MatDialogModule],
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.css']
 })
@@ -18,6 +20,10 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
   username = '';
   isDarkMode = false;
   isMobileView = false;
+  currentStoreId: number | null = null;
+  isExternalStore = false;
+  isStoreDashboardRoute = false;
+  isStoreNavOpen = false;
 
   get isMenuOpen$() {
     return this.menuService.isMenuOpen$;
@@ -27,7 +33,7 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
     return false;
   }
 
-  constructor(private authService: AuthService, private router: Router, private menuService: MenuService, private userService: UserService, private externalStoreService: ExternalStoreService) {
+  constructor(private authService: AuthService, private router: Router, private menuService: MenuService, private userService: UserService, private externalStoreService: ExternalStoreService, private dialog: MatDialog) {
     console.log('MainLayoutComponent - Inicializando...');
     this.loadUsername();
     this.checkWindowSize();
@@ -35,11 +41,62 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
 
   ngOnInit() {
     this.menuService.closeMenu();
+    this.updateStoreNavigation(this.router.url);
+    this.router.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        this.updateStoreNavigation(event.urlAfterRedirects);
+      }
+    });
     // Suscribirse a los cambios de nombre de usuario
     this.userService.getUsername().subscribe((newUsername) => {
       if (newUsername) {
         this.username = newUsername;
       }
+    });
+  }
+
+  get showStoreNavigation(): boolean {
+    return this.isMobileView && this.currentStoreId !== null && !this.isStoreDashboardRoute;
+  }
+
+  private updateStoreNavigation(url: string): void {
+    const cleanUrl = url.split(/[?#]/)[0];
+    const match = cleanUrl.match(/\/tienda\/(\d+)(?:\/|$)/);
+    this.currentStoreId = match ? Number(match[1]) : null;
+    this.isStoreDashboardRoute = /^\/tienda\/\d+\/?$/.test(cleanUrl);
+    if (this.currentStoreId === null || this.isStoreDashboardRoute) {
+      this.isStoreNavOpen = false;
+    }
+    this.isExternalStore = false;
+
+    const externalStore = sessionStorage.getItem('externalStore');
+    if (this.currentStoreId !== null && externalStore) {
+      try {
+        const data = JSON.parse(externalStore);
+        this.isExternalStore = Number(data.id) === this.currentStoreId && data.isExternal === true;
+      } catch {
+        this.isExternalStore = false;
+      }
+    }
+  }
+
+  navigateStore(section: 'dashboard-info' | 'inventario' | 'movimientos'): void {
+    if (this.currentStoreId === null) return;
+    this.isStoreNavOpen = false;
+    this.router.navigate(['/tienda', this.currentStoreId, section]);
+  }
+
+  toggleStoreNavigation(): void {
+    this.isStoreNavOpen = !this.isStoreNavOpen;
+  }
+
+  openStoreExport(): void {
+    if (this.currentStoreId === null || this.isExternalStore) return;
+    this.isStoreNavOpen = false;
+    this.dialog.open(ExportModalComponent, {
+      width: '900px',
+      maxHeight: '90vh',
+      data: { storeId: this.currentStoreId }
     });
   }
 
@@ -49,7 +106,10 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
   }
 
   checkWindowSize() {
-    this.isMobileView = window.innerWidth <= 480;
+    this.isMobileView = window.innerWidth <= 768;
+    if (!this.isMobileView) {
+      this.isStoreNavOpen = false;
+    }
   }
 
   loadUsername() {

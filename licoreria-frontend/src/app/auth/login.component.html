@@ -3,46 +3,77 @@
     <!-- Left Side - App Info -->
     <div class="login-info">
       <div class="app-header">
-        <div class="app-icon"><i class="bx bx-bottle"></i></div>
+        
         <h1 class="app-name">BaseStock</h1>
         <p class="app-tagline">Sistema de Gestión de Inventario</p>
       </div>
 
       <div class="info-cards">
-        <div class="info-card">
+        <div class="info-card info-inventory">
           <div class="info-icon"><i class="bx bx-package"></i></div>
           <h3>Inventario</h3>
           <p>Controla tu stock con precisión</p>
         </div>
-        <div class="info-card">
+        <div class="info-card info-reports">
           <div class="info-icon"><i class="bx bx-trending-up"></i></div>
           <h3>Reportes</h3>
           <p>Análisis detallados de ventas</p>
         </div>
-        <div class="info-card">
+        <div class="info-card info-stores">
           <div class="info-icon"><i class="bx bx-store"></i></div>
           <h3>Tiendas</h3>
           <p>Gestiona múltiples ubicaciones</p>
         </div>
+        <div class="info-card mobile-only-info info-users">
+          <div class="info-icon"><i class="bx bx-group"></i></div>
+          <h3>Usuarios</h3>
+          <p>Administra accesos y permisos</p>
+        </div>
+        <div class="info-card mobile-only-info info-cash">
+          <div class="info-icon"><i class="bx bx-wallet"></i></div>
+          <h3>Control de caja</h3>
+          <p>Supervisa ingresos y gastos</p>
+        </div>
+        <div class="info-card mobile-only-info info-alerts">
+          <div class="info-icon"><i class="bx bx-bell"></i></div>
+          <h3>Alertas de stock</h3>
+          <p>Anticípate a faltantes de productos</p>
+        </div>
       </div>
+
+      
     </div>
 
     <!-- Right Side - Login Form -->
     <div class="login-card">
       <div class="login-header">
+        <div class="login-mark"><i class="bx bx-lock-alt"></i></div>
         <h2>Iniciar Sesión</h2>
         <p>Accede a tu cuenta para continuar</p>
       </div>
       <form (ngSubmit)="login()">
         
-        <div class="form-group">
-          <label for="username">Usuario</label>
-          <input type="text" id="username" [(ngModel)]="username" name="username" placeholder="Ingresa tu usuario" autocomplete="off" required />
+        <div *ngIf="quickLogin" class="quick-user">
+          <div class="quick-user-icon"><i class="bx bx-user-check"></i></div>
+          <div class="quick-user-details">
+            <span>Cuenta seleccionada</span>
+            <strong>{{ username }}</strong>
+          </div>
+          <button type="button" class="change-account-btn" (click)="useAnotherAccount()">Cambiar</button>
+        </div>
+
+        <div *ngIf="!quickLogin" class="form-group">
+          <label for="username"><i class="bx bx-user"></i> Usuario</label>
+          <div class="input-shell">
+            <input type="text" id="username" [(ngModel)]="username" name="username" placeholder="Ingresa tu usuario" autocomplete="off" required />
+          </div>
         </div>
        
         <div class="form-group">
-          <label for="password">Contraseña</label>
-          <input type="password" id="password" [(ngModel)]="password" name="password" placeholder="Ingresa tu contraseña" autocomplete="new-password" required />
+          <label for="password"><i class="bx bx-key"></i> Contraseña</label>
+          <div class="input-shell">
+            <input type="password" id="password" [(ngModel)]="password" name="password" placeholder="Ingresa tu contraseña" autocomplete="new-password" required />
+          </div>
         </div>
         <button type="submit" class="login-btn">Entrar</button>
         <div *ngIf="error" class="error">{{ error }}</div>

@@ -553,6 +553,7 @@ export class DashboardInfoComponent implements OnInit {
   get categoryTotalProfitPoints(): string { return this.categoryProfitability.map((item, index) => `${this.categoryPointX(index)},${this.categoryPointY(item.profit, this.maxCategoryProfit)}`).join(' '); }
   categoryPointX(index: number): number { return this.categoryProfitability.length > 1 ? index * 900 / (this.categoryProfitability.length - 1) : 450; }
   categoryPointY(value: number, max: number): number { return 230 - Math.max(value, 0) / max * 200; }
+  get profitabilityChartWidth(): number { return Math.max(900, this.categoryProfitability.length * 95 + 128); }
   get dailySales(): Array<{ date: string; label: string; units: number; revenue: number; revenueWidth: number; unitsWidth: number; hours: string; active: boolean }> {
     return this.memo('dailySales', () => {
       if (!this.hasDetailedTransactions()) {
@@ -653,5 +654,30 @@ export class DashboardInfoComponent implements OnInit {
   }
   private rootId(product?: ProductRecord): number { if (!product) return 0; return product.parentId ?? product.id; }
   private toggleSet<T>(set: Set<T>, value: T): void { set.has(value) ? set.delete(value) : set.add(value); this.bump(); this.cdr.markForCheck(); }
-  private productTags(product: ProductRecord): Array<{ id: number; name: string }> { return (product.tags ?? []).map(item => 'tag' in item && item.tag ? item.tag : item as { id: number; name: string }); }
+  private productTags(product: ProductRecord): Array<{ id: number; name: string }> {
+    const tags = new Map<number, { id: number; name: string }>();
+    this.directProductTags(product).forEach(tag => tags.set(tag.id, tag));
+    this.familyTags(product).forEach(tag => tags.set(tag.id, tag));
+    return [...tags.values()];
+  }
+
+  private directProductTags(product: ProductRecord): Array<{ id: number; name: string }> {
+    return (product.tags ?? []).map(item => 'tag' in item && item.tag ? item.tag : item as { id: number; name: string });
+  }
+
+  private familyTags(product: ProductRecord): Array<{ id: number; name: string }> {
+    const rootId = this.rootId(product);
+    const tagsByRoot = this.memo('familyTags', () => {
+      const tagsByRoot = new Map<number, Map<number, { id: number; name: string }>>();
+      this.products.forEach(member => {
+        const memberRootId = this.rootId(member);
+        const tags = tagsByRoot.get(memberRootId) ?? new Map<number, { id: number; name: string }>();
+        this.directProductTags(member).forEach(tag => tags.set(tag.id, tag));
+        tagsByRoot.set(memberRootId, tags);
+      });
+      return tagsByRoot;
+    });
+    const tags = tagsByRoot.get(rootId);
+    return tags ? [...tags.values()] : [];
+  }
 }

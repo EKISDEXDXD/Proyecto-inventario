@@ -100,4 +100,24 @@
     <router-outlet></router-outlet>
   </main>
 
+  <aside *ngIf="showStoreNavigation" class="store-nav-bubble" [class.open]="isStoreNavOpen" aria-label="Navegación de la tienda">
+    <div class="store-nav-options" [class.open]="isStoreNavOpen">
+      <button type="button" class="store-nav-option option-dashboard" (click)="navigateStore('dashboard-info')" title="Dashboard Info" aria-label="Dashboard Info">
+      <i class="bx bx-bar-chart-alt-2"></i>
+      </button>
+      <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-inventory" (click)="navigateStore('inventario')" title="Inventario" aria-label="Inventario">
+      <i class="bx bx-package"></i>
+      </button>
+      <button type="button" class="store-nav-option option-movements" (click)="navigateStore('movimientos')" title="Movimientos" aria-label="Movimientos">
+      <i class="bx bx-trending-up"></i>
+      </button>
+      <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-export" (click)="openStoreExport()" title="Exportaciones" aria-label="Exportaciones">
+      <i class="bx bx-download"></i>
+      </button>
+    </div>
+    <button type="button" class="store-nav-toggle" (click)="toggleStoreNavigation()" [attr.aria-expanded]="isStoreNavOpen" aria-label="Abrir navegación de la tienda" title="Navegación de la tienda">
+      <i class="bx bx-compass"></i>
+    </button>
+  </aside>
+
 </div>

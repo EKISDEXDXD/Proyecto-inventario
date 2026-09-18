@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, ChangeDetectionStrategy, OnDestroy, Inject, Renderer2 } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TagService } from '../../core/tag.service';
 import { ApiConfigService } from '../../auth/api-config.service';
@@ -40,6 +40,9 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   selectedTagIds: number[] = [];
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
+  private previousBodyOverflow = '';
+  private previousBodyPaddingRight = '';
+  private pageScrollLocked = false;
 
   // Tags
   allTags: any[] = [];
@@ -74,7 +77,9 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     private cdr: ChangeDetectorRef,
     private apiConfig: ApiConfigService,
     private currencyService: CurrencyService,
-    private lotesService: LotesService
+    private lotesService: LotesService,
+    @Inject(DOCUMENT) private document: Document,
+    private renderer: Renderer2
   ) {}
 
   ngOnInit() {
@@ -107,17 +112,47 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     if (changes['isOpen']) {
       console.log('[Gallery Modal] isOpen cambió. Actual:', this.isOpen, 'storeId:', this.storeId);
       if (this.isOpen) {
+        this.lockPageScroll();
         if (this.storeId > 0) {
           this.loadTags();
           this.loadProducts();
         }
+      } else {
+        this.unlockPageScroll();
       }
     }
   }
 
   ngOnDestroy() {
+    this.unlockPageScroll();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private lockPageScroll(): void {
+    if (this.pageScrollLocked) {
+      return;
+    }
+
+    this.previousBodyOverflow = this.document.body.style.overflow;
+    this.previousBodyPaddingRight = this.document.body.style.paddingRight;
+    const scrollbarWidth = (this.document.defaultView?.innerWidth ?? 0) - this.document.documentElement.clientWidth;
+
+    this.renderer.setStyle(this.document.body, 'overflow', 'hidden');
+    if (scrollbarWidth > 0) {
+      this.renderer.setStyle(this.document.body, 'padding-right', `${scrollbarWidth}px`);
+    }
+    this.pageScrollLocked = true;
+  }
+
+  private unlockPageScroll(): void {
+    if (!this.pageScrollLocked) {
+      return;
+    }
+
+    this.renderer.setStyle(this.document.body, 'overflow', this.previousBodyOverflow);
+    this.renderer.setStyle(this.document.body, 'padding-right', this.previousBodyPaddingRight);
+    this.pageScrollLocked = false;
   }
 
   /**
@@ -198,8 +233,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
   async buildGalleryDisplayProducts(rawProducts: any[]): Promise<any[]> {
     const visibleRoots = (rawProducts || []).filter(product => this.isVisibleRootProduct(product));
 
-    const displayProducts: any[] = [];
-    for (const product of visibleRoots) {
+    return Promise.all(visibleRoots.map(async (product) => {
       const lotes = await firstValueFrom(
         this.lotesService.getLotesByProductId(product.id).pipe(
           catchError(() => of([]))
@@ -223,10 +257,15 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
         activeLote: displayLote
       };
 
-      displayProducts.push(displayProduct);
-    }
+      return displayProduct;
+    }));
+  }
 
-    return displayProducts;
+  updateProductImage(productId: number, image: any | null): void {
+    this.displayedProducts = this.displayedProducts.map(product =>
+      product.id === productId ? { ...product, image } : product
+    );
+    this.cdr.markForCheck();
   }
 
   private isVisibleRootProduct(product: any): boolean {
@@ -533,7 +572,8 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
       // El endpoint /api/product-images/file/{productId} retorna la imagen física
       const imageUrl = `${this.apiConfig.getApiUrl('/api/product-images')}/file/${product.id}`;
       console.log('[Gallery Modal] Construyendo URL de imagen para producto', product.id, ':', imageUrl);
-      return imageUrl;
+      const imageVersion = product.image.updatedAt || product.image.createdAt || product.image.id || product.image.imagePath;
+      return `${imageUrl}?v=${encodeURIComponent(String(imageVersion))}`;
     }
     // Placeholder SVG en línea si no hay imagen
     return this.getPlaceholderImage();

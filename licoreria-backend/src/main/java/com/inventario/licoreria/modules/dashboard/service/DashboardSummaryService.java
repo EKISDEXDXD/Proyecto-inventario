@@ -32,6 +32,7 @@ import com.inventario.licoreria.modules.inventory.model.Transaction;
 import com.inventario.licoreria.modules.inventory.repository.TransactionRepository;
 import com.inventario.licoreria.modules.products.model.Product;
 import com.inventario.licoreria.modules.products.model.ProductTag;
+import com.inventario.licoreria.modules.products.repository.ProductRepository;
 import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.store.repository.StoreRepository;
 import com.inventario.licoreria.modules.store.service.StoreService;
@@ -49,6 +50,7 @@ public class DashboardSummaryService {
     private final AdministrativeCostMovementRepository movementRepository;
     private final StoreRepository storeRepository;
     private final StoreService storeService;
+    private final ProductRepository productRepository;
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
     private final Set<Long> dirtyStores = ConcurrentHashMap.newKeySet();
@@ -60,7 +62,8 @@ public class DashboardSummaryService {
             StoreRepository storeRepository,
             ObjectMapper objectMapper,
             StoreService storeService,
-            JwtUtil jwtUtil) {
+            JwtUtil jwtUtil,
+            ProductRepository productRepository) {
         this.cacheRepository = cacheRepository;
         this.transactionRepository = transactionRepository;
         this.movementRepository = movementRepository;
@@ -68,6 +71,7 @@ public class DashboardSummaryService {
         this.objectMapper = objectMapper;
         this.storeService = storeService;
         this.jwtUtil = jwtUtil;
+        this.productRepository = productRepository;
     }
 
     public void markStoreDirty(Long storeId) {
@@ -135,6 +139,7 @@ public class DashboardSummaryService {
         }
 
         Map<String, DaySummary> days = new HashMap<>();
+        Map<Long, Set<String>> familyTags = buildFamilyTags(storeId);
         List<Transaction> transactions = transactionRepository.findByStoreIdOrderByDateTimeDesc(storeId);
         for (Transaction transaction : transactions) {
             Product product = transaction.getProduct();
@@ -143,7 +148,7 @@ public class DashboardSummaryService {
             }
             String date = transaction.getDateTime().toLocalDate().toString();
             DaySummary day = days.computeIfAbsent(date, ignored -> new DaySummary(date));
-            day.addTransaction(transaction, product);
+            day.addTransaction(transaction, product, familyTags.getOrDefault(rootId(product), Set.of()));
         }
 
         for (AdministrativeCostMovement movement : movementRepository.findByStoreId(storeId)) {
@@ -169,6 +174,27 @@ public class DashboardSummaryService {
         cache.setPayload(payload.toString());
         cache.setUpdatedAt(LocalDateTime.now());
         cacheRepository.save(cache);
+    }
+
+    private Map<Long, Set<String>> buildFamilyTags(Long storeId) {
+        Map<Long, Set<String>> tagsByRoot = new HashMap<>();
+        for (Product product : productRepository.findByStoreId(storeId)) {
+            Long rootId = rootId(product);
+            Set<String> tags = tagsByRoot.computeIfAbsent(rootId, ignored -> new HashSet<>());
+            if (product.getTags() == null) {
+                continue;
+            }
+            for (ProductTag productTag : product.getTags()) {
+                if (productTag.getTag() != null && productTag.getTag().getName() != null) {
+                    tags.add(productTag.getTag().getName());
+                }
+            }
+        }
+        return tagsByRoot;
+    }
+
+    private static Long rootId(Product product) {
+        return product.getParentId() == null ? product.getId() : product.getParentId();
     }
 
     private JsonNode readPayload(String payload) {
@@ -211,7 +237,7 @@ public class DashboardSummaryService {
         }
 
         @SuppressWarnings("null")
-        private void addTransaction(Transaction transaction, Product product) {
+        private void addTransaction(Transaction transaction, Product product, Set<String> familyTags) {
             Integer transactionQuantity = transaction.getQuantity();
             int quantity = transactionQuantity == null ? 0 : transactionQuantity.intValue();
             movements++;
@@ -234,14 +260,7 @@ public class DashboardSummaryService {
             if ("SALIDA".equalsIgnoreCase(transaction.getType()) && "VENTA".equalsIgnoreCase(transaction.getReason())) {
                 ProductSummary summary = products.computeIfAbsent(product.getId(), id -> new ProductSummary(id, product.getName()));
                 summary.add(quantity, amount(transaction, product, true), amount(transaction, product, false));
-                Set<String> names = new HashSet<>();
-                if (product.getTags() != null) {
-                    for (ProductTag productTag : product.getTags()) {
-                        if (productTag.getTag() != null && productTag.getTag().getName() != null) {
-                            names.add(productTag.getTag().getName());
-                        }
-                    }
-                }
+                Set<String> names = new HashSet<>(familyTags);
                 if (names.isEmpty()) names.add("Sin etiqueta");
                 names.forEach(name -> categories.computeIfAbsent(name, ignored -> new ProductSummary(null, name))
                         .add(quantity, amount(transaction, product, true), amount(transaction, product, false)));
