@@ -34,6 +34,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
       EXPORT_FILE_PATH: /app/exports
+      PRODUCT_IMAGE_PATH: /app/product-images
     ports:
       - "8081:8081"
     volumes:

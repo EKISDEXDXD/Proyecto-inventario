@@ -32,6 +32,8 @@ ENV SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/licoreria_db
 ENV SPRING_DATASOURCE_USERNAME=licoreria_user
 ENV SPRING_DATASOURCE_PASSWORD=licoreria_password
 ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
+# The compose file mounts the persistent host folder here.
+ENV PRODUCT_IMAGE_PATH=/app/product-images
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["java", "-Dserver.port=8081", "-jar", "app.jar"]
