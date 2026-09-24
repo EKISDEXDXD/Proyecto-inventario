@@ -27,6 +27,8 @@ export class SettingsComponent implements OnInit {
   showUsernameForm = false;
   showPasswordForm = false;
   showPaymentMethodForm = false;
+  showPaymentMethodEditModal = false;
+  editingPaymentMethod: PaymentMethodConfig | null = null;
   
   loadingUsername = false;
   loadingPassword = false;
@@ -38,6 +40,20 @@ export class SettingsComponent implements OnInit {
   selectedQRImagePreview: string | null = null;
   showQrModal = false;
   qrModalImageUrl: string | null = null;
+  readonly paymentColorOptions = [
+    { value: '#2563EB', name: 'Azul océano', gradient: 'linear-gradient(135deg, #60A5FA, #2563EB)' },
+    { value: '#4F46E5', name: 'Índigo', gradient: 'linear-gradient(135deg, #818CF8, #4F46E5)' },
+    { value: '#0D9488', name: 'Turquesa', gradient: 'linear-gradient(135deg, #5EEAD4, #0D9488)' },
+    { value: '#16A34A', name: 'Verde', gradient: 'linear-gradient(135deg, #86EFAC, #16A34A)' },
+    { value: '#059669', name: 'Esmeralda', gradient: 'linear-gradient(135deg, #6EE7B7, #059669)' },
+    { value: '#65A30D', name: 'Lima', gradient: 'linear-gradient(135deg, #BEF264, #65A30D)' },
+    { value: '#DC2626', name: 'Rojo', gradient: 'linear-gradient(135deg, #FCA5A5, #DC2626)' },
+    { value: '#EF4444', name: 'Coral', gradient: 'linear-gradient(135deg, #FCA5A5, #EF4444)' },
+    { value: '#F97316', name: 'Naranja', gradient: 'linear-gradient(135deg, #FDBA74, #F97316)' },
+    { value: '#D97706', name: 'Dorado', gradient: 'linear-gradient(135deg, #FCD34D, #D97706)' },
+    { value: '#BE123C', name: 'Frambuesa', gradient: 'linear-gradient(135deg, #FDA4AF, #BE123C)' },
+    { value: '#6366F1', name: 'Violeta', gradient: 'linear-gradient(135deg, #A5B4FC, #6366F1)' }
+  ];
 
   constructor(
     private fb: FormBuilder,
@@ -78,7 +94,8 @@ export class SettingsComponent implements OnInit {
     this.paymentMethodForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       type: ['EFECTIVO', [Validators.required]],
-      imageUrl: ['']
+      imageUrl: [''],
+      color: ['#6366F1', [Validators.required]]
     });
   }
 
@@ -237,12 +254,13 @@ export class SettingsComponent implements OnInit {
     const name = this.paymentMethodForm.get('name')?.value;
     const imageUrl = this.selectedQRImagePreview || undefined;
 
-    this.paymentMethodConfigService.create(name, type, imageUrl).subscribe({
+    const color = this.paymentMethodForm.get('color')?.value || '#6366F1';
+    this.paymentMethodConfigService.create(name, type, imageUrl, color).subscribe({
       next: (newMethod) => {
         this.loadingPaymentMethodCreation = false;
         this.paymentMethods.push(newMethod);
         this.successMessage = 'Método de pago creado exitosamente';
-        this.paymentMethodForm.reset({ type: 'EFECTIVO' });
+        this.paymentMethodForm.reset({ type: 'EFECTIVO', color: '#6366F1' });
         this.selectedQRImage = null;
         this.selectedQRImagePreview = null;
         this.showPaymentMethodForm = false;
@@ -298,6 +316,71 @@ export class SettingsComponent implements OnInit {
             this.cdr.markForCheck();
           }, 4000);
         });
+      }
+    });
+  }
+
+  getPaymentMethodColor(method: PaymentMethodConfig): string {
+    return method.color || '#6366F1';
+  }
+
+  selectPaymentColor(color: string): void {
+    this.paymentMethodForm.patchValue({ color });
+  }
+
+  openPaymentMethodEdit(method: PaymentMethodConfig): void {
+    this.editingPaymentMethod = method;
+    this.paymentMethodForm.reset({
+      name: method.name,
+      type: method.type,
+      imageUrl: method.imageUrl || '',
+      color: this.getPaymentMethodColor(method)
+    });
+    this.showPaymentMethodEditModal = true;
+  }
+
+  closePaymentMethodEdit(): void {
+    this.showPaymentMethodEditModal = false;
+    this.editingPaymentMethod = null;
+    this.paymentMethodForm.reset({ type: 'EFECTIVO', color: '#6366F1' });
+  }
+
+  updatePaymentMethod(): void {
+    if (!this.editingPaymentMethod || this.paymentMethodForm.invalid) {
+      return;
+    }
+
+    const value = this.paymentMethodForm.getRawValue();
+    const imageUrl = value.imageUrl || this.editingPaymentMethod.imageUrl || undefined;
+    const color = value.color || this.getPaymentMethodColor(this.editingPaymentMethod);
+    this.loadingPaymentMethodCreation = true;
+    this.paymentMethodConfigService.update(
+      this.editingPaymentMethod.id,
+      value.name,
+      value.type,
+      imageUrl,
+      this.editingPaymentMethod.isActive,
+      color
+    ).subscribe({
+      next: (updatedMethod) => {
+        const index = this.paymentMethods.findIndex(method => method.id === updatedMethod.id);
+        if (index !== -1) {
+          this.paymentMethods[index] = {
+            ...this.paymentMethods[index],
+            ...updatedMethod,
+            color,
+            imageUrl: imageUrl || this.paymentMethods[index].imageUrl
+          };
+        }
+        this.loadingPaymentMethodCreation = false;
+        this.successMessage = 'Método de pago actualizado exitosamente';
+        this.closePaymentMethodEdit();
+        this.cdr.markForCheck();
+      },
+      error: (error) => {
+        this.loadingPaymentMethodCreation = false;
+        this.errorMessage = error.error?.message || 'Error al actualizar el método de pago';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -410,7 +493,7 @@ export class SettingsComponent implements OnInit {
   togglePaymentMethodForm() {
     this.showPaymentMethodForm = !this.showPaymentMethodForm;
     if (!this.showPaymentMethodForm) {
-      this.paymentMethodForm.reset({ type: 'EFECTIVO' });
+      this.paymentMethodForm.reset({ type: 'EFECTIVO', color: '#6366F1' });
       this.selectedQRImage = null;
       this.selectedQRImagePreview = null;
     }

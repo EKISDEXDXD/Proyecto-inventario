@@ -12,9 +12,9 @@
     <p class="main-subtitle">Historial completo de entradas y salidas de productos</p>
   </div>
 
-  <div class="card header-card">
+  <div class="card header-card" [style.border-top-color]="store?.color || '#667eea'">
     <div class="movimientos-header">
-      <h1 *ngIf="store"><i class="bx bx-trending-up"></i> Movimientos - {{ store.name }}</h1>
+      <h1 *ngIf="store"><i class="bx bx-trending-up" [style.color]="store.color || '#667eea'"></i> Movimientos - {{ store.name }}</h1>
     </div>
   </div>
 
@@ -104,6 +104,7 @@
         </div>
         <div class="form-group product-autocomplete-group">
           <label>Producto</label>
+          <div class="product-input-row">
           <div class="autocomplete-container" appClickOutside (clickOutside)="closeProductDropdown()">
             <div class="autocomplete-input-wrapper">
               <input
@@ -188,6 +189,8 @@
               </div>
             </div>
           </div>
+
+          </div>
           <input type="hidden" [(ngModel)]="movement.productId" name="productId">
         </div>
 
@@ -227,18 +230,16 @@
             </div>
           </div>
 
-          <div class="selected-payment-method-panel" *ngIf="selectedPaymentMethod">
-            <label>Método de pago</label>
-            <div class="selected-payment-method">
-              <span><strong>{{ selectedPaymentMethod.name }}</strong> ({{ selectedPaymentMethod.type }})</span>
-              <button type="button" class="clear-selection-btn" (click)="clearPaymentMethodSelection()">Eliminar</button>
-            </div>
-          </div>
         </div>
 
-        <div class="form-group cantidad-group">
-          <label>Cantidad</label>
-          <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>
+        <div class="quantity-preview-group">
+          <div class="form-group cantidad-group">
+            <label>Cantidad</label>
+            <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>
+          </div>
+          <div class="selected-product-thumb" *ngIf="selectedProductId > 0" title="Imagen del producto seleccionado">
+            <img [src]="getSelectedProductImagePath()" (error)="onSelectedProductImageError($event)" alt="Imagen del producto seleccionado">
+          </div>
         </div>
         <div class="form-group motivo-group">
           <label>Motivo</label>
@@ -250,6 +251,20 @@
         <div class="form-group action-block">
           <button type="button" class="submit-btn quick-purchase-btn" (click)="quickPurchase()">Compra rápida</button>
           <button type="submit" class="submit-btn">Agregar al carrito</button>
+        </div>
+      </div>
+      <div class="selected-payment-method-panel" *ngIf="selectedPaymentMethod">
+        <label>Método de pago seleccionado</label>
+        <div
+          class="selected-payment-method"
+          [style.--payment-color]="selectedPaymentMethod.color || '#6366F1'"
+          [class.payment-swipe-next]="paymentSwipeAnimation === 'next'"
+          [class.payment-swipe-previous]="paymentSwipeAnimation === 'previous'"
+          (touchstart)="onPaymentSwipeStart($event)"
+          (touchend)="onPaymentSwipeEnd($event)"
+          aria-label="Desliza para cambiar el método de pago">
+          <span><strong>{{ selectedPaymentMethod.name }}</strong> ({{ selectedPaymentMethod.type }})</span>
+          <button type="button" class="clear-selection-btn" (click)="clearPaymentMethodSelection()">Eliminar</button>
         </div>
       </div>
       <div class="payment-method-row">
@@ -343,6 +358,40 @@
           <p>Consulta el historial completo de entradas y salidas de productos en esta tienda.</p>
         </div>
         <i class="bx" [ngClass]="showHistoryList ? 'bx-chevron-down' : 'bx-chevron-right'"></i>
+      </div>
+
+      <div *ngIf="showHistoryList" class="history-filters" aria-label="Filtros del historial">
+        <div class="history-filter search-filter">
+          <label for="history-product-search">Producto</label>
+          <i class="bx bx-search" aria-hidden="true"></i>
+          <input id="history-product-search" type="search" [(ngModel)]="historySearchTerm" (ngModelChange)="applyHistoryFilters()" placeholder="Buscar producto..." aria-label="Buscar por nombre de producto">
+        </div>
+        <div class="history-filter">
+          <label for="history-type-filter">Tipo</label>
+          <select id="history-type-filter" [(ngModel)]="historyFilterType" (ngModelChange)="applyHistoryFilters()">
+            <option value="TODOS">Todos</option>
+            <option value="ENTRADA">Entradas</option>
+            <option value="SALIDA">Salidas</option>
+          </select>
+        </div>
+        <div class="history-filter">
+          <label for="history-reason-filter">Motivo</label>
+          <select id="history-reason-filter" [(ngModel)]="historyFilterReason" (ngModelChange)="applyHistoryFilters()">
+            <option value="TODOS">Todos</option>
+            <option value="COMPRA">Compra</option>
+            <option value="VENTA">Venta</option>
+            <option value="AJUSTE">Ajuste</option>
+          </select>
+        </div>
+        <div class="history-filter date-filter">
+          <label for="history-date-start">Desde</label>
+          <input id="history-date-start" type="datetime-local" [(ngModel)]="filterDateStart" (ngModelChange)="applyHistoryFilters()">
+        </div>
+        <div class="history-filter date-filter">
+          <label for="history-date-end">Hasta</label>
+          <input id="history-date-end" type="datetime-local" [(ngModel)]="filterDateEnd" (ngModelChange)="applyHistoryFilters()">
+        </div>
+        
       </div>
 
       <div *ngIf="showHistoryList" class="history-list-container" (scroll)="onHistoryScroll($event)">

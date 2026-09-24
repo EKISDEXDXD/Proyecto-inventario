@@ -108,6 +108,9 @@
       <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-inventory" (click)="navigateStore('inventario')" title="Inventario" aria-label="Inventario">
       <i class="bx bx-package"></i>
       </button>
+      <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-gallery" (click)="openStoreGallery()" title="Galería" aria-label="Galería">
+      <i class="bx bx-image"></i>
+      </button>
       <button type="button" class="store-nav-option option-movements" (click)="navigateStore('movimientos')" title="Movimientos" aria-label="Movimientos">
       <i class="bx bx-trending-up"></i>
       </button>

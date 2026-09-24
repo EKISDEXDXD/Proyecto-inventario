@@ -11,8 +11,18 @@
     </div>
 
     <div class="gallery-modal-body">
+      <button
+        type="button"
+        class="mobile-tags-toggle"
+        [class.active]="showMobileTags"
+        (click)="toggleMobileTags()"
+        [attr.aria-expanded]="showMobileTags"
+        aria-controls="mobile-gallery-tags">
+        <span><i class="bx bx-tag"></i> Etiquetas</span>
+        <i class="bx" [ngClass]="showMobileTags ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
+      </button>
       <!-- Left Sidebar - Tags & New Tag -->
-      <nav class="gallery-sidebar" aria-label="Filtros de etiquetas">
+      <nav id="mobile-gallery-tags" class="gallery-sidebar" [class.mobile-tags-open]="showMobileTags" aria-label="Filtros de etiquetas">
         <div class="sidebar-section">
           <div class="section-header">
             <h3><i class="bx bx-tag"></i> Etiquetas</h3>

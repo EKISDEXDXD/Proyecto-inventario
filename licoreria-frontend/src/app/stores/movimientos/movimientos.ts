@@ -52,6 +52,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   entradasCount = 0;
   salidasCount = 0;
   searchTerm: string = '';
+  historySearchTerm: string = '';
+  historyFilterType: 'TODOS' | 'ENTRADA' | 'SALIDA' = 'TODOS';
+  historyFilterReason: 'TODOS' | 'COMPRA' | 'VENTA' | 'AJUSTE' = 'TODOS';
   startDate: string = ''; // Para filtro de transacciones
   endDate: string = ''; // Para filtro de transacciones
   filterDateStart: string = ''; // Para filtrador de fecha en historial
@@ -190,6 +193,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   filteredProductsForAutocomplete: any[] = [];
   showProductDropdown: boolean = false;
   recentProducts: any[] = [];
+  // Producto seleccionado para mostrar su vista previa de imagen en el formulario
+  selectedProductForImage: any = null;
+  private paymentSwipeStartX: number | null = null;
+  paymentSwipeAnimation: 'next' | 'previous' | '' = '';
   private productSearchSubject = new Subject<string>();
   private readonly RECENT_PRODUCTS_KEY = 'recent_products_movement';
   private readonly MAX_RECENT_PRODUCTS = 5;
@@ -411,6 +418,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.movement.productId = product.id;
     this.productSearchTerm = product.name;
     this.showProductDropdown = false;
+    this.selectedProductForImage = product;
     this.saveRecentProduct(product.id);
 
     this.availableLotes = this.buildProductSelectionOptions(product);
@@ -508,7 +516,31 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.availableLotes = [];
     this.selectedLoteId = 0;
     this.showLotesDropdown = false;
+    this.selectedProductForImage = null;
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Obtiene la URL de la imagen del producto seleccionado, o un placeholder si no tiene.
+   */
+  getSelectedProductImagePath(): string {
+    const product = this.selectedProductForImage;
+    const imageProductId = Number(product?.imageProductId || product?.id || 0);
+    if (imageProductId > 0) {
+      const imageUrl = `${this.apiConfig.getApiUrl('/api/product-images')}/file/${imageProductId}`;
+      const imageVersion = product?.image?.updatedAt || product?.image?.createdAt || product?.image?.id || product?.image?.imagePath;
+      const cacheBust = imageVersion ? `?v=${encodeURIComponent(String(imageVersion))}` : '';
+      return `${imageUrl}${cacheBust}`;
+    }
+    return this.getPlaceholderImage();
+  }
+
+  onSelectedProductImageError(event: any) {
+    event.target.src = this.getPlaceholderImage();
+  }
+
+  private getPlaceholderImage(): string {
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjYWFhIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+U2luIGltYWdlbjwvdGV4dD48L3N2Zz4=';
   }
 
   onProductSearchKeydown(event: KeyboardEvent) {
@@ -786,6 +818,8 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       return {
         ...displayProduct,
+        image: displayProduct.image || rootProduct.image,
+        imageProductId: displayProduct.image?.imagePath ? displayProduct.id : rootProduct.id,
         name: rootProduct.name,
         displayName: rootProduct.name,
         price: Number(displayProduct.price ?? rootProduct.price ?? 0),
@@ -906,8 +940,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.filteredMovimientos = this.transactions.filter(transaction => {
       // Filtro por término de búsqueda (producto)
       const productName = this.getProductName(transaction.productId).toLowerCase();
-      const matchesSearch = !this.searchTerm ||
-        productName.includes(this.searchTerm.toLowerCase());
+      const matchesSearch = !this.historySearchTerm ||
+        productName.includes(this.historySearchTerm.toLowerCase().trim());
+      const matchesType = this.historyFilterType === 'TODOS' ||
+        this.normalizeTransactionType(transaction) === this.historyFilterType;
+      const transactionReason = this.normalizeReason(transaction.reason ?? transaction.transactionReason);
+      const matchesReason = this.historyFilterReason === 'TODOS' ||
+        transactionReason === this.historyFilterReason;
 
       // Filtro por rango de fechas (filtrador de fecha en historial)
       const transactionDate = new Date(transaction.dateTime);
@@ -916,11 +955,15 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       let matchesDateFilter = true;
       if (filterStartDate) {
-        filterStartDate.setHours(0, 0, 0, 0);
+        if (!this.filterDateStart.includes('T')) {
+          filterStartDate.setHours(0, 0, 0, 0);
+        }
         matchesDateFilter = transactionDate >= filterStartDate;
       }
       if (filterEndDate && matchesDateFilter) {
-        filterEndDate.setHours(23, 59, 59, 999);
+        if (!this.filterDateEnd.includes('T')) {
+          filterEndDate.setHours(23, 59, 59, 999);
+        }
         matchesDateFilter = transactionDate <= filterEndDate;
       }
 
@@ -938,7 +981,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         matchesCompactDateRange = transactionDate <= endDate;
       }
 
-      return matchesSearch && matchesDateFilter && matchesCompactDateRange;
+      return matchesSearch && matchesType && matchesReason && matchesDateFilter && matchesCompactDateRange;
     });
     this.recomputeTodayStats();
     this.updateDailyFlowHistory();
@@ -968,6 +1011,19 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   // Método público para aplicar filtros (llamado desde el template)
   public applyFilters() {
+    this.applyTransactionFilters();
+  }
+
+  public applyHistoryFilters(): void {
+    this.applyTransactionFilters();
+  }
+
+  public clearHistoryFilters(): void {
+    this.historySearchTerm = '';
+    this.historyFilterType = 'TODOS';
+    this.historyFilterReason = 'TODOS';
+    this.filterDateStart = '';
+    this.filterDateEnd = '';
     this.applyTransactionFilters();
   }
 
@@ -1122,6 +1178,44 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.selectedPaymentMethodConfigId = null;
   }
 
+  onPaymentSwipeStart(event: TouchEvent): void {
+    this.paymentSwipeStartX = event.touches[0]?.clientX ?? null;
+  }
+
+  onPaymentSwipeEnd(event: TouchEvent): void {
+    if (this.paymentSwipeStartX === null) {
+      return;
+    }
+
+    const endX = event.changedTouches[0]?.clientX ?? this.paymentSwipeStartX;
+    const distance = endX - this.paymentSwipeStartX;
+    this.paymentSwipeStartX = null;
+
+    if (Math.abs(distance) < 40) {
+      return;
+    }
+
+    const methods = this.paymentMethodModal?.paymentMethods ?? [];
+    if (methods.length < 2 || !this.selectedPaymentMethod) {
+      return;
+    }
+
+    const currentIndex = methods.findIndex(method => method.id === this.selectedPaymentMethod?.id);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const nextIndex = distance < 0
+      ? (currentIndex + 1) % methods.length
+      : (currentIndex - 1 + methods.length) % methods.length;
+    this.paymentSwipeAnimation = distance < 0 ? 'next' : 'previous';
+    this.onPaymentMethodSelected(methods[nextIndex]);
+    window.setTimeout(() => {
+      this.paymentSwipeAnimation = '';
+      this.cdr.detectChanges();
+    }, 220);
+  }
+
   private proceedWithRegistration() {
     if (this.selectedPaymentMethodConfigId === null || (!this.pendingCartRegistration && !this.pendingQuickPurchase)) {
       return;
@@ -1194,8 +1288,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.cartItems = [];
           this.showCart = false;
           this.isRegisteringAllMovements = false;
-          this.selectedPaymentMethod = null;
-          this.selectedPaymentMethodConfigId = null;
           this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
           this.updateAvailableReasons();
           this.clearProductSearch();
@@ -1224,7 +1316,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.refreshProductDisplayCaches();
 
           this.isRegisteringAllMovements = false;
-          this.selectedPaymentMethodConfigId = null;
           this.cdr.detectChanges();
           const errorMsg = err.error?.message || 'Error al registrar los movimientos. Inténtalo de nuevo.';
           alert(errorMsg);
@@ -1271,8 +1362,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
           this.sortTransactions();
           this.isRegisteringQuickPurchase = false;
-          this.selectedPaymentMethod = null;
-          this.selectedPaymentMethodConfigId = null;
           this.quickPurchaseMovement = null;
           this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
           this.updateAvailableReasons();
@@ -1296,8 +1385,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.refreshProductDisplayCaches();
 
           this.isRegisteringQuickPurchase = false;
-          this.selectedPaymentMethod = null;
-          this.selectedPaymentMethodConfigId = null;
           this.quickPurchaseMovement = null;
           this.cdr.detectChanges();
           const errorMsg = err.error?.message || 'Error al registrar la compra rápida. Inténtalo de nuevo.';

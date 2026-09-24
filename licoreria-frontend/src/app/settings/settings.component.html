@@ -214,7 +214,11 @@
         <div *ngIf="!loadingPaymentMethods && paymentMethods.length > 0" class="payment-methods-list">
           <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Métodos configurados:</h3>
           <div class="methods-grid">
-            <div *ngFor="let method of paymentMethods" class="method-card">
+            <div
+              *ngFor="let method of paymentMethods"
+              class="method-card"
+              [style.--method-color]="getPaymentMethodColor(method)"
+              [style.border-left-color]="getPaymentMethodColor(method)">
               <div class="method-header">
                 <div class="method-info">
                   <h4>{{ method.name }}</h4>
@@ -222,12 +226,22 @@
                     {{ method.type }}
                   </span>
                 </div>
-                <button 
-                  (click)="deletePaymentMethod(method.id)"
-                  class="btn btn-danger btn-sm"
-                  title="Eliminar método">
-                  <i class="bx bx-trash"></i>
-                </button>
+                <div class="method-actions">
+                  <button
+                    type="button"
+                    (click)="openPaymentMethodEdit(method)"
+                    class="btn btn-secondary btn-sm"
+                    title="Editar método">
+                    <i class="bx bx-edit"></i>
+                  </button>
+                  <button
+                    (click)="deletePaymentMethod(method.id)"
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    title="Eliminar método">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </div>
               </div>
               
               <div *ngIf="method.type === 'QR' && method.imageUrl" class="method-preview">
@@ -286,6 +300,26 @@
             <small *ngIf="paymentMethodForm.get('name')?.hasError('minlength')" class="error-text">
               <i class="bx bx-info-circle"></i> El nombre debe tener al menos 3 caracteres
             </small>
+          </div>
+
+          <div class="form-group color-field">
+            <label>
+              <i class="bx bx-palette" style="color: #667eea;"></i>
+              Color del método:
+            </label>
+            <div class="payment-color-palette" role="radiogroup" aria-label="Colores del método de pago">
+              <button
+                *ngFor="let color of paymentColorOptions"
+                type="button"
+                class="payment-color-swatch"
+                [style.background]="color.gradient"
+                [class.selected]="paymentMethodForm.get('color')?.value === color.value"
+                [attr.aria-label]="color.name"
+                [attr.aria-checked]="paymentMethodForm.get('color')?.value === color.value"
+                (click)="selectPaymentColor(color.value)">
+                <i *ngIf="paymentMethodForm.get('color')?.value === color.value" class="bx bx-check"></i>
+              </button>
+            </div>
           </div>
 
           <div class="form-group">
@@ -352,6 +386,46 @@
               <i class="bx bx-x"></i>
               Cancelar
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div *ngIf="showPaymentMethodEditModal" class="payment-edit-backdrop" (click)="closePaymentMethodEdit()">
+      <div class="payment-edit-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+        <div class="payment-edit-header">
+          <h3><i class="bx bx-edit"></i> Editar método de pago</h3>
+          <button type="button" class="qr-modal-close" (click)="closePaymentMethodEdit()" aria-label="Cerrar edición">
+            <i class="bx bx-x"></i>
+          </button>
+        </div>
+        <form [formGroup]="paymentMethodForm" (ngSubmit)="updatePaymentMethod()" class="payment-edit-form">
+          <label for="editPmName">Nombre</label>
+          <input id="editPmName" type="text" formControlName="name" class="form-control">
+          <label for="editPmType">Tipo</label>
+          <select id="editPmType" formControlName="type" class="form-control">
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="QR">Código QR</option>
+          </select>
+          <label>Color</label>
+          <div class="payment-color-palette" role="radiogroup" aria-label="Colores del método de pago">
+            <button
+              *ngFor="let color of paymentColorOptions"
+              type="button"
+              class="payment-color-swatch"
+              [style.background]="color.gradient"
+              [class.selected]="paymentMethodForm.get('color')?.value === color.value"
+              [attr.aria-label]="color.name"
+              [attr.aria-checked]="paymentMethodForm.get('color')?.value === color.value"
+              (click)="selectPaymentColor(color.value)">
+              <i *ngIf="paymentMethodForm.get('color')?.value === color.value" class="bx bx-check"></i>
+            </button>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-success" [disabled]="paymentMethodForm.invalid || loadingPaymentMethodCreation">
+              <i class="bx bx-save"></i> Guardar cambios
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="closePaymentMethodEdit()">Cancelar</button>
           </div>
         </form>
       </div>

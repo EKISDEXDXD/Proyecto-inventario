@@ -15,7 +15,7 @@ import { ApiConfigService } from '../auth/api-config.service';
   styleUrls: ['./home.component.css']
 })
 export class HomeComponent implements OnInit {
-  readonly appVersion = '1.1';
+  readonly appVersion = '1.2';
   readonly versionLabel = 'Lanzamiento inicial';
   username = '';
   showExternalModal = false;

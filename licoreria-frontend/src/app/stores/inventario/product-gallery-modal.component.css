@@ -175,6 +175,10 @@
   overflow: hidden;
 }
 
+.mobile-tags-toggle {
+  display: none;
+}
+
 /* ==================== SIDEBAR ==================== */
 .gallery-sidebar {
   width: 260px;
@@ -1455,6 +1459,12 @@
     border-radius: 16px;
   }
 
+  .btn-close {
+    width: 38px;
+    height: 0.5px;
+    font-size: 18px;
+  }
+
   .gallery-modal-overlay {
     padding: 10px;
   }
@@ -1464,6 +1474,12 @@
     gap: 6px;
     flex-direction: row;
     border-radius: 16px 16px 0 0;
+  }
+
+  .gallery-modal-header {
+    padding: 1.1rem 1.2rem 0.8rem;
+    gap: 12px;
+    
   }
 
   .gallery-modal-header > div {
@@ -2463,6 +2479,176 @@
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
   color: #fca5a5;
+}
+
+@media (max-width: 768px) {
+  .gallery-modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+    overflow: visible;
+  }
+
+  .mobile-tags-toggle {
+    display: flex;
+    flex: 0 0 3.15rem;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+    background: #f8fafc;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  .mobile-tags-toggle span,
+  .mobile-tags-toggle > i {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .mobile-tags-toggle span i {
+    color: var(--color-primary);
+    font-size: 1rem;
+  }
+
+  .mobile-tags-toggle.active {
+    background: #eef2ff;
+    color: var(--color-primary-dark);
+  }
+
+  .gallery-sidebar {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    transition: max-height 0.25s ease, padding 0.25s ease;
+  }
+
+  .gallery-sidebar.mobile-tags-open {
+    max-height: 9rem;
+    padding: 0.5rem 0.65rem;
+    overflow-y: auto;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .gallery-sidebar .promo-builder {
+    display: none;
+  }
+
+  .gallery-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+  }
+}
+
+/* ==================== MOBILE TAGS VISIBILITY ==================== */
+@media (max-width: 768px) {
+  .gallery-modal-content {
+    width: calc(100vw - 1rem);
+    height: calc(100dvh - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .gallery-modal-body {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .gallery-sidebar {
+    display: block;
+    position: absolute;
+    top: 3.15rem;
+    left: 0.65rem;
+    right: 0.65rem;
+    z-index: 20;
+    width: auto;
+    max-height: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    background: transparent;
+    transition: max-height 0.25s ease, padding 0.25s ease;
+  }
+
+  .gallery-sidebar.mobile-tags-open {
+    max-height: min(16rem, calc(100dvh - 10rem));
+    margin: 0;
+    padding: 0.85rem 0.85rem 1rem;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  }
+
+  .sidebar-section {
+    gap: 0.75rem;
+  }
+
+  .section-header {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .section-header h3 {
+    font-size: 0.8rem;
+  }
+
+  .section-header .btn {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.7rem;
+  }
+
+  .tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .tag-item {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.4rem;
+  }
+
+  .tag-checkbox {
+    gap: 0.4rem;
+  }
+
+  .tag-label {
+    font-size: 0.74rem;
+  }
+
+  .btn-tag-delete {
+    font-size: 0.7rem;
+  }
+
+  .gallery-main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .gallery-container {
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 :host-context(.dark) .loading-state,

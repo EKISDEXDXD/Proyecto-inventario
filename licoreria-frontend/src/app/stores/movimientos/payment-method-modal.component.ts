@@ -40,6 +40,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
               *ngFor="let method of paymentMethods"
               class="payment-btn"
               [ngClass]="'type-' + method.type.toLowerCase()"
+              [style.--payment-color]="method.color || '#6366F1'"
               (click)="selectPaymentMethod(method)"
               [class.selected]="selectedMethod?.id === method.id">
               <div class="payment-icon">
@@ -222,6 +223,7 @@ import { PaymentMethodConfigService, PaymentMethodConfig } from '../../settings/
       font-size: 0.95rem;
       font-weight: 600;
       color: var(--text-main);
+      border-left: 4px solid var(--payment-color, #6366f1);
     }
 
     .payment-btn:hover:not(:disabled) {

@@ -56,6 +56,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
   // UI
   isScrolling: boolean = false;
+  showMobileTags = false;
   overlayZIndex = 900;
 
   // Drag & Drop
@@ -203,9 +204,10 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
         const products = response.content || response;
         const rawProducts = Array.isArray(products) ? products : [];
-        const displayProducts = await this.buildGalleryDisplayProducts(rawProducts);
+        const requestPage = this.currentPage;
+        const displayProducts = this.buildBasicGalleryDisplayProducts(rawProducts);
 
-        if (this.currentPage === 0) {
+        if (requestPage === 0) {
           this.displayedProducts = displayProducts;
         } else {
           this.displayedProducts = [...this.displayedProducts, ...displayProducts];
@@ -217,6 +219,21 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
 
         console.log('[Gallery Modal] Productos mostrados:', this.displayedProducts.length, 'Total:', this.totalElements);
         this.cdr.markForCheck();
+
+        // Los lotes enriquecen precio y stock, pero no deben bloquear la primera pintura.
+        this.buildGalleryDisplayProducts(rawProducts).then(enrichedProducts => {
+          if (this.currentPage !== requestPage) {
+            return;
+          }
+
+          const enrichedById = new Map(enrichedProducts.map(product => [product.id, product]));
+          this.displayedProducts = this.displayedProducts.map(product =>
+            enrichedById.get(product.id) ?? product
+          );
+          this.cdr.markForCheck();
+        }).catch(err => {
+          console.warn('[Gallery Modal] No se pudo enriquecer stock y precios:', err);
+        });
       },
       error: (err: any) => {
         console.error('[Gallery Modal] Error cargando productos:', err);
@@ -228,6 +245,18 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private buildBasicGalleryDisplayProducts(rawProducts: any[]): any[] {
+    return (rawProducts || [])
+      .filter(product => this.isVisibleRootProduct(product))
+      .map(product => ({
+        ...product,
+        displayCost: product.cost,
+        displayPrice: product.price,
+        displayStock: product.stock,
+        rootStock: Number(product.stock ?? 0)
+      }));
   }
 
   async buildGalleryDisplayProducts(rawProducts: any[]): Promise<any[]> {
@@ -363,6 +392,10 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
     this.newTagName = '';
   }
 
+  toggleMobileTags(): void {
+    this.showMobileTags = !this.showMobileTags;
+  }
+
   /**
    * Create a new tag
    */
@@ -437,6 +470,7 @@ export class ProductGalleryModalComponent implements OnInit, OnChanges, OnDestro
    * Close modal
    */
   close() {
+    this.showMobileTags = false;
     this.onClose.emit();
   }
 

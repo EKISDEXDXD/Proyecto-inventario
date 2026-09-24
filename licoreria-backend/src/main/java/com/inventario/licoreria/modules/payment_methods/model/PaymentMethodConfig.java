@@ -1,9 +1,19 @@
 package com.inventario.licoreria.modules.payment_methods.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
 import org.springframework.lang.NonNull;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "payment_method_config")
@@ -25,6 +35,9 @@ public class PaymentMethodConfig {
 
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl; // URL de la imagen del QR (solo para QR)
+
+    @Column(nullable = false, length = 7)
+    private String color = "#6366F1";
 
     @Column(nullable = false)
     private Boolean isActive = true;
@@ -87,6 +100,14 @@ public class PaymentMethodConfig {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 
     @NonNull

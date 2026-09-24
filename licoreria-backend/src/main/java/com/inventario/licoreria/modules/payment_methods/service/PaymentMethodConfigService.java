@@ -1,16 +1,18 @@
 package com.inventario.licoreria.modules.payment_methods.service;
 
-import com.inventario.licoreria.modules.payment_methods.dto.PaymentMethodConfigDTO;
-import com.inventario.licoreria.modules.payment_methods.model.PaymentMethodConfig;
-import com.inventario.licoreria.modules.payment_methods.repository.PaymentMethodConfigRepository;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import java.util.List;
-import org.springframework.lang.NonNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.inventario.licoreria.modules.payment_methods.dto.PaymentMethodConfigDTO;
+import com.inventario.licoreria.modules.payment_methods.model.PaymentMethodConfig;
+import com.inventario.licoreria.modules.payment_methods.repository.PaymentMethodConfigRepository;
 
 @Service
 public class PaymentMethodConfigService {
@@ -39,6 +41,7 @@ public class PaymentMethodConfigService {
             config.setName(dto.getName().trim());
             config.setType(dto.getType().toUpperCase());
             config.setImageUrl(dto.getImageUrl());
+            config.setColor(dto.getColor() != null ? dto.getColor().toUpperCase() : "#6366F1");
             config.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
             
             logger.info("💾 [CREATE PAYMENT METHOD CONFIG] Guardando configuración de método de pago...");
@@ -92,6 +95,7 @@ public class PaymentMethodConfigService {
             existing.setName(dto.getName().trim());
             existing.setType(dto.getType().toUpperCase());
             existing.setImageUrl(dto.getImageUrl());
+            existing.setColor(dto.getColor() != null ? dto.getColor().toUpperCase() : existing.getColor());
             if (dto.getIsActive() != null) {
                 existing.setIsActive(dto.getIsActive());
             }

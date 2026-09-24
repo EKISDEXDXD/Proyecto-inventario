@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, NgZone, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnInit, ChangeDetectorRef, NgZone, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -11,6 +11,7 @@ import { LotesService } from '../../services/lotes.service';
 import { CurrencyService, Currency } from '../../services/currency.service';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { ModalStackService } from './modal-stack.service';
+import { GalleryNavigationService } from '../../core/gallery-navigation.service';
 
 @Component({
   selector: 'app-inventario',
@@ -19,7 +20,7 @@ import { ModalStackService } from './modal-stack.service';
   templateUrl: './inventario.html',
   styleUrl: './inventario.css'
 })
-export class InventarioComponent implements OnInit {
+export class InventarioComponent implements OnInit, AfterViewInit {
   @ViewChild(ProductGalleryModalComponent) productGalleryModal?: ProductGalleryModalComponent;
 
   storeId: number = 0;
@@ -40,6 +41,7 @@ export class InventarioComponent implements OnInit {
 
   // Gallery Modal
   showGalleryModal: boolean = false;
+  private openGalleryAfterViewInit = false;
 
   // Administrative Costs properties
   administrativeCosts: any[] = [];
@@ -150,7 +152,8 @@ export class InventarioComponent implements OnInit {
     private apiConfig: ApiConfigService,
     private currencyService: CurrencyService,
     private lotesService: LotesService,
-    private modalStackService: ModalStackService
+    private modalStackService: ModalStackService,
+    private galleryNavigationService: GalleryNavigationService
   ) {}
 
   ngOnInit() {
@@ -166,6 +169,16 @@ export class InventarioComponent implements OnInit {
     this.initializeApiUrls();
     this.tryLoadStoreData();
     this.watchStoreIdChanges();
+    this.galleryNavigationService.openGallery$.subscribe(() => {
+      this.openGalleryModal();
+      this.cdr.detectChanges();
+    });
+    this.route.queryParamMap.subscribe(params => {
+      if (params.get('openGallery') === 'true') {
+        this.openGalleryAfterViewInit = true;
+        this.openGalleryWhenReady();
+      }
+    });
     
     const savedLow = localStorage.getItem('lowStockThreshold');
     const savedNormal = localStorage.getItem('normalStockThreshold');
@@ -180,6 +193,31 @@ export class InventarioComponent implements OnInit {
     // Initialize currency
     this.availableCurrencies = this.currencyService.getCurrencies();
     this.selectedCurrency = this.currencyService.getCurrentCurrency();
+  }
+
+  ngAfterViewInit() {
+    this.openGalleryWhenReady();
+  }
+
+  private openGalleryWhenReady() {
+    if (!this.openGalleryAfterViewInit || this.showGalleryModal || !this.productGalleryModal) {
+      return;
+    }
+
+    this.openGalleryAfterViewInit = false;
+    setTimeout(() => {
+      if (this.showGalleryModal) {
+        return;
+      }
+
+      this.openGalleryModal();
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { openGallery: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    });
   }
 
   private tryLoadStoreData() {

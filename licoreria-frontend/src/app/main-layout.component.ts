@@ -5,6 +5,7 @@ import { AuthService } from './auth/auth.service';
 import { MenuService } from './core/menu.service';
 import { UserService } from './core/user.service';
 import { ExternalStoreService } from './core/external-store.service';
+import { GalleryNavigationService } from './core/gallery-navigation.service';
 import { HasUnsavedChanges } from './common/without-unsaved-changes-guard.spec';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ExportModalComponent } from './stores/export-modal.component';
@@ -33,7 +34,7 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
     return false;
   }
 
-  constructor(private authService: AuthService, private router: Router, private menuService: MenuService, private userService: UserService, private externalStoreService: ExternalStoreService, private dialog: MatDialog) {
+  constructor(private authService: AuthService, private router: Router, private menuService: MenuService, private userService: UserService, private externalStoreService: ExternalStoreService, private galleryNavigationService: GalleryNavigationService, private dialog: MatDialog) {
     console.log('MainLayoutComponent - Inicializando...');
     this.loadUsername();
     this.checkWindowSize();
@@ -84,6 +85,21 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
     if (this.currentStoreId === null) return;
     this.isStoreNavOpen = false;
     this.router.navigate(['/tienda', this.currentStoreId, section]);
+  }
+
+  openStoreGallery(): void {
+    if (this.currentStoreId === null || this.isExternalStore) return;
+    this.isStoreNavOpen = false;
+
+    const currentPath = this.router.url.split(/[?#]/)[0];
+    if (currentPath === `/tienda/${this.currentStoreId}/inventario`) {
+      this.galleryNavigationService.triggerOpenGallery();
+      return;
+    }
+
+    this.router.navigate(['/tienda', this.currentStoreId, 'inventario'], {
+      queryParams: { openGallery: 'true' }
+    });
   }
 
   toggleStoreNavigation(): void {

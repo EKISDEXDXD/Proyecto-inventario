@@ -8,6 +8,7 @@ export interface PaymentMethodConfig {
   name: string;
   type: string; // EFECTIVO, QR
   imageUrl: string | null;
+  color: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -57,12 +58,13 @@ export class PaymentMethodConfigService {
     return this.http.get<PaymentMethodConfig>(`${this.apiUrl}/${id}`, { headers });
   }
 
-  create(name: string, type: string, imageUrl?: string): Observable<PaymentMethodConfig> {
+  create(name: string, type: string, imageUrl?: string, color = '#6366F1'): Observable<PaymentMethodConfig> {
     const headers = this.getHeaders();
     const body = {
       name,
       type,
       imageUrl: imageUrl || null,
+      color,
       isActive: true
     };
     return this.http.post<PaymentMethodConfig>(this.apiUrl, body, { headers }).pipe(
@@ -70,12 +72,13 @@ export class PaymentMethodConfigService {
     );
   }
 
-  update(id: number, name: string, type: string, imageUrl?: string, isActive?: boolean): Observable<PaymentMethodConfig> {
+  update(id: number, name: string, type: string, imageUrl?: string, isActive?: boolean, color = '#6366F1'): Observable<PaymentMethodConfig> {
     const headers = this.getHeaders();
     const body = {
       name,
       type,
       imageUrl: imageUrl || null,
+      color,
       isActive: isActive !== undefined ? isActive : true
     };
     return this.http.put<PaymentMethodConfig>(`${this.apiUrl}/${id}`, body, { headers }).pipe(

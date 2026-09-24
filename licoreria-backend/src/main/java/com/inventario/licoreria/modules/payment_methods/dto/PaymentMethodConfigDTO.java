@@ -14,6 +14,9 @@ public class PaymentMethodConfigDTO {
 
     private String imageUrl; // URL de la imagen del QR (solo requerida si type es QR)
 
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "El color debe estar en formato hexadecimal")
+    private String color = "#6366F1";
+
     private Boolean isActive = true;
 
     public PaymentMethodConfigDTO() {
@@ -47,6 +50,14 @@ public class PaymentMethodConfigDTO {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 
     public Boolean getIsActive() {

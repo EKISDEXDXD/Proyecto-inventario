@@ -189,6 +189,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
+  border-top-width: 4px;
+  border-top-style: solid;
 }
 
 .inventario-header-top {
@@ -1361,6 +1363,20 @@
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border-color);
   font-size: 0.95rem;
+}
+
+.alert-product-item {
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease, padding 0.2s ease;
+}
+
+.alert-product-item:hover,
+.alert-product-item:focus-visible {
+  background-color: rgba(99, 102, 241, 0.08);
+  outline: none;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
 }
 
 :host-context(.dark) .alert-list li {
