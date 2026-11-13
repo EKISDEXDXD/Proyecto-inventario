@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
@@ -79,7 +80,7 @@ public class ProductImageService {
 
             // Generar nombre único para el archivo
             String fileName = generateFileName(file.getOriginalFilename());
-            Path imagePath = Paths.get(imageBasePath, fileName);
+            Path imagePath = getImageBasePath().resolve(fileName);
             logger.info("Guardando en: {}", imagePath.toAbsolutePath());
 
             // Guardar imagen comprimida
@@ -143,6 +144,41 @@ public class ProductImageService {
     public Optional<ProductImageDTO> getProductImage(Long productId) {
         return productImageRepository.findByProductId(productId)
                 .map(this::convertToDTO);
+    }
+
+    public Path getImageBasePath() {
+        Path configuredPath = Paths.get(imageBasePath);
+        if (configuredPath.isAbsolute()) {
+            return configuredPath.normalize();
+        }
+
+        Path workingDirectoryPath = Paths.get(System.getProperty("user.dir"))
+                .toAbsolutePath()
+                .normalize()
+                .resolve(configuredPath)
+                .normalize();
+        if (Files.isDirectory(workingDirectoryPath)) {
+            return workingDirectoryPath;
+        }
+
+        try {
+            URI codeLocationUri = ProductImageService.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+            Path codeLocation = Paths.get(codeLocationUri).toAbsolutePath().normalize();
+            if (!Files.isDirectory(codeLocation)) {
+                codeLocation = codeLocation.getParent();
+            }
+
+            for (Path base = codeLocation; base != null; base = base.getParent()) {
+                Path candidate = base.resolve(configuredPath).normalize();
+                if (Files.isDirectory(candidate) || Files.exists(base.resolve("pom.xml"))) {
+                    return candidate;
+                }
+            }
+        } catch (Exception exception) {
+            logger.warn("No se pudo resolver la ruta de imágenes desde el módulo backend: {}", exception.getMessage());
+        }
+
+        return workingDirectoryPath;
     }
 
     /**
@@ -259,7 +295,7 @@ public class ProductImageService {
      * Asegura que el directorio base existe con permisos adecuados
      */
     private void ensureDirectoryExists() throws IOException {
-        Path path = Paths.get(imageBasePath);
+        Path path = getImageBasePath();
         try {
             if (!Files.exists(path)) {
                 Files.createDirectories(path);
@@ -284,10 +320,11 @@ public class ProductImageService {
         }
         
         try {
-            Path path = Paths.get(imageBasePath, imagePath).normalize();
+            Path basePath = getImageBasePath().toAbsolutePath().normalize();
+            Path path = basePath.resolve(imagePath).normalize();
             
             // Validar que la ruta está dentro de imageBasePath por seguridad
-            if (!path.toAbsolutePath().startsWith(Paths.get(imageBasePath).toAbsolutePath())) {
+            if (!path.toAbsolutePath().startsWith(basePath)) {
                 logger.warn("Intento de acceso a ruta fuera del directorio permitido: {}", imagePath);
                 return;
             }

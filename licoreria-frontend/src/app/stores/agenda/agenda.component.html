@@ -1,0 +1,310 @@
+<main class="agenda-page" [class.dialog-open]="!!dialog">
+  <header class="agenda-heading" role="button" tabindex="0" aria-label="Volver a la tienda" (click)="backToStore()" (keydown.enter)="backToStore()" (keydown.space)="$event.preventDefault(); backToStore()">
+    <div class="heading-copy">
+      <h1>Agenda</h1>
+      <p>Una vista clara para organizar la tienda, a tu manera.</p>
+    </div>
+    <span *ngIf="!isOwner" class="read-only-note"><i class="bx bx-show"></i> Solo lectura</span>
+  </header>
+
+  <nav class="pillar-tabs" aria-label="Secciones de agenda">
+    <button *ngFor="let pillar of pillars" type="button" class="pillar-tab" [class.active]="activePillar === pillar.id" (click)="setPillar(pillar.id)">
+      <span class="pillar-icon"><i class="bx" [ngClass]="pillar.icon"></i></span>
+      <span class="pillar-label"><strong>{{ pillar.label }}</strong><small>{{ pillar.subtitle }}</small></span>
+      <span class="pillar-count">{{ boardCount(pillar.id) }}</span>
+    </button>
+  </nav>
+
+  <section *ngIf="!loading" class="calendar-library" aria-label="Calendarios de esta sección">
+    <header class="calendar-library-heading">
+      <div>
+        <span class="eyebrow">{{ pillars.find(item => item.id === activePillar)?.label }}</span>
+        <h2>Calendarios</h2>
+      </div>
+      <button *ngIf="isOwner" class="primary-button create-calendar-button" type="button" (click)="openBoardDialog()">
+        <i class="bx bx-plus"></i><span>Crear calendario</span>
+      </button>
+    </header>
+    <div class="calendar-type-groups">
+      <section class="calendar-type-row" aria-label="Calendarios estáticos">
+        <div class="calendar-type-heading"><strong>Estáticos</strong><small>Sin fecha de cierre</small></div>
+        <div class="calendar-type-list" role="listbox" aria-label="Seleccionar calendario estático">
+          <div *ngFor="let board of staticBoards" class="calendar-list-item" [class.selected]="activeBoard?.id === board.id">
+            <button type="button" class="calendar-select" role="option" [attr.aria-selected]="activeBoard?.id === board.id" (click)="selectBoard(board)">
+              <span class="calendar-select-icon"><i class="bx" [ngClass]="board.defaultBoard ? 'bx-calendar-check' : 'bx-calendar'"></i></span>
+              <span class="calendar-select-copy"><strong>{{ board.name }}</strong><small>{{ board.defaultBoard ? 'Predeterminado' : 'Disponible cada semana' }}</small></span>
+              <i *ngIf="activeBoard?.id === board.id" class="bx bx-check calendar-selected-mark"></i>
+            </button>
+            <div *ngIf="isOwner && activeBoard?.id === board.id && !board.defaultBoard" class="calendar-list-actions">
+              <button type="button" class="icon-button" title="Editar calendario" aria-label="Editar calendario" (click)="openBoardDialog(board)"><i class="bx bx-edit-alt"></i></button>
+              <button type="button" class="icon-button danger-icon" title="Eliminar calendario" aria-label="Eliminar calendario" (click)="removeBoard(board)"><i class="bx bx-trash"></i></button>
+            </div>
+          </div>
+          <p *ngIf="staticBoards.length === 0" class="calendar-library-empty">No hay calendarios estáticos.</p>
+        </div>
+      </section>
+
+      <section *ngIf="activePillar === 'WEEKLY'" class="calendar-type-row dated-row" aria-label="Calendarios con fecha">
+        <div class="calendar-type-heading"><strong>Con fecha</strong><small>Terminan el domingo</small></div>
+        <div class="calendar-type-list" role="listbox" aria-label="Seleccionar calendario con fecha">
+          <div *ngFor="let board of datedBoards" class="calendar-list-item" [class.selected]="activeBoard?.id === board.id">
+            <button type="button" class="calendar-select" role="option" [attr.aria-selected]="activeBoard?.id === board.id" (click)="selectBoard(board)">
+              <span class="calendar-select-icon dated-icon"><i class="bx bx-calendar-event"></i></span>
+              <span class="calendar-select-copy"><strong>{{ board.name }}</strong><small>{{ calendarTypeLabel(board) }}</small></span>
+              <i *ngIf="activeBoard?.id === board.id" class="bx bx-check calendar-selected-mark"></i>
+            </button>
+            <div *ngIf="isOwner && activeBoard?.id === board.id" class="calendar-list-actions">
+              <button type="button" class="icon-button" title="Editar calendario" aria-label="Editar calendario" (click)="openBoardDialog(board)"><i class="bx bx-edit-alt"></i></button>
+              <button type="button" class="icon-button danger-icon" title="Eliminar calendario" aria-label="Eliminar calendario" (click)="removeBoard(board)"><i class="bx bx-trash"></i></button>
+            </div>
+          </div>
+          <p *ngIf="datedBoards.length === 0" class="calendar-library-empty">No hay calendarios con fecha para {{ currentWeekLabel }}.</p>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section class="agenda-workspace" [class.loading]="loading">
+    <div class="workspace-toolbar">
+      <div *ngIf="isStaticWeekly" class="static-period-label"><i class="bx bx-refresh"></i>{{ periodTitle }}</div>
+      <div *ngIf="activePillar === 'WEEKLY' && !isStaticWeekly" class="static-period-label dated-period-label"><i class="bx bx-calendar-event"></i>{{ currentWeekLabel }}</div>
+      <div *ngIf="activePillar !== 'WEEKLY'" class="period-controls">
+        <button class="icon-button" type="button" (click)="shiftPeriod(-1)" aria-label="Periodo anterior" title="Anterior"><i class="bx bx-chevron-left"></i></button>
+        <strong class="period-title">{{ periodTitle }}</strong>
+        <button class="icon-button" type="button" (click)="shiftPeriod(1)" aria-label="Periodo siguiente" title="Siguiente"><i class="bx bx-chevron-right"></i></button>
+        <button *ngIf="activePillar !== 'EVENTS'" class="today-button" type="button" (click)="goToToday()">Hoy</button>
+      </div>
+    </div>
+
+    <div *ngIf="activeBoard" class="board-description">
+      <span class="board-dot"></span><span>{{ boardPurpose(activeBoard) }}</span>
+    </div>
+
+    <div *ngIf="successMessage" class="toast-message success-message" role="status"><i class="bx bx-check-circle"></i>{{ successMessage }}</div>
+    <div *ngIf="errorMessage" class="toast-message error-message" role="alert"><i class="bx bx-error-circle"></i>{{ errorMessage }}</div>
+
+    <div *ngIf="loading" class="loading-state"><span class="loader"></span><span>Cargando agenda</span></div>
+
+    <ng-container *ngIf="!loading">
+      <section *ngIf="activePillar === 'WEEKLY'" class="calendar-view weekly-view" aria-label="Calendario semanal">
+        <div class="week-grid">
+          <article *ngFor="let day of weekDays; let index = index" class="day-column" [class.is-today]="!isStaticWeekly && sameDate(day, todayDate)">
+            <header class="day-heading">
+              <span>{{ weekDaysLabels[index] }}</span>
+              <strong *ngIf="!isStaticWeekly">{{ day | date:'d' }}</strong>
+              <button *ngIf="isOwner" class="day-add" type="button" (click)="openNewEntry(day)" [attr.aria-label]="isStaticWeekly ? 'Agregar turno el ' + weekDaysLabels[index] : 'Agregar actividad el ' + (day | date:'d MMMM')" [title]="isStaticWeekly ? 'Agregar turno el ' + weekDaysLabels[index] : 'Agregar actividad el ' + (day | date:'d MMMM')"><i class="bx bx-plus"></i></button>
+            </header>
+            <div class="day-content">
+              <button *ngFor="let entry of entriesForDay(day)" type="button" class="agenda-entry" [class.is-done]="entry.status === 'DONE'" [style.--entry-color]="entry.color || '#4f46e5'" (click)="viewEntry(entry)">
+                <span class="entry-time">{{ entry.allDay ? 'Todo el día' : formatTime(entry.startDateTime) }}</span>
+                <strong>{{ entry.title }}</strong>
+                <span *ngIf="entry.responsible" class="entry-meta">{{ entry.responsible }}</span>
+                <span *ngIf="isOwner" class="entry-delete" (click)="$event.stopPropagation(); removeEntry(entry)" title="Eliminar actividad" aria-label="Eliminar actividad"><i class="bx bx-x"></i></span>
+              </button>
+              <p *ngIf="entriesForDay(day).length === 0" class="empty-day">Sin actividades</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section *ngIf="activePillar === 'EVENTS'" class="calendar-view monthly-view" aria-label="Calendario mensual">
+        <div class="month-grid">
+          <div *ngFor="let dayName of weekDaysLabels" class="month-weekday">{{ dayName }}</div>
+          <article *ngFor="let cell of monthDays; trackBy: trackByDate" class="month-cell" [class.outside-month]="!cell.inMonth" [class.is-today]="sameDate(cell.date, todayDate)" [class.is-selected]="selectedAnnualMonth === cell.date.getMonth()" (click)="openNewEntry(cell.date)">
+            <button type="button" class="date-number" (click)="openNewEntry(cell.date); $event.stopPropagation()" [attr.aria-label]="'Agregar actividad el ' + (cell.date | date:'d MMMM')"><span>{{ cell.date | date:'d' }}</span></button>
+            <button *ngFor="let entry of entriesForDay(cell.date).slice(0, 3)" type="button" class="month-entry" [class.is-done]="entry.status === 'DONE'" [style.--entry-color]="entry.color || '#198f74'" (click)="$event.stopPropagation(); viewEntry(entry)">
+              <span>{{ entry.title }}</span>
+              <i *ngIf="entry.status === 'DONE'" class="bx bx-check"></i>
+            </button>
+            <span *ngIf="entriesForDay(cell.date).length > 3" class="more-count">+{{ entriesForDay(cell.date).length - 3 }} más</span>
+          </article>
+        </div>
+      </section>
+
+      <section *ngIf="activePillar === 'ANNUAL'" class="annual-view" aria-label="Plan anual">
+        <div class="annual-summary">
+          <button type="button" class="annual-summary-card" [class.active]="annualSummaryFilter === 'ALL'" [attr.aria-pressed]="annualSummaryFilter === 'ALL'" (click)="setAnnualSummaryFilter('ALL')"><span>Actividades en {{ currentDate.getFullYear() }}</span><strong>{{ totalEntries }}</strong></button>
+          <button type="button" class="annual-summary-card" [class.active]="annualSummaryFilter === 'PENDING'" [attr.aria-pressed]="annualSummaryFilter === 'PENDING'" (click)="setAnnualSummaryFilter('PENDING')"><span>Pendientes</span><strong>{{ pendingEntries }}</strong></button>
+          <button type="button" class="annual-summary-card" [class.active]="annualSummaryFilter === 'DONE'" [attr.aria-pressed]="annualSummaryFilter === 'DONE'" (click)="setAnnualSummaryFilter('DONE')"><span>Completadas</span><strong>{{ doneEntries }}</strong></button>
+        </div>
+        <div class="year-grid">
+          <article *ngFor="let monthName of monthNames; let month = index" class="year-month" [class.selected]="selectedAnnualMonth === month" [attr.aria-label]="'Calendario de ' + monthName">
+            <button type="button" class="year-month-heading" [attr.aria-pressed]="selectedAnnualMonth === month" (click)="showAnnualMonth(month)">
+              <span class="year-month-name">{{ monthName }}</span>
+              <small>{{ entriesForMonth(month).length }} {{ entriesForMonth(month).length === 1 ? 'actividad' : 'actividades' }}</small>
+            </button>
+            <div class="annual-month-weekdays" aria-hidden="true">
+              <span *ngFor="let dayName of compactWeekDaysLabels; let index = index" [title]="weekDaysLabels[index]">{{ dayName }}</span>
+            </div>
+            <div class="annual-month-days">
+              <ng-container *ngFor="let cell of annualMonthDays(month); trackBy: trackByDate">
+                <button *ngIf="cell.inMonth" type="button" class="annual-day" [class.is-today]="sameDate(cell.date, todayDate)" [class.has-entry]="entriesForDay(cell.date).length > 0" [attr.aria-label]="'Agregar actividad el ' + (cell.date | date:'d MMMM')" (click)="openNewEntry(cell.date)">
+                  <span>{{ cell.date | date:'d' }}</span>
+                  <i *ngIf="entriesForDay(cell.date).length > 0" aria-hidden="true"></i>
+                </button>
+                <span *ngIf="!cell.inMonth" class="annual-day empty-day-cell" aria-hidden="true"></span>
+              </ng-container>
+            </div>
+          </article>
+        </div>
+        <div *ngIf="annualSummaryFilter !== null" class="annual-month-detail annual-summary-detail">
+          <div class="detail-heading">
+            <div><span class="eyebrow">{{ currentDate.getFullYear() }}</span><h2>{{ annualSummaryFilter === 'ALL' ? 'Todas las actividades' : annualSummaryFilter === 'PENDING' ? 'Actividades pendientes' : 'Actividades completadas' }}</h2></div>
+            <span class="summary-result-count">{{ summaryEntries.length }} {{ summaryEntries.length === 1 ? 'actividad' : 'actividades' }}</span>
+          </div>
+          <div *ngIf="summaryEntries.length; else emptySummaryResults" class="annual-entry-list">
+            <button *ngFor="let entry of summaryEntries" class="annual-entry" type="button" (click)="viewEntry(entry)">
+              <span class="entry-date"><strong>{{ entry.startDateTime | date:'d' }}</strong><small>{{ entry.startDateTime | date:'EEE' }}</small></span>
+              <span class="annual-entry-copy"><strong>{{ entry.title }}</strong><small>{{ entry.startDateTime | date:'d MMM' }} · {{ categoryLabel(entry.category) }}<ng-container *ngIf="entry.responsible"> · {{ entry.responsible }}</ng-container></small></span>
+              <span class="status-label" [class.complete]="entry.status === 'DONE'">{{ entry.status === 'DONE' ? 'Completada' : 'Pendiente' }}</span>
+            </button>
+          </div>
+          <ng-template #emptySummaryResults><p class="empty-month">No hay actividades en esta categoría para {{ currentDate.getFullYear() }}.</p></ng-template>
+        </div>
+        <div *ngIf="selectedAnnualMonth !== null && annualSummaryFilter === null" class="annual-month-detail">
+          <div class="detail-heading"><div><span class="eyebrow">{{ currentDate.getFullYear() }}</span><h2>{{ monthNames[selectedAnnualMonth] }}</h2></div><button *ngIf="isOwner" class="primary-button" type="button" (click)="addAnnualEntry()"><i class="bx bx-plus"></i> Agregar fecha</button></div>
+          <div *ngIf="entriesForMonth(selectedAnnualMonth).length; else emptyYearMonth" class="annual-entry-list">
+            <button *ngFor="let entry of entriesForMonth(selectedAnnualMonth)" class="annual-entry" type="button" (click)="viewEntry(entry)">
+              <span class="entry-date"><strong>{{ entry.startDateTime | date:'d' }}</strong><small>{{ entry.startDateTime | date:'EEE' }}</small></span>
+              <span class="annual-entry-copy"><strong>{{ entry.title }}</strong><small>{{ categoryLabel(entry.category) }}<ng-container *ngIf="entry.responsible"> · {{ entry.responsible }}</ng-container></small></span>
+              <span class="status-label" [class.complete]="entry.status === 'DONE'">{{ entry.status === 'DONE' ? 'Completado' : 'Pendiente' }}</span>
+            </button>
+          </div>
+          <ng-template #emptyYearMonth><p class="empty-month">No hay fechas organizadas en este mes.</p></ng-template>
+        </div>
+        <p *ngIf="selectedAnnualMonth === null && annualSummaryFilter === null" class="annual-hint"><i class="bx bx-pointer"></i> Selecciona un mes o resumen para ver sus actividades.</p>
+      </section>
+
+      <section *ngIf="!activeBoard" class="no-board-state">
+        <i class="bx bx-calendar-plus"></i><h2>Esta sección aún no tiene calendarios</h2><p>Crea uno con un nombre y propósito que te ayuden a organizarte.</p>
+        <button *ngIf="isOwner" class="primary-button" type="button" (click)="openBoardDialog()"><i class="bx bx-plus"></i> Crear calendario</button>
+      </section>
+    </ng-container>
+  </section>
+
+  <div *ngIf="dialog" class="dialog-backdrop" (click)="closeDialog()">
+    <section class="agenda-dialog" role="dialog" aria-modal="true" [attr.aria-label]="dialog === 'board' ? 'Calendario personalizado' : dialog === 'entry-details' ? 'Detalle de actividad' : 'Actividad'" (click)="$event.stopPropagation()">
+      <header class="dialog-heading">
+        <div class="dialog-title-icon"><i class="bx" [ngClass]="dialog === 'board' ? 'bx-calendar-plus' : 'bx-calendar-event'"></i></div>
+        <div class="dialog-title-copy"><h2>{{ dialog === 'board' ? (editingBoardId ? 'Editar calendario' : 'Crear calendario') : dialog === 'entry-details' ? 'Información de actividad' : (editingEntryId ? 'Editar actividad' : 'Nueva actividad') }}</h2></div>
+        <button class="icon-button" type="button" (click)="closeDialog()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+      </header>
+
+      <section *ngIf="dialog === 'entry-details' && selectedEntry as entry" class="dialog-form entry-details">
+        <div class="entry-details-title-row">
+          <h3>{{ entry.title }}</h3>
+          <span class="status-label" [class.complete]="entry.status === 'DONE'">{{ entry.status === 'DONE' ? 'Completada' : 'Pendiente' }}</span>
+        </div>
+        <dl class="entry-detail-grid">
+          <div class="entry-detail-item"><dt>Fecha</dt><dd>{{ formatEntryDate(entry.startDateTime) }}</dd></div>
+          <div class="entry-detail-item"><dt>Horario</dt><dd>{{ entry.allDay ? 'Todo el día' : formatTime(entry.startDateTime) + (entry.endDateTime ? ' – ' + formatTime(entry.endDateTime) : '') }}</dd></div>
+          <div *ngIf="entry.endDateTime && entry.endDateTime.slice(0, 10) !== entry.startDateTime.slice(0, 10)" class="entry-detail-item"><dt>Fecha fin</dt><dd>{{ formatEntryDate(entry.endDateTime) }}</dd></div>
+          <div *ngIf="activePillar !== 'WEEKLY'" class="entry-detail-item"><dt>Tipo</dt><dd>{{ categoryLabel(entry.category) }}</dd></div>
+          <div *ngIf="entry.responsible" class="entry-detail-item"><dt>Responsable</dt><dd>{{ entry.responsible }}</dd></div>
+          <div *ngIf="entry.weeklyRecurring" class="entry-detail-item"><dt>Repetición</dt><dd>Cada semana</dd></div>
+          <div *ngIf="entry.description" class="entry-detail-item entry-detail-description"><dt>Notas</dt><dd>{{ entry.description }}</dd></div>
+        </dl>
+        <footer class="dialog-actions">
+          <button class="secondary-button" type="button" (click)="closeDialog()">Cerrar</button>
+          <button *ngIf="isOwner" class="primary-button" type="button" (click)="editSelectedEntry()"><i class="bx bx-edit-alt"></i> Editar actividad</button>
+        </footer>
+      </section>
+
+      <form *ngIf="dialog === 'entry'" class="dialog-form entry-dialog-form" (ngSubmit)="saveEntry()">
+        <label>Título<input #entryTitle name="title" [(ngModel)]="entryForm.title" required maxlength="120" placeholder="Ej. Recibir pedido de bebidas"></label>
+        <div class="form-row">
+          <label *ngIf="activePillar !== 'WEEKLY'">Tipo<select name="category" [(ngModel)]="entryForm.category"><option *ngFor="let category of categories" [value]="category.value">{{ category.label }}</option></select></label>
+          <label [class.full-row]="activePillar === 'WEEKLY'">Responsable<input name="responsible" [(ngModel)]="entryForm.responsible" maxlength="100" placeholder="Nombre de la persona"></label>
+        </div>
+        <div *ngIf="entryDateSelected" class="selected-date-notice">
+          <i class="bx bx-calendar-check"></i>
+          <span class="selected-date-copy">
+            <strong>{{ isStaticWeekly ? 'Día seleccionado' : 'Fecha seleccionada' }}</strong>
+            <small *ngIf="!isEditingSelectedDate">{{ selectedEntryDateLabel }}</small>
+            <input *ngIf="isEditingSelectedDate" type="date" name="selectedEntryDate" [ngModel]="entryDate" (ngModelChange)="updateSelectedEntryDate($event)" required>
+          </span>
+          <div class="selected-date-actions">
+            
+            <button *ngIf="!isStaticWeekly" type="button" class="end-date-button" (click)="openEndDateDialog()">
+              <i class="bx" [ngClass]="entryEndDate ? 'bx-calendar-edit' : 'bx-calendar-plus'"></i>
+              {{ entryEndDate ? 'Editar fecha fin' : 'Agregar fecha fin' }}
+            </button>
+          </div>
+          <span *ngIf="!isStaticWeekly && entryEndDate" class="end-date-value">Hasta {{ entryEndDateLabel }}</span>
+        </div>
+        <p *ngIf="isStaticWeekly" class="calendar-entry-notice recurring-notice">
+          <i class="bx bx-refresh"></i> Este turno se repite cada semana y no tiene fecha de cierre.
+        </p>
+        <p *ngIf="activePillar === 'WEEKLY' && calendarType(activeBoard) === 'DATED'" class="calendar-entry-notice">
+          <i class="bx bx-calendar-event"></i> Esta actividad pertenece a {{ currentWeekLabel }} y termina el domingo.
+        </p>
+        <label class="all-day-toggle"><input type="checkbox" name="allDay" [(ngModel)]="entryForm.allDay"><span>Actividad de todo el día</span></label>
+        <div *ngIf="isStaticWeekly && !entryForm.allDay" class="form-row">
+          <label>Hora de inicio<input name="entryStartTime" type="time" [(ngModel)]="entryStartTime" required></label>
+          <label>Hora de fin <span class="optional">(opcional)</span><input name="entryEndTime" type="time" [(ngModel)]="entryEndTime"></label>
+        </div>
+        <div *ngIf="!isStaticWeekly" class="form-row">
+          <label *ngIf="!entryDateSelected">Fecha<input name="entryDate" type="date" [(ngModel)]="entryDate" required></label>
+        </div>
+        <div *ngIf="!isStaticWeekly && !entryDateSelected" class="end-date-setting">
+          <button type="button" class="end-date-button" (click)="openEndDateDialog()">
+            <i class="bx" [ngClass]="entryEndDate ? 'bx-calendar-edit' : 'bx-calendar-plus'"></i>
+            {{ entryEndDate ? 'Editar fecha fin' : 'Agregar fecha fin' }}
+          </button>
+          <span *ngIf="entryEndDate" class="end-date-value">Hasta {{ entryEndDateLabel }}</span>
+        </div>
+        <div *ngIf="!isStaticWeekly && !entryForm.allDay" class="form-row">
+          <label>Hora de inicio<input name="entryStartTime" type="time" [(ngModel)]="entryStartTime" required></label>
+          <label>Hora de fin <span class="optional">(opcional)</span><input name="entryEndTime" type="time" [(ngModel)]="entryEndTime"></label>
+        </div>
+        <label>Notas<textarea name="description" [(ngModel)]="entryForm.description" rows="3" maxlength="2000" placeholder="Detalles útiles para el equipo"></textarea></label>
+        <div class="form-row">
+          <label>Estado<select name="status" [(ngModel)]="entryForm.status"><option value="PENDING">Pendiente</option><option value="DONE">Completado</option></select></label>
+          <label>Color<span class="color-input"><input name="color" type="color" [value]="entryForm.color || '#7566e8'" (input)="entryForm.color = $any($event.target).value"><span>{{ entryForm.color || '#7566e8' }}</span></span></label>
+        </div>
+        <footer class="dialog-actions"><button class="secondary-button" type="button" (click)="closeDialog()">Cancelar</button><button class="primary-button" type="submit" [disabled]="saving"><i class="bx bx-check"></i>{{ saving ? 'Guardando…' : 'Guardar actividad' }}</button></footer>
+      </form>
+
+      <form *ngIf="dialog === 'board'" class="dialog-form board-dialog-form" (ngSubmit)="saveBoard()">
+        <label>Pilar<select name="pillar" [(ngModel)]="boardForm.pillar" (ngModelChange)="onBoardPillarChange($event)" [disabled]="!!editingBoardId"><option value="WEEKLY">Calendario semanal</option><option value="EVENTS">Calendario de eventos</option><option value="ANNUAL">Calendario anual</option></select></label>
+        <label *ngIf="boardForm.pillar === 'WEEKLY'">Tipo de calendario<select name="calendarType" [(ngModel)]="boardForm.calendarType"><option value="STATIC">Estático</option><option value="DATED">Con fecha para esta semana</option></select></label>
+        <div *ngIf="boardForm.pillar === 'WEEKLY' && boardForm.calendarType === 'STATIC'" class="calendar-type-note static-note">
+          <i class="bx bx-refresh"></i><span>Se mantiene disponible. Sus turnos pueden repetirse cada semana.</span>
+        </div>
+        <div *ngIf="boardForm.pillar === 'WEEKLY' && boardForm.calendarType === 'DATED'" class="calendar-type-note dated-note dated-board-note">
+          <i class="bx bx-calendar-event"></i>
+          <div class="dated-board-content">
+            <div class="dated-board-copy">
+              <span>Vigente {{ boardWeekLabel }}. Se cierra al terminar el domingo.</span>
+              <button class="week-change-button" type="button" (click)="showBoardWeekPicker = !showBoardWeekPicker">
+                <i class="bx bx-calendar-edit"></i>{{ showBoardWeekPicker ? 'Cerrar selector' : 'Cambiar semana' }}
+              </button>
+            </div>
+            <label *ngIf="showBoardWeekPicker" class="week-picker-label">Semana del calendario<input type="week" name="boardWeek" [ngModel]="selectedBoardWeek" (ngModelChange)="updateBoardWeek($event)"></label>
+          </div>
+        </div>
+        <label>Nombre del calendario<input #boardName name="name" [(ngModel)]="boardForm.name" required maxlength="100" placeholder="Ej. Turnos de fin de semana"></label>
+        <label>Propósito<textarea name="purpose" [(ngModel)]="boardForm.purpose" required rows="3" maxlength="500" placeholder="¿Qué quieres organizar aquí?"></textarea></label>
+        <footer class="dialog-actions"><button class="secondary-button" type="button" (click)="closeDialog()">Cancelar</button><button class="primary-button" type="submit" [disabled]="saving"><i class="bx bx-check"></i>{{ saving ? 'Guardando…' : 'Guardar calendario' }}</button></footer>
+      </form>
+    </section>
+    <div *ngIf="endDateDialogOpen" class="end-date-backdrop" (click)="$event.stopPropagation(); closeEndDateDialog()">
+      <section class="agenda-dialog end-date-dialog" role="dialog" aria-modal="true" aria-label="Fecha fin de la actividad" (click)="$event.stopPropagation()">
+        <header class="dialog-heading">
+          <div class="dialog-title-icon"><i class="bx bx-calendar-event"></i></div>
+          <div class="dialog-title-copy"><h2>{{ entryEndDate ? 'Editar fecha fin' : 'Agregar fecha fin' }}</h2></div>
+          <button class="icon-button" type="button" (click)="closeEndDateDialog()" aria-label="Cerrar"><i class="bx bx-x"></i></button>
+        </header>
+        <div class="dialog-form end-date-form">
+          <p>Selecciona hasta qué día estará activa esta actividad.</p>
+          <label>Fecha final<input type="date" name="pendingEntryEndDate" [(ngModel)]="pendingEntryEndDate" [min]="entryDate"></label>
+          <footer class="dialog-actions">
+            <button *ngIf="entryEndDate" class="secondary-button remove-end-date-button" type="button" (click)="removeEndDate()">Quitar fecha fin</button>
+            <button class="secondary-button" type="button" (click)="closeEndDateDialog()">Cancelar</button>
+            <button class="primary-button" type="button" [disabled]="!pendingEntryEndDate" (click)="applyEndDate()">Aplicar fecha</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>

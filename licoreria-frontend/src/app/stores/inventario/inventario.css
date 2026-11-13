@@ -1065,7 +1065,107 @@
   color: var(--color-warning);
 }
 
-/* ============ FILA EXPANDIBLE DE ALERTAS ============ */
+/* ============ MODAL DE CONFIGURACIÓN DE ALERTA ============ */
+.alert-config-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, .38);
+  backdrop-filter: blur(3px);
+  animation: fadeIn .18s ease-out;
+}
+
+.alert-config-modal {
+  width: min(100%, 520px);
+  max-height: min(90vh, 560px);
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .24);
+  animation: slideUp .22s ease-out;
+}
+
+.alert-config-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(99, 102, 241, .035);
+}
+
+.alert-config-heading { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.alert-config-icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface); color: var(--color-primary); font-size: 1.2rem; }
+.alert-config-heading h2 { margin: 0; color: var(--text-main); font-size: 1.05rem; font-weight: 700; }
+.alert-config-heading p { margin: .2rem 0 0; color: var(--text-muted); font-size: .82rem; overflow-wrap: anywhere; }
+.alert-config-close { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
+.alert-config-close:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.alert-config-form { padding: 1.25rem; }
+.alert-config-actions { display: flex; justify-content: flex-end; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.alert-state-selector {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .25rem;
+  min-height: 48px;
+  padding: .25rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  isolation: isolate;
+}
+.alert-state-indicator {
+  position: absolute;
+  z-index: -1;
+  inset: .25rem auto .25rem .25rem;
+  width: calc(50% - .375rem);
+  border-radius: 9px;
+  background: rgba(22, 163, 74, .13);
+  box-shadow: inset 0 0 0 1px rgba(22, 163, 74, .3);
+  transition: transform .24s cubic-bezier(.2, .8, .2, 1), background-color .2s ease, box-shadow .2s ease;
+}
+.alert-state-selector:not(.is-enabled) .alert-state-indicator {
+  transform: translateX(calc(100% + .25rem));
+  background: rgba(239, 68, 68, .11);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .28);
+}
+.alert-state-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-width: 0;
+  padding: .55rem .75rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 650;
+  transition: color .18s ease, transform .18s ease;
+}
+.alert-state-option i { font-size: 1.1rem; }
+.alert-state-option:hover { transform: translateY(-1px); }
+.alert-state-option:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -3px; }
+.alert-state-selector.is-enabled .alert-state-option:first-of-type,
+.alert-state-selector:not(.is-enabled) .alert-state-option:last-of-type { color: #15803d; }
+.alert-state-selector:not(.is-enabled) .alert-state-option:last-of-type { color: #dc2626; }
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-state-indicator,
+  .alert-state-option { transition: none; }
+}
+
+/* ============ ALERTAS POR PRODUCTO ============ */
 .alert-popup-row td {
   padding: 0 !important;
   border-bottom: none !important;
@@ -1366,17 +1466,66 @@
 }
 
 .alert-product-item {
-  cursor: pointer;
+  cursor: default;
   border-radius: 0.5rem;
-  transition: background-color 0.2s ease, padding 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
-.alert-product-item:hover,
-.alert-product-item:focus-visible {
+.alert-product-item:hover {
   background-color: rgba(99, 102, 241, 0.08);
-  outline: none;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+}
+
+.alert-product-summary {
+  display: grid;
+  flex: 1 1 auto;
+  gap: .2rem;
+  min-width: 0;
+  padding: .15rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.alert-product-summary:hover .product-name { color: var(--color-primary); }
+.alert-product-summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.alert-product-summary .product-name { min-width: 0; margin: 0; }
+.alert-product-summary .product-info { white-space: normal; }
+
+.alert-config-button {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5b6472;
+  cursor: pointer;
+  font-size: 1.05rem;
+  transition: background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.alert-config-button:hover { transform: scale(1.08); background: #eef0f3; color: #374151; }
+.alert-config-button:focus-visible { outline: none; background: #e5e7eb; color: #1f2937; }
+.alert-config-button i { font-size: 1.1rem; }
+
+:host-context(.dark) .alert-config-modal { background: var(--bg-surface); }
+:host-context(.dark) .alert-config-header { background: rgba(99, 102, 241, .08); }
+:host-context(.dark) .alert-config-close { background: #1e293b; }
+:host-context(.dark) .alert-config-button { background: transparent; color: #cbd5e1; }
+:host-context(.dark) .alert-config-button:hover, :host-context(.dark) .alert-config-button:focus-visible { background: #334155; color: #fff; }
+:host-context(.dark) .alert-product-item:hover { background: rgba(99, 102, 241, .12); }
+
+@media (max-width: 520px) {
+  .alert-config-modal { max-height: 92vh; }
+  .alert-config-header, .alert-config-form { padding: 1rem; }
+  .alert-config-form .form-row { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .alert-product-item { align-items: center; gap: .5rem; }
+  .alert-config-button { flex-basis: 34px; width: 34px; height: 34px; }
 }
 
 :host-context(.dark) .alert-list li {

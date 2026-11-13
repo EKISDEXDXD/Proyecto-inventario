@@ -131,6 +131,17 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   transactionComment: string = '';
   showMovementProductsModal: boolean = false;
   movementProductsSummary: any[] = [];
+  movementSuccessMessage = '';
+  private movementSuccessTimeout: number | null = null;
+  movementDaySummaries: Array<{
+    label: string;
+    entries: number;
+    entryCost: number;
+    sales: number;
+    salesRevenue: number;
+    salesCost: number;
+    grossProfit: number;
+  }> = [];
 
   // Shopping Cart State
   showCart: boolean = false;
@@ -193,8 +204,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   filteredProductsForAutocomplete: any[] = [];
   showProductDropdown: boolean = false;
   recentProducts: any[] = [];
+  recentImageProducts: any[] = [];
+  showRecentImageProducts = false;
   // Producto seleccionado para mostrar su vista previa de imagen en el formulario
   selectedProductForImage: any = null;
+  selectedProductImageFailed = false;
+  brokenRecentImageProductIds = new Set<number>();
   private paymentSwipeStartX: number | null = null;
   paymentSwipeAnimation: 'next' | 'previous' | '' = '';
   private productSearchSubject = new Subject<string>();
@@ -266,6 +281,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+    if (this.movementSuccessTimeout !== null) {
+      window.clearTimeout(this.movementSuccessTimeout);
+    }
     this.productSearchSubject.complete();
     this.paymentNotificationsSocket.disconnect();
   }
@@ -287,15 +305,55 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
   private loadRecentProducts() {
     const stored = localStorage.getItem(this.RECENT_PRODUCTS_KEY);
+    this.recentProducts = [];
     if (stored) {
       try {
-        const recentIds = JSON.parse(stored) as number[];
-        const inventoryProducts = this.getInventoryDisplayProducts();
-        this.recentProducts = inventoryProducts.filter(p => recentIds.includes(p.id)).slice(0, this.MAX_RECENT_PRODUCTS);
+        const parsedIds = JSON.parse(stored);
+        const recentIds: number[] = Array.isArray(parsedIds)
+          ? parsedIds.map(Number).filter((id, index, ids) => Number.isInteger(id) && id > 0 && ids.indexOf(id) === index)
+          : [];
+        const productsById = new Map(this.getInventoryDisplayProducts().map(product => [Number(product.id), product]));
+        this.recentProducts = recentIds
+          .flatMap(id => {
+            const product = productsById.get(id);
+            return product ? [product] : [];
+          })
+          .slice(0, this.MAX_RECENT_PRODUCTS);
       } catch (e) {
         console.error('Error loading recent products:', e);
       }
     }
+
+    this.updateRecentImageProducts();
+  }
+
+  private updateRecentImageProducts(): void {
+    const hasImage = (product: any) => Boolean(product?.image?.imagePath);
+    const recentWithImages = this.recentProducts.filter(hasImage);
+    const recentIds = new Set(recentWithImages.map(product => Number(product.id)));
+    const newestWithImages = [...this.displayProducts]
+      .filter(hasImage)
+      .sort((first, second) => Number(second.rootProductId ?? second.id) - Number(first.rootProductId ?? first.id))
+      .slice(0, this.MAX_RECENT_PRODUCTS)
+      .filter(product => !recentIds.has(Number(product.id)));
+
+    this.recentImageProducts = [...recentWithImages, ...newestWithImages];
+  }
+
+  toggleRecentImageProducts(): void {
+    this.showRecentImageProducts = !this.showRecentImageProducts;
+    if (this.showRecentImageProducts) {
+      this.updateRecentImageProducts();
+    }
+  }
+
+  closeRecentImageProducts(): void {
+    this.showRecentImageProducts = false;
+  }
+
+  selectProductFromImagePicker(product: any): void {
+    this.showRecentImageProducts = false;
+    this.selectProductFromAutocomplete(product);
   }
 
   private saveRecentProduct(productId: number) {
@@ -304,7 +362,10 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     
     if (stored) {
       try {
-        recentIds = JSON.parse(stored);
+        const parsedIds = JSON.parse(stored);
+        recentIds = Array.isArray(parsedIds)
+          ? parsedIds.map(Number).filter((id, index, ids) => Number.isInteger(id) && id > 0 && ids.indexOf(id) === index)
+          : [];
       } catch (e) {
         console.error('Error parsing recent products:', e);
       }
@@ -414,11 +475,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   selectProductFromAutocomplete(product: any) {
+    this.showRecentImageProducts = false;
     this.selectedProductId = product.id;
     this.movement.productId = product.id;
     this.productSearchTerm = product.name;
     this.showProductDropdown = false;
     this.selectedProductForImage = product;
+    this.selectedProductImageFailed = false;
     this.saveRecentProduct(product.id);
 
     this.availableLotes = this.buildProductSelectionOptions(product);
@@ -495,6 +558,11 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     return parts.join(' • ');
   }
 
+  get isSelectedLoteOutOfStock(): boolean {
+    const selected = this.availableLotes.find(lote => lote.id === this.selectedLoteId);
+    return !!selected && Number(selected.stock ?? 0) === 0;
+  }
+
   getLoteTypeLabel(lote: any): string {
     return lote?.isRootOption ? 'Producto raíz' : 'Lote';
   }
@@ -507,6 +575,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   clearProductSearch() {
+    this.showRecentImageProducts = false;
     this.productSearchTerm = '';
     this.selectedProductId = 0;
     this.movement.productId = 0;
@@ -520,11 +589,29 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private clearMovementProductSelection(lastProduct: any): void {
+    this.showRecentImageProducts = false;
+    this.productSearchTerm = '';
+    this.selectedProductId = 0;
+    this.movement.productId = 0;
+    this.filteredProductsForAutocomplete = [];
+    this.showProductDropdown = false;
+    this.availableLotes = [];
+    this.selectedLoteId = 0;
+    this.showLotesDropdown = false;
+    this.selectedProductForImage = lastProduct;
+    this.selectedProductImageFailed = false;
+    this.cdr.detectChanges();
+  }
+
   /**
    * Obtiene la URL de la imagen del producto seleccionado, o un placeholder si no tiene.
    */
   getSelectedProductImagePath(): string {
-    const product = this.selectedProductForImage;
+    return this.getProductImagePath(this.selectedProductForImage);
+  }
+
+  getProductImagePath(product: any): string {
     const imageProductId = Number(product?.imageProductId || product?.id || 0);
     if (imageProductId > 0) {
       const imageUrl = `${this.apiConfig.getApiUrl('/api/product-images')}/file/${imageProductId}`;
@@ -535,8 +622,14 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     return this.getPlaceholderImage();
   }
 
-  onSelectedProductImageError(event: any) {
-    event.target.src = this.getPlaceholderImage();
+  onSelectedProductImageError() {
+    this.selectedProductImageFailed = true;
+    this.cdr.markForCheck();
+  }
+
+  onRecentProductImageError(productId: number) {
+    this.brokenRecentImageProductIds.add(Number(productId));
+    this.cdr.markForCheck();
   }
 
   private getPlaceholderImage(): string {
@@ -580,7 +673,6 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   onMovementTypeChange() {
-    this.clearProductSearch(); // Limpiar producto al cambiar tipo
     this.updateAvailableReasons(); // Actualizar motivos disponibles
   }
 
@@ -818,6 +910,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       return {
         ...displayProduct,
+        rootProductId: rootProduct.id,
         image: displayProduct.image || rootProduct.image,
         imageProductId: displayProduct.image?.imagePath ? displayProduct.id : rootProduct.id,
         name: rootProduct.name,
@@ -1056,6 +1149,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
       quantity: this.movement.quantity,
       reason: this.movement.reason,
       price: product.price,
+      productImage: this.selectedProductForImage,
       paymentMethodConfigId: this.selectedPaymentMethod?.id || null,
       paymentMethodName: this.selectedPaymentMethod?.name || null,
       paymentMethodType: this.selectedPaymentMethod?.type || null
@@ -1068,7 +1162,7 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.showCart = true;
 
     // Limpiar formulario
-    this.clearProductSearch();
+    this.clearMovementProductSelection(this.selectedProductForImage);
     this.movement = { 
       type: this.movement.type, 
       productId: 0, 
@@ -1277,6 +1371,12 @@ export class MovimientosComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           console.log('Respuesta del servidor:', response);
           const createdTransactions = Array.isArray(response) ? response : response.transactions || [];
+          const registeredMovements = this.cartItems.length;
+          const lastCartItem = this.cartItems[this.cartItems.length - 1];
+          const lastProduct = lastCartItem?.productImage || this.products.find(product => product.id === lastCartItem?.productId) || null;
+          const successMessage = registeredMovements === 1
+            ? `${this.cartItems[0].type === 'ENTRADA' ? 'Entrada' : 'Salida'} registrada: ${this.cartItems[0].quantity} ${this.cartItems[0].productName}`
+            : `${registeredMovements} movimientos registrados`;
           createdTransactions.forEach((createdTrans: any, index: number) => {
             const optIndex = this.transactions.findIndex(t => t.id === optimisticTransactions[index].id);
             if (optIndex !== -1) {
@@ -1288,9 +1388,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
           this.cartItems = [];
           this.showCart = false;
           this.isRegisteringAllMovements = false;
-          this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
           this.updateAvailableReasons();
-          this.clearProductSearch();
+          this.clearMovementProductSelection(lastProduct);
+          this.showMovementSuccess(successMessage);
 
           // Resincroniza con el servidor (stock autoritativo por lotes + historial ordenado/paginado)
           this.loadStoreProducts();
@@ -1360,12 +1460,13 @@ export class MovimientosComponent implements OnInit, OnDestroy {
             this.transactions[optIndex] = createdTransaction;
           }
 
+          const completedMovement = this.quickPurchaseMovement!;
+          const lastProduct = this.selectedProductForImage;
           this.sortTransactions();
           this.isRegisteringQuickPurchase = false;
           this.quickPurchaseMovement = null;
-          this.movement = { type: 'SALIDA', productId: 0, quantity: 0, reason: 'VENTA' };
-          this.updateAvailableReasons();
-          this.clearProductSearch();
+          this.clearMovementProductSelection(lastProduct);
+          this.showMovementSuccess(`${completedMovement.type === 'ENTRADA' ? 'Entrada' : 'Salida'} registrada: ${completedMovement.quantity} ${completedMovement.productName}`);
 
           // Resincroniza con el servidor (stock autoritativo por lotes + historial ordenado/paginado)
           this.loadStoreProducts();
@@ -1397,6 +1498,18 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   registerMovement() {
     // Mantener el método original para compatibilidad
     this.addToCart();
+  }
+
+  private showMovementSuccess(message: string): void {
+    this.movementSuccessMessage = message;
+    if (this.movementSuccessTimeout !== null) {
+      window.clearTimeout(this.movementSuccessTimeout);
+    }
+    this.movementSuccessTimeout = window.setTimeout(() => {
+      this.movementSuccessMessage = '';
+      this.movementSuccessTimeout = null;
+      this.cdr.markForCheck();
+    }, 2600);
   }
 
   deleteTransaction(transactionId: number) {
@@ -1498,6 +1611,27 @@ export class MovimientosComponent implements OnInit, OnDestroy {
   }
 
   private buildMovementProductsSummary() {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    this.movementDaySummaries = [
+      { label: 'Hoy', date: today },
+      { label: 'Ayer', date: yesterday }
+    ].map(({ label, date }) => {
+      const dateKey = this.getLocalDateKey(date);
+      const [year, month, dayOfMonth] = dateKey.split('-');
+      const summary = this.allDailyFlowHistory.find(day => day.date === dateKey);
+      return {
+        label: `${label} · ${dayOfMonth}/${month}/${year}`,
+        entries: summary?.entries ?? 0,
+        entryCost: summary?.entryCost ?? 0,
+        sales: summary?.sales ?? 0,
+        salesRevenue: summary?.salesRevenue ?? 0,
+        salesCost: summary?.salesCost ?? 0,
+        grossProfit: summary?.grossProfit ?? 0
+      };
+    });
+
     const summaryMap: { [key: number]: { productName: string; totalMovements: number; entradas: number; salidas: number; netQuantity: number; } } = {};
 
     this.todayTransactions.forEach(transaction => {
@@ -1954,14 +2088,14 @@ export class MovimientosComponent implements OnInit, OnDestroy {
     this.transactions.forEach((transaction) => {
       const reason = this.normalizeReason(transaction?.reason ?? transaction?.transactionReason);
       const date = this.getLocalDateKey(transaction?.dateTime ?? null);
-      if (!date || reason === 'AJUSTE') {
+      if (!date) {
         return;
       }
 
       const type = this.normalizeTransactionType(transaction);
       const quantity = Number(transaction?.quantity ?? 0);
-      const unitCost = Number(transaction?.cost ?? 0);
-      const unitPrice = Number(transaction?.price ?? 0);
+      const unitCost = Number(transaction?.cost ?? transaction?.product?.cost ?? 0);
+      const unitPrice = Number(transaction?.price ?? transaction?.product?.price ?? 0);
       const current = map.get(date) ?? {
         date,
         label: new Date(`${date}T12:00:00`).toLocaleDateString('es', {
@@ -1979,7 +2113,9 @@ export class MovimientosComponent implements OnInit, OnDestroy {
 
       if (type === 'ENTRADA') {
         current.entries += quantity;
-        current.entryCost += quantity * unitCost;
+        if (reason !== 'AJUSTE') {
+          current.entryCost += quantity * unitCost;
+        }
       }
 
       if (type === 'SALIDA' && reason === 'VENTA') {

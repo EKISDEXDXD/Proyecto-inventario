@@ -43,6 +43,12 @@
       <p>Estadísticas y métricas generales</p>
     </div>
 
+    <div class="card" *ngIf="!isExternalMode" (click)="navigateTo('agenda')">
+      <div class="card-icon"><i class="bx bx-calendar-week"></i></div>
+      <h4>Agenda</h4>
+      <p>Organiza semanas, eventos y planes anuales</p>
+    </div>
+
     <!-- OCULTAR SI ES EXTERNO -->
     <div class="card" *ngIf="!isExternalMode" (click)="navigateTo('inventario')">
       <div class="card-icon"><i class="bx bx-package"></i></div>

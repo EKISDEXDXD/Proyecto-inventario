@@ -14,6 +14,7 @@ import { MovimientosComponent } from './stores/movimientos/movimientos';
 import { MainLayoutComponent } from './main-layout.component';
 import { SettingsComponent } from './settings/settings.component';
 import { DashboardInfoComponent } from './home/dashboard-info/dashboard-info.component';
+import { AgendaComponent } from './stores/agenda/agenda.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [PublicGuard] },
@@ -34,6 +35,7 @@ export const routes: Routes = [
         children: [
           { path: '', component: DashboardTiendaComponent },
           { path: 'dashboard-info', component: DashboardInfoComponent },
+          { path: 'agenda', component: AgendaComponent },
           { path: 'inventario', component: InventarioComponent },
           { path: 'movimientos', component: MovimientosComponent }
         ]

@@ -127,6 +127,7 @@
 }
 
 .store-nav-options.open .option-dashboard { transform: translate(-10px, -70px) scale(1); }
+.store-nav-options.open .option-agenda { transform: translate(-50px, -108px) scale(1); }
 .store-nav-options.open .option-inventory { transform: translate(-70px, -60px) scale(1); }
 .store-nav-options.open .option-gallery { transform: translate(-130px, -70px) scale(1); }
 .store-nav-options.open .option-movements { transform: translate(-112px, -20px) scale(1); }

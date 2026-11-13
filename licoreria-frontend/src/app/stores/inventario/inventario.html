@@ -100,16 +100,12 @@
         <div *ngIf="getAlertsWithStatus('low').length > 0" class="alert-group">
           <h4>🟡 Stock Bajo</h4>
           <ul class="alert-list">
-            <li
-              *ngFor="let product of getAlertsWithStatus('low')"
-              class="alert-product-item"
-              role="button"
-              tabindex="0"
-              (click)="openDescriptionModal(product)"
-              (keydown.enter)="openDescriptionModal(product)"
-              (keydown.space)="openDescriptionModal(product); $event.preventDefault()">
-              <span class="product-name">{{ product.name }}</span>
-              <span class="product-info">(Stock: {{ getDisplayStockForProduct(product) }}, Umbral: {{ getAlertThreshold(product) }})</span>
+            <li *ngFor="let product of getAlertsWithStatus('low')" class="alert-product-item">
+              <button type="button" class="alert-product-summary" (click)="openDescriptionModal(product)">
+                <span class="product-name">{{ product.name }}</span>
+                <span class="product-info">Stock: {{ getDisplayStockForProduct(product) }} · Umbral: {{ getAlertThreshold(product) }}</span>
+              </button>
+              <button type="button" class="alert-config-button" [attr.aria-label]="'Configurar alerta para ' + product.name" title="Configurar alerta" (click)="openAlertConfig(product)"><i class="bx bx-bell"></i></button>
             </li>
           </ul>
         </div>
@@ -117,16 +113,12 @@
         <div *ngIf="getAlertsWithStatus('out').length > 0" class="alert-group">
           <h4>🔴 Sin Stock</h4>
           <ul class="alert-list">
-            <li
-              *ngFor="let product of getAlertsWithStatus('out')"
-              class="alert-product-item"
-              role="button"
-              tabindex="0"
-              (click)="openDescriptionModal(product)"
-              (keydown.enter)="openDescriptionModal(product)"
-              (keydown.space)="openDescriptionModal(product); $event.preventDefault()">
-              <span class="product-name">{{ product.name }}</span>
-              <span class="product-info">(Stock: {{ getDisplayStockForProduct(product) }}, Umbral: {{ getAlertThreshold(product) }})</span>
+            <li *ngFor="let product of getAlertsWithStatus('out')" class="alert-product-item">
+              <button type="button" class="alert-product-summary" (click)="openDescriptionModal(product)">
+                <span class="product-name">{{ product.name }}</span>
+                <span class="product-info">Stock: {{ getDisplayStockForProduct(product) }} · Umbral: {{ getAlertThreshold(product) }}</span>
+              </button>
+              <button type="button" class="alert-config-button" [attr.aria-label]="'Configurar alerta para ' + product.name" title="Configurar alerta" (click)="openAlertConfig(product)"><i class="bx bx-bell"></i></button>
             </li>
           </ul>
         </div>
@@ -209,44 +201,6 @@
                           <div class="action-buttons">
                             <button class="btn btn-info btn-icon" (click)="openAlertConfig(product)" title="Configurar alerta"><i class="bx bx-bell"></i></button>
                             <button class="btn btn-danger btn-icon" (click)="deleteProduct(product.id)" title="Eliminar"><i class="bx bx-trash"></i></button>
-                          </div>
-                        </td>
-                      </tr>
-                      <!-- Fila expandible para el popup de alerta -->
-                      <tr *ngIf="selectedProduct?.id === product.id && showAlertPanel" class="alert-popup-row">
-                        <td [attr.colspan]="6">
-                          <div class="product-alert-popup">
-                            <div class="popup-header">
-                              <span class="popup-title"><i class="bx bx-bell"></i> Configurar Alerta: {{ product.name }}</span>
-                              <span class="popup-info">Stock actual: {{ getDisplayStockForProduct(product) }}</span>
-                              
-                            </div>
-
-                            <form class="alert-form" (ngSubmit)="saveProductAlert()">
-                              <div class="form-row">
-                                <div class="form-group">
-                                  <label>Umbral de Alerta</label>
-                                  <input type="number" 
-                                         [(ngModel)]="alertForm.threshold" 
-                                         name="threshold" 
-                                         min="0"
-                                         class="form-control"
-                                         placeholder="Ej: 1, 9, 50" />
-                                  <small>📋 Cuando stock sea ≤ este valor, se marca AMARILLO<br>Cuando stock sea 0, se marca ROJO</small>
-                                </div>
-                                <div class="form-group">
-                                  <label>Estado de Alerta</label>
-                                  <select [(ngModel)]="alertForm.isEnabled" name="isEnabled" class="form-control">
-                                    <option [ngValue]="true">✅ Alerta Activa</option>
-                                    <option [ngValue]="false">⭕ Alerta Inactiva</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div class="form-actions right">
-                                <button type="button" class="btn btn-secondary" (click)="closeAlertPanel()">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Guardar Alerta</button>
-                              </div>
-                            </form>
                           </div>
                         </td>
                       </tr>
@@ -402,6 +356,46 @@
         </div>
       </div>
     </aside>
+  </div>
+
+  <div *ngIf="showAlertPanel && selectedProduct" class="alert-config-overlay" (click)="closeAlertPanel()">
+    <section class="alert-config-modal" role="dialog" aria-modal="true" aria-labelledby="alert-config-title" (click)="$event.stopPropagation()">
+      <header class="alert-config-header">
+        <div class="alert-config-heading">
+          <span class="alert-config-icon"><i class="bx bx-bell"></i></span>
+          <div>
+            <h2 id="alert-config-title">Configurar alerta</h2>
+            <p>{{ selectedProduct.name }} · Stock actual: {{ getDisplayStockForProduct(selectedProduct) }}</p>
+          </div>
+        </div>
+        <button type="button" class="alert-config-close" aria-label="Cerrar" (click)="closeAlertPanel()"><i class="bx bx-x"></i></button>
+      </header>
+      <form class="alert-form alert-config-form" (ngSubmit)="saveProductAlert()">
+        <div class="form-group">
+          <label for="product-alert-threshold">Umbral de alerta</label>
+          <input id="product-alert-threshold" type="number" [(ngModel)]="alertForm.threshold" name="threshold" min="0" class="form-control" placeholder="Ej: 1, 9, 50" />
+          <small>Cuando el stock sea igual o menor a este valor, el producto aparecerá en alertas de stock bajo.</small>
+        </div>
+        <div class="form-group">
+          <label id="product-alert-enabled-label">Estado de alerta</label>
+          <div class="alert-state-selector" [class.is-enabled]="alertForm.isEnabled" role="group" aria-labelledby="product-alert-enabled-label">
+            <span class="alert-state-indicator" aria-hidden="true"></span>
+            <button type="button" class="alert-state-option" [class.is-selected]="alertForm.isEnabled" [attr.aria-pressed]="alertForm.isEnabled" (click)="alertForm.isEnabled = true">
+              <i class="bx bx-check-circle" aria-hidden="true"></i>
+              <span>Activa</span>
+            </button>
+            <button type="button" class="alert-state-option" [class.is-selected]="!alertForm.isEnabled" [attr.aria-pressed]="!alertForm.isEnabled" (click)="alertForm.isEnabled = false">
+              <i class="bx bx-pause-circle" aria-hidden="true"></i>
+              <span>Inactiva</span>
+            </button>
+          </div>
+        </div>
+        <footer class="alert-config-actions">
+          <button type="button" class="btn btn-secondary" (click)="closeAlertPanel()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar alerta</button>
+        </footer>
+      </form>
+    </section>
   </div>
 
   <!-- MODAL FLOTANTE DE DESCRIPCIÓN -->

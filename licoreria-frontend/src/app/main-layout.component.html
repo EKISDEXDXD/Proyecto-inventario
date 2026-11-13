@@ -105,6 +105,9 @@
       <button type="button" class="store-nav-option option-dashboard" (click)="navigateStore('dashboard-info')" title="Dashboard Info" aria-label="Dashboard Info">
       <i class="bx bx-bar-chart-alt-2"></i>
       </button>
+      <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-agenda" (click)="navigateStore('agenda')" title="Agenda" aria-label="Agenda">
+      <i class="bx bx-calendar-week"></i>
+      </button>
       <button *ngIf="!isExternalStore" type="button" class="store-nav-option option-inventory" (click)="navigateStore('inventario')" title="Inventario" aria-label="Inventario">
       <i class="bx bx-package"></i>
       </button>

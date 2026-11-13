@@ -2,7 +2,6 @@ package com.inventario.licoreria.modules.products.controller;
 
 import com.inventario.licoreria.modules.products.dto.ProductImageDTO;
 import com.inventario.licoreria.modules.products.service.ProductImageService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
@@ -17,7 +16,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -27,9 +25,6 @@ import java.util.Optional;
 public class ProductImageController {
 
     private final ProductImageService productImageService;
-
-    @Value("${product.image.path:${user.home}/product-images}")
-    private String imageBasePath;
 
     public ProductImageController(ProductImageService productImageService) {
         this.productImageService = productImageService;
@@ -88,10 +83,10 @@ public class ProductImageController {
             String imagePath = image.get().getImagePath();
             
             // Construir ruta segura usando el imagePath relativo
-            Path filePath = Paths.get(imageBasePath, imagePath).toAbsolutePath().normalize();
+            Path baseAbsPath = productImageService.getImageBasePath().toAbsolutePath().normalize();
+            Path filePath = baseAbsPath.resolve(imagePath).normalize();
             
             // Validar que la ruta está dentro de imageBasePath (seguridad)
-            Path baseAbsPath = Paths.get(imageBasePath).toAbsolutePath().normalize();
             if (!filePath.startsWith(baseAbsPath)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso a archivo no permitido");
             }

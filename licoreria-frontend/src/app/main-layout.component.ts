@@ -81,7 +81,7 @@ export class MainLayoutComponent implements HasUnsavedChanges, OnInit {
     }
   }
 
-  navigateStore(section: 'dashboard-info' | 'inventario' | 'movimientos'): void {
+  navigateStore(section: 'dashboard-info' | 'agenda' | 'inventario' | 'movimientos'): void {
     if (this.currentStoreId === null) return;
     this.isStoreNavOpen = false;
     this.router.navigate(['/tienda', this.currentStoreId, section]);

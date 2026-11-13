@@ -1,4 +1,8 @@
 <div class="movimientos-container">
+  <div *ngIf="movementSuccessMessage" class="movement-success-toast" role="status" aria-live="polite" aria-atomic="true">
+    <i class="bx bx-check-circle" aria-hidden="true"></i>
+    <span>{{ movementSuccessMessage }}</span>
+  </div>
 
   <!-- Modal de Forma de Pago -->
   <app-payment-method-modal
@@ -75,6 +79,31 @@
           <i class="bx bx-inbox"></i>
           <p>No se registraron movimientos hoy.</p>
         </div>
+        <div *ngFor="let day of movementDaySummaries" class="daily-flow-history-row movement-products-day-summary">
+          <div class="daily-flow-history-date">{{ day.label }}</div>
+          <div class="daily-flow-history-metrics">
+            <div class="daily-flow-history-metric daily-flow-history-entry">
+              <small>Entradas</small>
+              <strong>{{ day.entries }} un.</strong>
+              <span>{{ day.entryCost | currencyFormat }} invertido</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-sale">
+              <small>Ventas</small>
+              <strong>{{ day.salesRevenue | currencyFormat }}</strong>
+              <span>{{ day.sales }} un.</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-cost">
+              <small>Costo de venta</small>
+              <strong>{{ day.salesCost | currencyFormat }}</strong>
+              <span>productos vendidos</span>
+            </div>
+            <div class="daily-flow-history-metric daily-flow-history-profit">
+              <small>Ganancia</small>
+              <strong>{{ day.grossProfit | currencyFormat }}</strong>
+              <span>bruta del día</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" type="button" (click)="closeMovementProductsModal()">Cerrar</button>
@@ -85,7 +114,7 @@
   <!-- Formulario de Movimiento y Carrito lado a lado -->
   <div class="movement-cart-layout">
   <!-- Formulario de Movimiento -->
-  <div class="card movement-card movement-form-card">
+  <div class="card movement-card movement-form-card" [class.image-picker-open]="showRecentImageProducts">
     <div class="movement-card-header">
       <div>
         <h2 class="movement-title">Registrar movimiento rápido</h2>
@@ -126,9 +155,9 @@
                 title="Limpiar">
                 <i class="bx bx-x"></i>
               </button>
-              <span *ngIf="selectedProductId > 0" class="check-icon">
+              <button *ngIf="selectedProductId > 0" type="button" class="check-icon" aria-label="Limpiar producto seleccionado" title="Limpiar producto seleccionado" (click)="clearProductSearch()">
                 <i class="bx bx-check"></i>
-              </span>
+              </button>
             </div>
 
             <!-- Dropdown Flotante -->
@@ -202,6 +231,7 @@
               <button
                 type="button"
                 class="form-control lotes-button"
+                [class.lote-out-of-stock]="isSelectedLoteOutOfStock"
                 (click)="showLotesDropdown = !showLotesDropdown">
                 {{ getSelectedLoteLabel() }}
                 <i class="bx" [ngClass]="showLotesDropdown ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
@@ -237,8 +267,16 @@
             <label>Cantidad</label>
             <input type="number" [(ngModel)]="movement.quantity" name="quantity" class="form-control" min="1" required>
           </div>
-          <div class="selected-product-thumb" *ngIf="selectedProductId > 0" title="Imagen del producto seleccionado">
-            <img [src]="getSelectedProductImagePath()" (error)="onSelectedProductImageError($event)" alt="Imagen del producto seleccionado">
+          <div class="product-image-picker" appClickOutside (clickOutside)="closeRecentImageProducts()">
+            <button type="button" class="selected-product-thumb" (click)="toggleRecentImageProducts()" [attr.aria-expanded]="showRecentImageProducts" aria-label="Mostrar productos recientes por imagen">
+              <img *ngIf="selectedProductForImage && !selectedProductImageFailed" [src]="getSelectedProductImagePath()" (error)="onSelectedProductImageError()" alt="Último producto seleccionado">
+              <i *ngIf="!selectedProductForImage || selectedProductImageFailed" class="bx bx-image" aria-hidden="true"></i>
+            </button>
+            <div *ngIf="showRecentImageProducts && recentImageProducts.length > 0" class="recent-product-image-menu" role="listbox" aria-label="Productos recientes">
+              <button *ngFor="let product of recentImageProducts" [hidden]="brokenRecentImageProductIds.has(product.id)" type="button" class="recent-product-image-option" role="option" [attr.aria-selected]="selectedProductId === product.id" [attr.aria-label]="'Seleccionar imagen de ' + product.name" (click)="selectProductFromImagePicker(product)">
+                <img [src]="getProductImagePath(product)" (error)="onRecentProductImageError(product.id)" alt="">
+              </button>
+            </div>
           </div>
         </div>
         <div class="form-group motivo-group">
