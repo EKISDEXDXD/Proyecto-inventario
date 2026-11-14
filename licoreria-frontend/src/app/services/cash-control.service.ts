@@ -1,13 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { ApiConfigService } from '../auth/api-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class CashControlService {
-  private readonly apiUrl = `${environment.apiUrl}/api/cash-control`;
+  private readonly apiUrl: string;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, apiConfig: ApiConfigService) {
+    this.apiUrl = apiConfig.getApiUrl('/api/cash-control');
+  }
 
   private headers(): HttpHeaders {
     const token = localStorage.getItem('token');
