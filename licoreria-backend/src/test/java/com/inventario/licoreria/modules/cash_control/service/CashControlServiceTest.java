@@ -2,6 +2,7 @@ package com.inventario.licoreria.modules.cash_control.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,6 +15,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -21,7 +23,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.inventario.licoreria.modules.cash_control.dto.CashControlEntryDTO;
 import com.inventario.licoreria.modules.cash_control.model.CashControlEntry;
+import com.inventario.licoreria.modules.cash_control.model.CashControlSummary;
 import com.inventario.licoreria.modules.cash_control.repository.CashControlEntryRepository;
+import com.inventario.licoreria.modules.cash_control.repository.CashControlSummaryRepository;
 import com.inventario.licoreria.modules.store.model.Store;
 import com.inventario.licoreria.modules.store.repository.StoreRepository;
 import com.inventario.licoreria.modules.store.service.StoreService;
@@ -33,6 +37,9 @@ class CashControlServiceTest {
 
     @Mock
     private CashControlEntryRepository balanceEntryRepository;
+
+    @Mock
+    private CashControlSummaryRepository cashControlSummaryRepository;
 
     @Mock
     private StoreRepository storeRepository;
@@ -142,5 +149,36 @@ class CashControlServiceTest {
 
         assertEquals("Transporte", saved.getConcept());
         assertEquals(new BigDecimal("15"), saved.getAmount());
+    }
+
+    @Test
+    void shouldCarryManualMoneyIntoNewDailySummary() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        CashControlSummary previousSummary = new CashControlSummary();
+        previousSummary.setStoreId(10L);
+        previousSummary.setSummaryDate(yesterday);
+        previousSummary.setStoreMoney(new BigDecimal("500"));
+        previousSummary.setGrossProfitMoney(new BigDecimal("250"));
+        previousSummary.setMoneyPhysical(new BigDecimal("150"));
+        previousSummary.setMoneyReal(new BigDecimal("100"));
+        previousSummary.setDailyFlowClosed(true);
+
+        when(storeService.findStoreEntity(10L)).thenReturn(store);
+        when(balanceEntryRepository.findByStoreId(10L)).thenReturn(List.of());
+        when(cashControlSummaryRepository.findByStoreIdAndDate(10L, LocalDate.now())).thenReturn(Optional.empty());
+        when(cashControlSummaryRepository.findFirstByStoreIdOrderBySummaryDateDesc(10L))
+                .thenReturn(Optional.of(previousSummary));
+        when(cashControlSummaryRepository.save(any(CashControlSummary.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CashControlSummary summary = cashControlService.getSummary(10L, "admin");
+
+        assertEquals(new BigDecimal("500"), summary.getStoreMoney());
+        assertEquals(new BigDecimal("250"), summary.getGrossProfitMoney());
+        assertEquals(new BigDecimal("150"), summary.getMoneyPhysical());
+        assertEquals(new BigDecimal("100"), summary.getMoneyReal());
+        assertEquals(LocalDate.now(), summary.getSummaryDate());
+        org.junit.jupiter.api.Assertions.assertFalse(summary.isDailyFlowClosed());
+        verify(cashControlSummaryRepository).save(summary);
     }
 }

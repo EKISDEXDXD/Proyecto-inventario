@@ -97,8 +97,7 @@ public class CashControlService {
         BigDecimal totalExpenses = totalExpenses(entries);
         BigDecimal grossProfitExpenses = expensesByOrigin(entries, "GANANCIA_BRUTA");
 
-        CashControlSummary summary = cashControlSummaryRepository.findByStoreIdAndDate(storeId, LocalDate.now())
-                .orElseGet(CashControlSummary::new);
+        CashControlSummary summary = getOrCreateTodaySummary(storeId);
 
         summary.setStoreId(storeId);
         summary.setSummaryDate(LocalDate.now());
@@ -108,7 +107,7 @@ public class CashControlService {
         summary.setGrossProfitMoney(summary.getGrossProfitMoney() == null ? BigDecimal.ZERO : summary.getGrossProfitMoney());
         summary.setTotalExpenses(totalExpenses);
         summary.setBalanceAvailable(summary.getGrossProfitMoney().subtract(grossProfitExpenses));
-        return summary;
+        return cashControlSummaryRepository.save(summary);
     }
 
     @Transactional
@@ -126,8 +125,7 @@ public class CashControlService {
         }
         storeService.validateAccessPassword(storeId, dto.getVerificationPassword());
 
-        CashControlSummary summary = cashControlSummaryRepository.findByStoreIdAndDate(storeId, LocalDate.now())
-                .orElseGet(CashControlSummary::new);
+        CashControlSummary summary = getOrCreateTodaySummary(storeId);
 
         BigDecimal previousMoneyReal = summary.getMoneyReal();
         BigDecimal previousMoneyPhysical = summary.getMoneyPhysical();
@@ -175,6 +173,24 @@ public class CashControlService {
         }
 
         return savedSummary;
+    }
+
+    private CashControlSummary getOrCreateTodaySummary(Long storeId) {
+        LocalDate today = LocalDate.now();
+        return cashControlSummaryRepository.findByStoreIdAndDate(storeId, today)
+                .orElseGet(() -> {
+                    CashControlSummary summary = new CashControlSummary();
+                    cashControlSummaryRepository.findFirstByStoreIdOrderBySummaryDateDesc(storeId)
+                            .ifPresent(previousSummary -> {
+                                summary.setMoneyReal(valueOrZero(previousSummary.getMoneyReal()));
+                                summary.setMoneyPhysical(valueOrZero(previousSummary.getMoneyPhysical()));
+                                summary.setStoreMoney(valueOrZero(previousSummary.getStoreMoney()));
+                                summary.setGrossProfitMoney(valueOrZero(previousSummary.getGrossProfitMoney()));
+                            });
+                    summary.setStoreId(storeId);
+                    summary.setSummaryDate(today);
+                    return summary;
+                });
     }
 
     private BigDecimal valueOrZero(BigDecimal value) {

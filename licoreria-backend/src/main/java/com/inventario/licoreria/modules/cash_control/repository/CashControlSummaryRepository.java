@@ -11,4 +11,6 @@ public interface CashControlSummaryRepository extends JpaRepository<CashControlS
 
     @Query("SELECT s FROM CashControlSummary s WHERE s.storeId = :storeId AND s.summaryDate = :date")
     Optional<CashControlSummary> findByStoreIdAndDate(@Param("storeId") Long storeId, @Param("date") LocalDate date);
+
+    Optional<CashControlSummary> findFirstByStoreIdOrderBySummaryDateDesc(Long storeId);
 }
